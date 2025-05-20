@@ -25,7 +25,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from 'next/link';
-import { useToast } from '@/hooks/use-toast'; // Added for logout toast
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation'; // Added for logout redirection
 
 const CustomSidebarHeader = () => {
   const { shopName, shopLogoUrl, isSettingsLoaded } = useSettings();
@@ -62,27 +63,27 @@ const CustomSidebarHeader = () => {
 
 const CustomSidebarFooter = () => {
   const { userName, isSettingsLoaded } = useSettings();
-  const { toast } = useToast(); // For logout toast
+  const { toast } = useToast(); 
+  const router = useRouter(); // Initialize router
 
   const displayUserName = isSettingsLoaded ? (userName || "User") : "Loading...";
   const avatarFallback = isSettingsLoaded ? (userName?.[0]?.toUpperCase() || 'U') : "L";
 
   const handleLogout = () => {
+    // Clear all relevant localStorage items
     localStorage.removeItem('appSettings');
     localStorage.removeItem('appProducts');
     localStorage.removeItem('appServices');
+    localStorage.removeItem('isAuthenticated'); // Clear simulated auth flag
     // Potentially clear other localStorage items if your app uses more
 
     toast({
       title: "Logged Out",
-      description: "You have been successfully logged out. App data has been cleared.",
+      description: "You have been successfully logged out.",
     });
 
-    // Reload the page to reset the app state and effectively "log out"
-    // For a real app, you might redirect to a login page: router.push('/login');
-    setTimeout(() => {
-        window.location.reload();
-    }, 1500); // Delay for toast visibility
+    // Redirect to login page
+    router.push('/login');
   };
 
   return (
@@ -113,7 +114,7 @@ const CustomSidebarFooter = () => {
               </DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={handleLogout}>
+            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </DropdownMenuItem>
@@ -164,5 +165,3 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    
