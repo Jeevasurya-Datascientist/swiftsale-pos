@@ -64,9 +64,10 @@ export default function BillingPage() {
     }
   };
 
-  const handleProductSearch = (searchTerm: string) => {
+  const handleProductSearch = (searchTermOrBarcode: string) => {
     const foundProduct = products.find(
-      (p) => p.barcode.toLowerCase() === searchTerm.toLowerCase() || p.name.toLowerCase().includes(searchTerm.toLowerCase())
+      (p) => p.barcode.toLowerCase() === searchTermOrBarcode.toLowerCase() || 
+               p.name.toLowerCase().includes(searchTermOrBarcode.toLowerCase()) // Allow name search if not specific barcode from dropdown
     );
 
     if (foundProduct) {
@@ -141,7 +142,6 @@ export default function BillingPage() {
       toast({ title: "Missing Information", description: "Customer Phone Number is required.", variant: "destructive" });
       return;
     }
-    // Basic phone number validation (e.g., at least 10 digits)
     if (!/^\d{10,}$/.test(customerPhoneNumber.replace(/\D/g, ''))) {
         toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number (at least 10 digits).", variant: "destructive" });
         return;
@@ -163,7 +163,7 @@ export default function BillingPage() {
     }
 
     if (paymentMethod === 'UPI') {
-      if (!upiId.trim() || !/^[\w.-]+@[\w.-]+$/.test(upiId)) { // Basic UPI ID format check
+      if (!upiId.trim() || !/^[\w.-]+@[\w.-]+$/.test(upiId)) {
         toast({ title: "Invalid UPI ID", description: "Valid UPI ID is required (e.g., name@bank).", variant: "destructive" });
         return;
       }
@@ -178,7 +178,6 @@ export default function BillingPage() {
         toast({ title: "Insufficient Amount", description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}).`, variant: "destructive" });
         return;
     }
-
 
     const newInvoice: Invoice = {
       id: `inv-${Date.now()}`,
@@ -202,7 +201,6 @@ export default function BillingPage() {
   const handleFinalizeSaleAndPrint = () => {
     if (!currentInvoice) return;
 
-    // Simulate payment processing
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
     if (paymentMethod === 'Card') {
       paymentSuccessMessage = `Simulated: Card ending with ${cardNumber.slice(-4)} charged ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}.`;
@@ -211,7 +209,6 @@ export default function BillingPage() {
     } else if (paymentMethod === 'Cash' && currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) {
         paymentSuccessMessage += ` Change due: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`;
     }
-
 
     const updatedProducts = products.map(p => {
       const cartItem = cartItems.find(ci => ci.id === p.id);
@@ -237,9 +234,7 @@ export default function BillingPage() {
     setTimeout(() => {
         window.print();
     }, 100);
-    
   };
-
 
   const cartItemNames = cartItems.map(item => item.name);
   
@@ -268,7 +263,10 @@ export default function BillingPage() {
               <CardTitle className="flex items-center gap-2"><FileText className="h-6 w-6 text-primary"/> Add Products to Cart</CardTitle>
             </CardHeader>
             <CardContent>
-              <BarcodeInput onProductSearch={handleProductSearch} />
+              <BarcodeInput 
+                onProductSearch={handleProductSearch} 
+                allProducts={products} 
+              />
             </CardContent>
           </Card>
           
@@ -288,7 +286,7 @@ export default function BillingPage() {
               <CardTitle className="flex items-center gap-2"><CreditCard className="h-6 w-6 text-primary"/> Finalize Sale</CardTitle>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[calc(100vh-28rem)] md:h-auto pr-3"> {/* Added ScrollArea */}
+              <ScrollArea className="h-[calc(100vh-28rem)] md:h-auto pr-3">
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="customerName" className="flex items-center">
@@ -400,7 +398,7 @@ export default function BillingPage() {
       {currentInvoice && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(open) => {
             setIsInvoiceDialogOpen(open);
-            if(!open) setCurrentInvoice(null); // Clear current invoice when dialog closes
+            if(!open) setCurrentInvoice(null);
         }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -416,7 +414,6 @@ export default function BillingPage() {
                       if (currentInvoice?.customerPhoneNumber) {
                         const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? currentInvoice.totalAmount).toFixed(2)}. ${currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : ''} Thank you for your purchase!`;
                         const whatsappUrl = `https://wa.me/${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-                        // window.open(whatsappUrl, '_blank'); // Uncomment to enable actual WhatsApp redirect
                         toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
@@ -454,4 +451,3 @@ export default function BillingPage() {
     </div>
   );
 }
-
