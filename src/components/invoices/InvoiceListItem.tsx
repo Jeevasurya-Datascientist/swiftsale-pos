@@ -11,17 +11,11 @@ import { Button } from '../ui/button';
 interface InvoiceListItemProps {
   invoice: Invoice;
   onViewDetails: (invoice: Invoice) => void;
+  onEditDetails: (invoice: Invoice) => void; // New prop for editing
   currencySymbol: string;
 }
 
-export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: InvoiceListItemProps) {
-  const handleEditClick = () => {
-    // For now, edit also opens view. Full edit functionality TBD.
-    onViewDetails(invoice);
-    // Optionally, add a toast message here if you want to inform the user about limited edit functionality
-    // e.g., toast({ title: "Edit Invoice", description: "Viewing invoice details. Full editing coming soon." });
-  };
-
+export function InvoiceListItem({ invoice, onViewDetails, onEditDetails, currencySymbol }: InvoiceListItemProps) {
   return (
     <Card className="hover:shadow-md transition-shadow duration-200">
       <CardHeader className="pb-2">
@@ -34,7 +28,7 @@ export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: Invo
             <Button variant="outline" size="sm" onClick={() => onViewDetails(invoice)}>
               <Eye className="w-4 h-4 mr-1" /> View
             </Button>
-            <Button variant="outline" size="sm" onClick={handleEditClick}>
+            <Button variant="outline" size="sm" onClick={() => onEditDetails(invoice)}>
               <Edit className="w-4 h-4 mr-1" /> Edit
             </Button>
           </div>
@@ -60,11 +54,11 @@ export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: Invo
           <strong className="text-foreground">Total:</strong>
           <span className="font-semibold text-lg text-primary">{currencySymbol}{invoice.totalAmount.toFixed(2)}</span>
         </div>
-         <div className="flex items-center gap-1 text-muted-foreground md:col-span-2"> {/* Status can take full width on smaller item view */}
+         <div className="flex items-center gap-1 text-muted-foreground md:col-span-2">
           <strong className="text-foreground">Status:</strong>
            <Badge variant={invoice.status === 'Paid' ? 'default' : 'destructive'} className="text-xs">
             {invoice.status === 'Paid' ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
-            {invoice.status || 'N/A'}
+            {invoice.status}
           </Badge>
         </div>
       </CardContent>

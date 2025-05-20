@@ -8,8 +8,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   shopName: 'SwiftSale POS',
   shopLogoUrl: '',
   shopAddress: '123 Commerce Street, Business City, 12345',
-  currencySymbol: '₹', // Changed to INR
+  currencySymbol: '₹',
   userName: 'Store Admin',
+  gstRate: 5, // Default GST Rate set to 5%
 };
 
 interface SettingsContextType extends AppSettings {
@@ -28,6 +29,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     if (storedSettings) {
       try {
         const parsedSettings = JSON.parse(storedSettings);
+        // Ensure gstRate is a number, and provide default if missing or invalid
+        if (typeof parsedSettings.gstRate !== 'number' || isNaN(parsedSettings.gstRate)) {
+          parsedSettings.gstRate = DEFAULT_SETTINGS.gstRate;
+        }
         const completeSettings = { ...DEFAULT_SETTINGS, ...parsedSettings };
         setSettings(completeSettings);
       } catch (error) {
@@ -49,7 +54,17 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   }, [settings, isSettingsLoaded]);
 
   const updateSettings = (newSettings: Partial<AppSettings>) => {
-    setSettings(prevSettings => ({ ...prevSettings, ...newSettings }));
+    setSettings(prevSettings => {
+      const updated = {...prevSettings, ...newSettings};
+      // Ensure gstRate is stored as a number
+      if (newSettings.gstRate !== undefined) {
+        updated.gstRate = Number(newSettings.gstRate);
+        if (isNaN(updated.gstRate)) {
+          updated.gstRate = DEFAULT_SETTINGS.gstRate; // fallback if conversion fails
+        }
+      }
+      return updated;
+    });
   };
 
   return (

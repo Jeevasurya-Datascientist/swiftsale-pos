@@ -18,7 +18,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
-// import { BarcodeInput } from '@/components/dashboard/BarcodeInput'; // Keep for scanner button logic if BarcodeInput is enhanced
 
 export default function BillingPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -44,12 +43,12 @@ export default function BillingPage() {
   const [balanceAmount, setBalanceAmount] = useState(0);
 
   const { toast } = useToast();
-  const { currencySymbol, isSettingsLoaded } = useSettings();
+  const { currencySymbol, gstRate: settingsGstRate, isSettingsLoaded, shopName: currentShopName } = useSettings();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      audioRef.current = new Audio('/sounds/add-to-cart.mp3'); // Ensure this path is correct
+      audioRef.current = new Audio('/sounds/add-to-cart.mp3'); 
     }
   }, []);
 
@@ -100,7 +99,6 @@ export default function BillingPage() {
         localStorage.setItem('appServices', JSON.stringify(services));
         const allItems = [...products, ...services].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
-        // Apply search term if it exists
         if (searchTerm) {
             setFilteredSearchableItems(
                 allItems.filter(item =>
@@ -128,13 +126,14 @@ export default function BillingPage() {
   }, [searchTerm, searchableItems]);
 
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const gstRate = 0.05; 
-  const gstAmount = subTotal * gstRate;
+  const currentGstRate = (settingsGstRate || 0) / 100; // Convert percentage from settings to decimal
+  const gstAmount = subTotal * currentGstRate;
   const totalAmount = subTotal + gstAmount;
 
   useEffect(() => {
-    if (typeof amountReceived === 'number' && totalAmount > 0) {
-      setBalanceAmount(amountReceived - totalAmount);
+    const numericAmountReceived = typeof amountReceived === 'string' ? parseFloat(amountReceived) : amountReceived;
+    if (typeof numericAmountReceived === 'number' && !isNaN(numericAmountReceived) && totalAmount > 0) {
+      setBalanceAmount(numericAmountReceived - totalAmount);
     } else {
       setBalanceAmount(0);
     }
@@ -158,7 +157,7 @@ export default function BillingPage() {
       toast({
         title: "Low Stock Warning",
         description: `${product.name} is low on stock. ${effectiveRemainingStock} units will remain if this quantity is sold.`,
-        variant: "default", // Or a custom "warning" variant if defined
+        variant: "default",
         duration: 5000,
       });
     }
@@ -166,16 +165,13 @@ export default function BillingPage() {
 
   const handleAddItemToCart = (itemIdentifier: string, itemTypeFromSearch?: 'product' | 'service') => {
     let foundItem: SearchableItem | undefined;
-
     foundItem = filteredSearchableItems.find(item => item.id === itemIdentifier);
-    
     if (!foundItem) {
         foundItem = searchableItems.find(item => item.id === itemIdentifier);
     }
 
     if (foundItem) {
       const type: 'product' | 'service' = 'barcode' in foundItem ? 'product' : 'service';
-
       if (type === 'product') {
         const product = foundItem as Product;
         const existingCartItem = cartItems.find(ci => ci.id === product.id);
@@ -187,10 +183,9 @@ export default function BillingPage() {
            toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
            return;
         }
-        // Low stock check before adding
         const currentQuantityInCart = existingCartItem ? existingCartItem.quantity : 0;
         const prospectiveQuantityInCart = currentQuantityInCart + 1;
-        if (prospectiveQuantityInCart <= product.stock) { // Only check if it's possible to add
+        if (prospectiveQuantityInCart <= product.stock) {
           checkAndNotifyLowStock(product, prospectiveQuantityInCart);
         }
       }
@@ -205,8 +200,6 @@ export default function BillingPage() {
                 item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
               );
             } else {
-              // This case should ideally be caught by the earlier check, but as a fallback:
-              // toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
               return prevCart;
             }
           } else { 
@@ -252,18 +245,15 @@ export default function BillingPage() {
     }
     
     const productDetails = products.find(p => p.id === itemId);
-
     if (cartItem.type === 'product' && productDetails) {
       if (newQuantity > productDetails.stock) {
         toast({ title: "Stock Limit Exceeded", description: `Only ${productDetails.stock} units of ${cartItem.name} available.`, variant: "destructive" });
         setCartItems((prevCart) =>
           prevCart.map((item) => (item.id === itemId ? { ...item, quantity: productDetails.stock! } : item))
         );
-        // Check for low stock even if quantity is capped at max stock
         checkAndNotifyLowStock(productDetails, productDetails.stock);
         return;
       }
-      // Low stock check for valid quantity update
       checkAndNotifyLowStock(productDetails, newQuantity);
     }
 
@@ -326,7 +316,7 @@ export default function BillingPage() {
         return;
     }
     
-    const invoiceStatus = numericAmountReceived >= totalAmount ? 'Paid' : 'Due';
+    const invoiceStatus: 'Paid' | 'Due' = numericAmountReceived >= totalAmount ? 'Paid' : 'Due';
 
     const newInvoice: Invoice = {
       id: `inv-${Date.now()}`,
@@ -335,7 +325,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate,
+      gstRate: currentGstRate, // Store the decimal rate used for this invoice
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -343,6 +333,7 @@ export default function BillingPage() {
       amountReceived: numericAmountReceived,
       balanceAmount: numericAmountReceived - totalAmount,
       status: invoiceStatus,
+      shopName: currentShopName,
     };
     setCurrentInvoice(newInvoice);
     setIsInvoiceDialogOpen(true); 
@@ -362,7 +353,7 @@ export default function BillingPage() {
 
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
     if (currentInvoice.status === 'Due') {
-        paymentSuccessMessage = `Invoice recorded with Due status. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${currentInvoice.amountReceived?.toFixed(2)}.`;
+        paymentSuccessMessage = `Invoice recorded with Due status. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`;
     } else if (paymentMethod === 'Card') {
       paymentSuccessMessage = `Simulated: Card ending with ${cardNumber.slice(-4)} charged ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}.`;
     } else if (paymentMethod === 'UPI') {
@@ -380,12 +371,19 @@ export default function BillingPage() {
           return p;
         });
         setProducts(updatedProducts); 
+        // Note: localStorage for products will be updated by its own useEffect
     }
     
     const storedAppInvoices = localStorage.getItem('appInvoices');
     let allAppInvoices: Invoice[] = storedAppInvoices ? JSON.parse(storedAppInvoices) : [];
-    allAppInvoices = [currentInvoice, ...allAppInvoices];
+    allAppInvoices = [currentInvoice, ...allAppInvoices]; // Add new invoice to the beginning
     localStorage.setItem('appInvoices', JSON.stringify(allAppInvoices));
+
+    // Update existing customers list if new customer
+    const custId = `${currentInvoice.customerName.toLowerCase().replace(/\s/g, '_')}-${(currentInvoice.customerPhoneNumber || '').replace(/\D/g, '')}`;
+    if(!existingCustomers.find(c => c.id === custId)){
+        setExistingCustomers(prev => [...prev, {id: custId, name: currentInvoice.customerName, phoneNumber: currentInvoice.customerPhoneNumber || ''}].sort((a,b) => a.name.localeCompare(b.name)));
+    }
 
     setCartItems([]);
     setCustomerName('');
@@ -453,7 +451,6 @@ export default function BillingPage() {
                   className="pl-10 pr-4 h-12 text-base w-full"
                 />
               </div>
-              {/* <BarcodeInput onItemSearch={handleAddItemToCart} searchableItems={searchableItems} /> */}
               <ItemGrid 
                 items={filteredSearchableItems}
                 cartItems={cartItems}
@@ -469,6 +466,7 @@ export default function BillingPage() {
             onRemoveItem={handleRemoveItem} 
             onUpdateQuantity={handleUpdateQuantity} 
             currencySymbol={currencySymbol}
+            gstRatePercentage={settingsGstRate}
           />
         </div>
 
@@ -604,13 +602,13 @@ export default function BillingPage() {
                   {totalAmount > 0 && (
                     <div className="text-right text-lg mt-2 space-y-1">
                       <p>Total: <span className="font-semibold">{currencySymbol}{totalAmount.toFixed(2)}</span></p>
-                      {typeof amountReceived === 'number' && amountReceived > 0 &&
+                      {(typeof amountReceived === 'number' && !isNaN(amountReceived) && amountReceived !== '') &&
                         <p>Received: <span className="font-semibold">{currencySymbol}{Number(amountReceived).toFixed(2)}</span></p>
                       }
-                      {typeof amountReceived === 'number' && balanceAmount >= 0 && amountReceived >= totalAmount &&
+                      {(typeof amountReceived === 'number' && !isNaN(amountReceived) && balanceAmount >= 0 && amountReceived >= totalAmount) &&
                         <p>Change: <span className="font-bold text-green-600">{currencySymbol}{balanceAmount.toFixed(2)}</span></p>
                       }
-                       {typeof amountReceived === 'number' && amountReceived < totalAmount && totalAmount > 0 &&
+                       {(typeof amountReceived === 'number' && !isNaN(amountReceived) && amountReceived < totalAmount && totalAmount > 0) &&
                         <p className="text-sm text-destructive font-semibold">Balance Due: {currencySymbol}{(totalAmount - amountReceived).toFixed(2)}</p>
                       }
                     </div>
@@ -634,7 +632,7 @@ export default function BillingPage() {
         }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status || 'N/A'})</DialogTitle>
+              <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
             <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2 print-hide pt-4">
@@ -644,7 +642,7 @@ export default function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
-                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || "Our Store"}. Status: ${currentInvoice.status}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? 0).toFixed(2)}. ${currentInvoice.status === 'Due' && currentInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.` : (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
+                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || "Our Store"}. Status: ${currentInvoice.status}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. ${currentInvoice.status === 'Due' && currentInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.` : (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
                         toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
@@ -685,6 +683,3 @@ export default function BillingPage() {
     </div>
   );
 }
-
-
-    

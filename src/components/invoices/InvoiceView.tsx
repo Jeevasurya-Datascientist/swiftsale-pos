@@ -15,23 +15,25 @@ interface InvoiceViewProps {
 }
 
 export function InvoiceView({ invoice }: InvoiceViewProps) {
-  const { shopName, shopLogoUrl, shopAddress, currencySymbol, isSettingsLoaded } = useSettings();
+  const { shopName: contextShopName, shopLogoUrl, shopAddress, currencySymbol, isSettingsLoaded } = useSettings();
 
-  if (!isSettingsLoaded) {
+  if (!isSettingsLoaded && !invoice.shopName) { // Check if invoice has shopName if context not loaded
       return <div className="p-2 space-y-4 text-center">Loading invoice details...</div>;
   }
 
-  const displayAmountReceived = typeof invoice.amountReceived === 'number' ? invoice.amountReceived : invoice.totalAmount;
-  const displayBalanceAmount = typeof invoice.balanceAmount === 'number' ? invoice.balanceAmount : 0;
+  const displayShopName = invoice.shopName || contextShopName;
+  const displayAmountReceived = invoice.amountReceived; // amountReceived is now mandatory
+  const displayBalanceAmount = invoice.balanceAmount; // balanceAmount is now mandatory
+  const displayGstRatePercentage = (invoice.gstRate * 100).toFixed(invoice.gstRate * 100 % 1 === 0 ? 0 : 2);
 
 
   return (
     <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto print-container">
       <div className="text-center mb-6">
-        {shopLogoUrl && (
+        {shopLogoUrl && ( // Still use contextShopLogoUrl for consistency in app, invoice.shopName for text
           <Image 
             src={shopLogoUrl} 
-            alt={`${shopName} Logo`} 
+            alt={`${displayShopName} Logo`} 
             width={80} 
             height={80} 
             className="rounded-sm object-contain mx-auto mb-2 print-logo"
@@ -52,8 +54,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         </div>
         <div className="text-right">
           <h3 className="font-semibold mb-1 print-section-title">From:</h3>
-          <p className="font-bold print-shop-details">{shopName}</p>
-          {shopAddress.split(',').map((line, index) => (
+          <p className="font-bold print-shop-details">{displayShopName}</p>
+          {shopAddress.split(',').map((line, index) => ( // Shop address from context
             <p key={index} className="print-shop-details">{line.trim()}</p>
           ))}
         </div>
@@ -112,7 +114,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           <TableRow>
             <TableCell colSpan={3} className="print-hide-image" />
             <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
-            <TableCell className="text-right font-medium print-summary-label">GST ({ (invoice.gstRate * 100).toFixed(0) }%):</TableCell>
+            <TableCell className="text-right font-medium print-summary-label">GST ({displayGstRatePercentage}%):</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.gstAmount.toFixed(2)}</TableCell>
           </TableRow>
           <TableRow className="font-bold text-lg">
@@ -121,20 +123,18 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             <TableCell className="text-right print-summary-label">Total Amount:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.totalAmount.toFixed(2)}</TableCell>
           </TableRow>
-          {typeof invoice.amountReceived === 'number' && (
-             <TableRow>
-              <TableCell colSpan={3} className="print-hide-image" />
-              <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
-              <TableCell className="text-right font-medium print-summary-label">Amount Received:</TableCell>
-              <TableCell className="text-right print-summary-value">{currencySymbol}{displayAmountReceived.toFixed(2)}</TableCell>
-            </TableRow>
-          )}
-          {typeof invoice.balanceAmount === 'number' && invoice.balanceAmount !== 0 && (
-            <TableRow className={`${invoice.balanceAmount < 0 ? "text-destructive print-destructive" : "print-positive-balance"}`}>
+          <TableRow>
+            <TableCell colSpan={3} className="print-hide-image" />
+            <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
+            <TableCell className="text-right font-medium print-summary-label">Amount Received:</TableCell>
+            <TableCell className="text-right print-summary-value">{currencySymbol}{displayAmountReceived.toFixed(2)}</TableCell>
+          </TableRow>
+          {displayBalanceAmount !== 0 && (
+            <TableRow className={`${displayBalanceAmount < 0 ? "text-destructive print-destructive" : "print-positive-balance"}`}>
               <TableCell colSpan={3} className="print-hide-image" />
               <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
               <TableCell className="text-right font-medium print-summary-label">
-                {invoice.balanceAmount > 0 ? "Change Due:" : "Balance Due:"}
+                {displayBalanceAmount > 0 ? "Change Due:" : "Balance Due:"}
               </TableCell>
               <TableCell className="text-right font-semibold print-summary-value">
                 {currencySymbol}{Math.abs(displayBalanceAmount).toFixed(2)}
@@ -148,23 +148,21 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
 
       <div className="mt-6 text-sm print-footer-details">
         <p><span className="font-semibold">Payment Method:</span> {invoice.paymentMethod}</p>
-        {invoice.status && (
-            <p className="mt-1"><span className="font-semibold">Status:</span>
-            <Badge variant={invoice.status === 'Paid' ? 'default' : 'destructive'} className="ml-2 print-status-badge">
-                {invoice.status === 'Paid' ? <CheckCircle2 className="w-3 h-3 mr-1 print-hide-icon" /> : <AlertTriangle className="w-3 h-3 mr-1 print-hide-icon" />}
-                {invoice.status}
-            </Badge>
-            </p>
-        )}
+        <p className="mt-1"><span className="font-semibold">Status:</span>
+        <Badge variant={invoice.status === 'Paid' ? 'default' : 'destructive'} className="ml-2 print-status-badge">
+            {invoice.status === 'Paid' ? <CheckCircle2 className="w-3 h-3 mr-1 print-hide-icon" /> : <AlertTriangle className="w-3 h-3 mr-1 print-hide-icon" />}
+            {invoice.status}
+        </Badge>
+        </p>
         <p className="mt-4 text-xs text-muted-foreground print-thankyou">Thank you for your business!</p>
       </div>
        <style jsx global>{`
         @media print {
           body * {
             visibility: hidden;
-            font-family: 'Courier New', Courier, monospace !important; /* Monospace for receipt feel */
-            font-size: 10pt !important; /* Smaller font size for receipts */
-            color: #000 !important; /* Ensure black text */
+            font-family: 'Courier New', Courier, monospace !important; 
+            font-size: 10pt !important; 
+            color: #000 !important; 
           }
           .print-container, .print-container * {
             visibility: visible;
@@ -173,7 +171,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             position: absolute;
             left: 0;
             top: 0;
-            width: 100%; /* Default for A4 */
+            width: 100%; 
             max-height: none; 
             overflow: visible;
             padding: 5mm !important;
@@ -184,12 +182,12 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           .print-hide, .print-hide-icon, .print-hide-image {
             display: none !important;
           }
-          .print-show-colspan2-itemsonly { /* Shows a cell that spans two columns for item-only rows in footer */
+          .print-show-colspan2-itemsonly { 
              display: table-cell !important;
-             width: auto !important; /* Let table decide */
+             width: auto !important; 
           }
           .print-table-footer .print-hide-image ~ .print-show-colspan2-itemsonly:not(:nth-child(1)) {
-            display: none !important; /* Hides this if it's not the first one (after potentially hidden image col) */
+            display: none !important; 
           }
           .print-logo { max-width: 50px !important; height: auto !important; margin-bottom: 5px !important; }
           .print-shop-name, .print-section-title { font-size: 12pt !important; font-weight: bold !important; margin-bottom: 2px !important; }
@@ -204,22 +202,21 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           .print-footer-details { margin-top: 5px !important; font-size: 9pt !important; }
           .print-status-badge { font-size: 9pt !important; padding: 1px 3px !important; }
           .print-thankyou { margin-top: 5px !important; text-align: center !important; font-style: italic !important; }
-          .print-destructive { color: #000 !important; /* Don't use color for due on print, just text */ }
+          .print-destructive { color: #000 !important; }
           
-          /* Styles for 2-inch thermal-like printing */
           @page {
-            size: 57mm auto; /* Approximate 2-inch width, auto height */
-            margin: 3mm; /* Minimal margin */
+            size: 57mm auto; 
+            margin: 3mm; 
           }
            .print-container {
-            width: 51mm !important; /* Content width within margins */
+            width: 51mm !important; 
           }
-          .print-grid { grid-template-columns: 1fr !important; text-align: left !important; } /* Single column for address blocks */
-          .print-grid > div:nth-child(2) { text-align: left !important; margin-top: 5px; } /* From address below Billed To */
-          .print-table-footer td:nth-child(1), .print-table-footer td:nth-child(2) { /* For hiding initial columns in footer rows */
+          .print-grid { grid-template-columns: 1fr !important; text-align: left !important; } 
+          .print-grid > div:nth-child(2) { text-align: left !important; margin-top: 5px; } 
+          .print-table-footer td:nth-child(1), .print-table-footer td:nth-child(2) { 
             display: none !important;
           }
-           .print-table-footer .print-show-colspan2-itemsonly { /* Spans first two logical columns for items like subtotal */
+           .print-table-footer .print-show-colspan2-itemsonly { 
              display: table-cell !important;
              text-align: right;
              font-weight: normal;
@@ -231,12 +228,9 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           .print-table-footer .print-summary-value {
             text-align: right;
           }
-           /* Adjust colspan for items table when image is hidden */
+           
           .print-table-footer tr td[colspan="3"] {
             display: none !important;
-          }
-           .print-table-footer tr .print-summary-label { /* Ensure it acts as one cell before value */
-            /* No specific colspan needed due to previous hides, but ensure it looks right */
           }
         }
       `}</style>

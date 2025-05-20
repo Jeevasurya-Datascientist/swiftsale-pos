@@ -51,14 +51,15 @@ export interface Invoice {
   customerPhoneNumber?: string;
   items: CartItem[]; // Updated to use the new CartItem type
   subTotal: number;
-  gstRate: number; // e.g., 0.18 for 18%
+  gstRate: number; // e.g., 0.05 for 5% (or 5 for 5% if stored as percentage points)
   gstAmount: number;
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string; // ISO string
-  amountReceived?: number; // Amount paid by customer
-  balanceAmount?: number; // Change given back, if any
-  status?: 'Paid' | 'Due'; // Status of the invoice
+  amountReceived: number; // Amount paid by customer (now mandatory)
+  balanceAmount: number; // Change given back or amount due
+  status: 'Paid' | 'Due'; // Status of the invoice
+  shopName?: string; // Optional, if we want to record it at time of invoice creation
 }
 
 export interface AppSettings {
@@ -67,6 +68,7 @@ export interface AppSettings {
   shopAddress: string;
   currencySymbol: string;
   userName: string;
+  gstRate: number; // GST Rate as a percentage, e.g., 5 for 5%
 }
 
 // For charts

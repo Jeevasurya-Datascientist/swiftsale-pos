@@ -14,12 +14,13 @@ interface CartDisplayProps {
   onRemoveItem: (itemId: string) => void;
   onUpdateQuantity: (itemId: string, newQuantity: number) => void;
   currencySymbol: string;
+  gstRatePercentage: number; // GST rate as a percentage (e.g., 5 for 5%)
 }
 
-export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currencySymbol }: CartDisplayProps) {
+export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currencySymbol, gstRatePercentage }: CartDisplayProps) {
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const gstRate = 0.05; // Example GST rate (5%)
-  const gstAmount = subTotal * gstRate;
+  const gstRateDecimal = (gstRatePercentage || 0) / 100;
+  const gstAmount = subTotal * gstRateDecimal;
   const totalAmount = subTotal + gstAmount;
 
   if (cartItems.length === 0) {
@@ -119,7 +120,7 @@ export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currenc
           <span>{currencySymbol}{subTotal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between w-full text-md text-muted-foreground">
-          <span>GST ({ (gstRate * 100).toFixed(0) }%):</span>
+          <span>GST ({ (gstRatePercentage || 0).toFixed(gstRatePercentage % 1 === 0 ? 0 : 2) }%):</span>
           <span>{currencySymbol}{gstAmount.toFixed(2)}</span>
         </div>
         <div className="flex justify-between w-full text-xl font-bold mt-2">

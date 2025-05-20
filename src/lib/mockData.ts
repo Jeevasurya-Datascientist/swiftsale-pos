@@ -129,6 +129,7 @@ const serviceToCartItem = (service: Service, quantity: number): CartItem => ({
   type: 'service',
 });
 
+const defaultGstRate = 0.05; // 5%
 
 export const mockInvoices: Invoice[] = [
   {
@@ -140,14 +141,15 @@ export const mockInvoices: Invoice[] = [
       productToCartItem(mockProducts[1], 1), 
     ],
     subTotal: (mockProducts[0].price * 2) + mockProducts[1].price,
-    gstRate: 0.05,
-    gstAmount: ((mockProducts[0].price * 2) + mockProducts[1].price) * 0.05,
-    totalAmount: (((mockProducts[0].price * 2) + mockProducts[1].price) * 1.05),
+    gstRate: defaultGstRate,
+    gstAmount: ((mockProducts[0].price * 2) + mockProducts[1].price) * defaultGstRate,
+    totalAmount: (((mockProducts[0].price * 2) + mockProducts[1].price) * (1 + defaultGstRate)),
     paymentMethod: 'Cash',
     date: new Date(Date.now() - 86400000 * 5).toISOString(), 
-    amountReceived: (((mockProducts[0].price * 2) + mockProducts[1].price) * 1.05),
+    amountReceived: (((mockProducts[0].price * 2) + mockProducts[1].price) * (1 + defaultGstRate)),
     balanceAmount: 0,
     status: 'Paid',
+    shopName: 'SwiftSale POS',
   },
   {
     id: 'inv002',
@@ -160,14 +162,15 @@ export const mockInvoices: Invoice[] = [
       productToCartItem(mockProducts[5], 4), 
     ],
     subTotal: mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4),
-    gstRate: 0.05,
-    gstAmount: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * 0.05,
-    totalAmount: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * 1.05,
+    gstRate: defaultGstRate,
+    gstAmount: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * defaultGstRate,
+    totalAmount: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * (1 + defaultGstRate),
     paymentMethod: 'Card',
     date: new Date(Date.now() - 86400000 * 2).toISOString(), 
-    amountReceived: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * 1.05,
+    amountReceived: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * (1 + defaultGstRate),
     balanceAmount: 0,
     status: 'Paid',
+    shopName: 'SwiftSale POS',
   },
   {
     id: 'inv003',
@@ -179,14 +182,15 @@ export const mockInvoices: Invoice[] = [
       serviceToCartItem(mockServices[2], 1), 
     ],
     subTotal: (mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price,
-    gstRate: 0.05,
-    gstAmount: ((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * 0.05,
-    totalAmount: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * 1.05),
+    gstRate: defaultGstRate,
+    gstAmount: ((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * defaultGstRate,
+    totalAmount: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * (1 + defaultGstRate)),
     paymentMethod: 'UPI',
     date: new Date(Date.now() - 86400000 * 1).toISOString(), 
-    amountReceived: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * 1.05) - 100, // Underpaid
+    amountReceived: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * (1 + defaultGstRate)) - 100, // Underpaid
     balanceAmount: -100,
     status: 'Due',
+    shopName: 'SwiftSale POS',
   },
     {
     id: 'inv004',
@@ -197,14 +201,15 @@ export const mockInvoices: Invoice[] = [
       productToCartItem(mockProducts[0], 5), 
     ],
     subTotal: mockServices[1].price + (mockProducts[0].price * 5),
-    gstRate: 0.05,
-    gstAmount: (mockServices[1].price + (mockProducts[0].price * 5)) * 0.05,
-    totalAmount: (mockServices[1].price + (mockProducts[0].price * 5)) * 1.05,
+    gstRate: defaultGstRate,
+    gstAmount: (mockServices[1].price + (mockProducts[0].price * 5)) * defaultGstRate,
+    totalAmount: (mockServices[1].price + (mockProducts[0].price * 5)) * (1 + defaultGstRate),
     paymentMethod: 'Digital Wallet',
     date: new Date(Date.now() - 86400000 * 20).toISOString(), 
-    amountReceived: (mockServices[1].price + (mockProducts[0].price * 5)) * 1.05,
+    amountReceived: (mockServices[1].price + (mockProducts[0].price * 5)) * (1 + defaultGstRate),
     balanceAmount: 0,
     status: 'Paid',
+    shopName: 'SwiftSale POS',
   },
   {
     id: 'inv005',
@@ -215,14 +220,15 @@ export const mockInvoices: Invoice[] = [
       productToCartItem(mockProducts[5], 10), 
     ],
     subTotal: mockProducts[5].price * 10,
-    gstRate: 0.05,
-    gstAmount: (mockProducts[5].price * 10) * 0.05,
-    totalAmount: (mockProducts[5].price * 10) * 1.05,
+    gstRate: defaultGstRate,
+    gstAmount: (mockProducts[5].price * 10) * defaultGstRate,
+    totalAmount: (mockProducts[5].price * 10) * (1 + defaultGstRate),
     paymentMethod: 'Cash',
     date: new Date().toISOString(), 
-    amountReceived: (mockProducts[5].price * 10) * 1.05 + 50, 
+    amountReceived: (mockProducts[5].price * 10) * (1 + defaultGstRate) + 50, 
     balanceAmount: 50,
     status: 'Paid',
+    shopName: 'SwiftSale POS',
   }
 ];
 
@@ -234,14 +240,15 @@ mockInvoices.forEach(invoice => {
     }
   });
 });
-// Ensure mockInvoices is used to initialize localStorage if 'appInvoices' is not present
-if (typeof window !== 'undefined' && !localStorage.getItem('appInvoices')) {
-    localStorage.setItem('appInvoices', JSON.stringify(mockInvoices));
-}
-if (typeof window !== 'undefined' && !localStorage.getItem('appProducts')) {
-    localStorage.setItem('appProducts', JSON.stringify(mockProducts));
-}
-if (typeof window !== 'undefined' && !localStorage.getItem('appServices')) {
-    localStorage.setItem('appServices', JSON.stringify(mockServices));
-}
 
+if (typeof window !== 'undefined') {
+    if (!localStorage.getItem('appInvoices')) {
+        localStorage.setItem('appInvoices', JSON.stringify(mockInvoices));
+    }
+    if (!localStorage.getItem('appProducts')) {
+        localStorage.setItem('appProducts', JSON.stringify(mockProducts));
+    }
+    if (!localStorage.getItem('appServices')) {
+        localStorage.setItem('appServices', JSON.stringify(mockServices));
+    }
+}

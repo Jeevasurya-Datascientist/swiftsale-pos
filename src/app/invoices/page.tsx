@@ -2,10 +2,11 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Invoice } from '@/lib/types';
+import type { Invoice, Product } from '@/lib/types';
 import { mockInvoices as fallbackMockInvoices } from '@/lib/mockData'; 
 import { InvoiceListItem } from '@/components/invoices/InvoiceListItem';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
+import { EditInvoiceDialog } from '@/components/invoices/EditInvoiceDialog';
 import {
   Dialog,
   DialogContent,
@@ -23,19 +24,24 @@ import { useToast } from '@/hooks/use-toast';
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { currencySymbol, isSettingsLoaded } = useSettings();
   const { toast } = useToast();
 
-  useEffect(() => {
+  const loadInvoices = () => {
     if (isSettingsLoaded) {
         const storedInvoices = localStorage.getItem('appInvoices');
-        const loadedInvoices = storedInvoices ? JSON.parse(storedInvoices) : fallbackMockInvoices;
-        // Sort invoices by date, most recent first
-        loadedInvoices.sort((a: Invoice, b: Invoice) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const loadedInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : fallbackMockInvoices;
+        loadedInvoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setInvoices(loadedInvoices);
     }
+  };
+
+  useEffect(() => {
+    loadInvoices();
   }, [isSettingsLoaded]);
 
 
@@ -44,11 +50,45 @@ export default function InvoicesPage() {
     setIsViewOpen(true);
   };
 
+  const handleEditInvoice = (invoice: Invoice) => {
+    setInvoiceToEdit(invoice);
+    setIsEditOpen(true);
+  };
+
   const handlePrintInvoice = () => {
-    // Basic browser print
     window.print();
     toast({ title: "Printing Invoice", description: "Your invoice should be printing." });
   };
+
+  const handleSaveEditedInvoice = (updatedInvoice: Invoice) => {
+    // Update products stock if status changed from Due to Paid
+    const originalInvoice = invoices.find(inv => inv.id === updatedInvoice.id);
+    if (originalInvoice && originalInvoice.status === 'Due' && updatedInvoice.status === 'Paid') {
+        const storedProducts = localStorage.getItem('appProducts');
+        let currentProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : [];
+        
+        updatedInvoice.items.forEach(cartItem => {
+            if (cartItem.type === 'product') {
+                currentProducts = currentProducts.map(p => {
+                    if (p.id === cartItem.id) {
+                        return { ...p, stock: p.stock - cartItem.quantity };
+                    }
+                    return p;
+                });
+            }
+        });
+        localStorage.setItem('appProducts', JSON.stringify(currentProducts));
+        toast({title: "Stock Updated", description: "Product stock levels adjusted for newly paid invoice."})
+    }
+
+    const updatedInvoices = invoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
+    localStorage.setItem('appInvoices', JSON.stringify(updatedInvoices));
+    setInvoices(updatedInvoices);
+    setIsEditOpen(false);
+    setInvoiceToEdit(null);
+    toast({ title: "Invoice Updated", description: `Invoice ${updatedInvoice.invoiceNumber} has been successfully updated.` });
+  };
+
 
   const filteredInvoices = invoices.filter(invoice => 
     invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -94,6 +134,7 @@ export default function InvoicesPage() {
               key={invoice.id} 
               invoice={invoice} 
               onViewDetails={handleViewDetails} 
+              onEditDetails={handleEditInvoice}
               currencySymbol={currencySymbol}
             />
           ))}
@@ -111,14 +152,14 @@ export default function InvoicesPage() {
       {selectedInvoice && (
         <Dialog open={isViewOpen} onOpenChange={(open) => {
             setIsViewOpen(open);
-            if (!open) setSelectedInvoice(null); // Clear selection when dialog closes
+            if (!open) setSelectedInvoice(null);
         }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber} ({selectedInvoice.status || 'N/A'})</DialogTitle>
+              <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber} ({selectedInvoice.status})</DialogTitle>
             </DialogHeader>
-            <InvoiceView invoice={selectedInvoice} /> {/* Currency symbol from context */}
-            <DialogFooter className="print-hide"> {/* Added print-hide here */}
+            <InvoiceView invoice={selectedInvoice} />
+            <DialogFooter className="print-hide">
                 <Button type="button" onClick={handlePrintInvoice}>
                   <Printer className="w-4 h-4 mr-2" /> Print
                 </Button>
@@ -128,6 +169,16 @@ export default function InvoicesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {invoiceToEdit && (
+        <EditInvoiceDialog
+          isOpen={isEditOpen}
+          onClose={() => { setIsEditOpen(false); setInvoiceToEdit(null); }}
+          invoice={invoiceToEdit}
+          onSave={handleSaveEditedInvoice}
+          currencySymbol={currencySymbol}
+        />
       )}
     </div>
   );
