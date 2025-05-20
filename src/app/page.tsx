@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import type { Product, CartItem, Invoice } from '@/lib/types';
 import { mockProducts } from '@/lib/mockData';
 import { BarcodeInput } from '@/components/dashboard/BarcodeInput';
@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, Lightbulb, CreditCard, Phone } from 'lucide-react';
+import { FileText, ShoppingBag, Lightbulb, CreditCard, Phone, User, DollarSign, AlertCircle } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function BillingPage() {
   const [products, setProducts] = useState<Product[]>(mockProducts);
@@ -27,8 +28,41 @@ export default function BillingPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhoneNumber, setCustomerPhoneNumber] = useState('');
 
+  // Payment specific state
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState(''); // MM/YY
+  const [cardCvv, setCardCvv] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [amountReceived, setAmountReceived] = useState<number | string>('');
+  const [balanceAmount, setBalanceAmount] = useState(0);
+
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
+
+  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const gstRate = 0.05; // 5% GST
+  const gstAmount = subTotal * gstRate;
+  const totalAmount = subTotal + gstAmount;
+
+  useEffect(() => {
+    if (typeof amountReceived === 'number' && totalAmount > 0) {
+      setBalanceAmount(amountReceived - totalAmount);
+    } else {
+      setBalanceAmount(0);
+    }
+  }, [amountReceived, totalAmount]);
+
+  const handleAmountReceivedChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '') {
+      setAmountReceived('');
+    } else {
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue)) {
+        setAmountReceived(numValue);
+      }
+    }
+  };
 
   const handleProductSearch = (searchTerm: string) => {
     const foundProduct = products.find(
@@ -71,6 +105,11 @@ export default function BillingPage() {
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
+    if (newQuantity <= 0) {
+        handleRemoveItem(productId);
+        return;
+    }
+
     if (newQuantity > product.stock) {
       toast({ title: "Stock Limit Exceeded", description: `Only ${product.stock} units of ${product.name} available.`, variant: "destructive" });
       setCartItems((prevCart) =>
@@ -94,17 +133,58 @@ export default function BillingPage() {
       toast({ title: "Empty Cart", description: "Cannot generate invoice for an empty cart.", variant: "destructive" });
       return;
     }
+    if (!customerName.trim()) {
+      toast({ title: "Missing Information", description: "Customer Name is required.", variant: "destructive" });
+      return;
+    }
+    if (!customerPhoneNumber.trim()) {
+      toast({ title: "Missing Information", description: "Customer Phone Number is required.", variant: "destructive" });
+      return;
+    }
+    // Basic phone number validation (e.g., at least 10 digits)
+    if (!/^\d{10,}$/.test(customerPhoneNumber.replace(/\D/g, ''))) {
+        toast({ title: "Invalid Phone Number", description: "Please enter a valid phone number (at least 10 digits).", variant: "destructive" });
+        return;
+    }
 
-    const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const gstRate = 0.05; // 5% GST
-    const gstAmount = subTotal * gstRate;
-    const totalAmount = subTotal + gstAmount;
+    if (paymentMethod === 'Card') {
+      if (!cardNumber.trim() || !/^\d{13,19}$/.test(cardNumber.replace(/\s/g, ''))) {
+        toast({ title: "Invalid Card Details", description: "Valid Card Number is required.", variant: "destructive" });
+        return;
+      }
+      if (!cardExpiry.trim() || !/^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(cardExpiry)) {
+        toast({ title: "Invalid Card Details", description: "Valid Card Expiry (MM/YY) is required.", variant: "destructive" });
+        return;
+      }
+      if (!cardCvv.trim() || !/^\d{3,4}$/.test(cardCvv)) {
+        toast({ title: "Invalid Card Details", description: "Valid CVV (3 or 4 digits) is required.", variant: "destructive" });
+        return;
+      }
+    }
+
+    if (paymentMethod === 'UPI') {
+      if (!upiId.trim() || !/^[\w.-]+@[\w.-]+$/.test(upiId)) { // Basic UPI ID format check
+        toast({ title: "Invalid UPI ID", description: "Valid UPI ID is required (e.g., name@bank).", variant: "destructive" });
+        return;
+      }
+    }
+    
+    const numericAmountReceived = typeof amountReceived === 'string' ? parseFloat(amountReceived) : amountReceived;
+    if (typeof numericAmountReceived !== 'number' || isNaN(numericAmountReceived) || numericAmountReceived < 0) {
+        toast({ title: "Invalid Amount", description: "Please enter a valid Amount Received.", variant: "destructive" });
+        return;
+    }
+    if (numericAmountReceived < totalAmount) {
+        toast({ title: "Insufficient Amount", description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}).`, variant: "destructive" });
+        return;
+    }
+
 
     const newInvoice: Invoice = {
       id: `inv-${Date.now()}`,
       invoiceNumber: generateInvoiceNumber(),
-      customerName: customerName || "Walk-in Customer",
-      customerPhoneNumber: customerPhoneNumber || undefined,
+      customerName: customerName,
+      customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
       gstRate,
@@ -112,13 +192,27 @@ export default function BillingPage() {
       totalAmount,
       paymentMethod,
       date: new Date().toISOString(),
+      amountReceived: numericAmountReceived,
+      balanceAmount: numericAmountReceived - totalAmount,
     };
     setCurrentInvoice(newInvoice);
-    setIsInvoiceDialogOpen(true); // Open the dialog
+    setIsInvoiceDialogOpen(true); 
   };
 
   const handleFinalizeSaleAndPrint = () => {
-     // Update stock levels
+    if (!currentInvoice) return;
+
+    // Simulate payment processing
+    let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
+    if (paymentMethod === 'Card') {
+      paymentSuccessMessage = `Simulated: Card ending with ${cardNumber.slice(-4)} charged ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}.`;
+    } else if (paymentMethod === 'UPI') {
+      paymentSuccessMessage = `Simulated: UPI request for ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} sent to ${upiId}.`;
+    } else if (paymentMethod === 'Cash' && currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) {
+        paymentSuccessMessage += ` Change due: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`;
+    }
+
+
     const updatedProducts = products.map(p => {
       const cartItem = cartItems.find(ci => ci.id === p.id);
       if (cartItem) {
@@ -126,24 +220,24 @@ export default function BillingPage() {
       }
       return p;
     });
-    setProducts(updatedProducts); // This would ideally be an API call
+    setProducts(updatedProducts); 
 
-    // Clear cart and customer details
     setCartItems([]);
     setCustomerName('');
     setCustomerPhoneNumber('');
+    setCardNumber('');
+    setCardExpiry('');
+    setCardCvv('');
+    setUpiId('');
+    setAmountReceived('');
+    setBalanceAmount(0);
     
-    toast({ title: "Sale Finalized!", description: `Invoice ${currentInvoice?.invoiceNumber} generated. Stock updated.` });
+    toast({ title: "Sale Finalized!", description: `Invoice ${currentInvoice?.invoiceNumber} generated. Stock updated. ${paymentSuccessMessage}` });
     
-    // Trigger print after a short delay to allow dialog to render with final invoice.
-    // Note: printing from within a dialog might have browser-specific quirks.
     setTimeout(() => {
         window.print();
     }, 100);
     
-    // Keep dialog open for a bit after print, or close it:
-    // setIsInvoiceDialogOpen(false); 
-    // setCurrentInvoice(null);
   };
 
 
@@ -193,59 +287,126 @@ export default function BillingPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><CreditCard className="h-6 w-6 text-primary"/> Finalize Sale</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="customerName">Customer Name (Optional)</Label>
-                <Input 
-                  id="customerName" 
-                  placeholder="e.g., John Doe" 
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)} 
-                />
-              </div>
-              <div>
-                <Label htmlFor="customerPhoneNumber">Customer Phone (Optional)</Label>
-                <div className="relative">
-                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <CardContent>
+              <ScrollArea className="h-[calc(100vh-28rem)] md:h-auto pr-3"> {/* Added ScrollArea */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="customerName" className="flex items-center">
+                      <User className="h-4 w-4 mr-2 text-muted-foreground" /> Customer Name <span className="text-destructive ml-1">*</span>
+                    </Label>
+                    <Input 
+                      id="customerName" 
+                      placeholder="e.g., John Doe" 
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)} 
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="customerPhoneNumber" className="flex items-center">
+                     <Phone className="h-4 w-4 mr-2 text-muted-foreground" /> Customer Phone <span className="text-destructive ml-1">*</span>
+                    </Label>
                     <Input 
                       id="customerPhoneNumber" 
                       type="tel"
                       placeholder="e.g., 9876543210" 
                       value={customerPhoneNumber}
                       onChange={(e) => setCustomerPhoneNumber(e.target.value)} 
-                      className="pl-10"
+                      required
                     />
+                  </div>
+                  <div>
+                    <Label htmlFor="paymentMethod">Payment Method</Label>
+                    <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                      <SelectTrigger id="paymentMethod">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Card">Credit/Debit Card</SelectItem>
+                        <SelectItem value="UPI">UPI</SelectItem>
+                        <SelectItem value="Digital Wallet">Digital Wallet</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {paymentMethod === 'Card' && (
+                    <div className="space-y-3 p-3 border rounded-md bg-muted/20">
+                      <p className="text-sm font-medium text-foreground">Enter Card Details <span className="text-destructive ml-1">*</span></p>
+                      <div>
+                        <Label htmlFor="cardNumber">Card Number</Label>
+                        <Input id="cardNumber" placeholder="0000 0000 0000 0000" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="cardExpiry">Expiry (MM/YY)</Label>
+                          <Input id="cardExpiry" placeholder="MM/YY" value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label htmlFor="cardCvv">CVV</Label>
+                          <Input id="cardCvv" placeholder="123" value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} type="password" />
+                        </div>
+                      </div>
+                       <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertCircle size={14}/> Card payment is simulated. No real transaction will occur.</p>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'UPI' && (
+                    <div className="space-y-3 p-3 border rounded-md bg-muted/20">
+                      <p className="text-sm font-medium text-foreground">Enter UPI ID <span className="text-destructive ml-1">*</span></p>
+                      <div>
+                        <Label htmlFor="upiId">UPI ID</Label>
+                        <Input id="upiId" placeholder="yourname@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} />
+                      </div>
+                       <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertCircle size={14}/> UPI payment is simulated. No real transaction will occur.</p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <Label htmlFor="amountReceived" className="flex items-center">
+                      <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" /> Amount Received <span className="text-destructive ml-1">*</span>
+                    </Label>
+                    <Input 
+                      id="amountReceived" 
+                      type="number"
+                      placeholder="0.00" 
+                      value={amountReceived}
+                      onChange={handleAmountReceivedChange}
+                      step="0.01"
+                    />
+                  </div>
+
+                  {totalAmount > 0 && (typeof amountReceived === 'number' && amountReceived >= totalAmount) && (
+                    <div className="text-right text-lg">
+                      <p>Total: <span className="font-semibold">{currencySymbol}{totalAmount.toFixed(2)}</span></p>
+                      <p>Received: <span className="font-semibold">{currencySymbol}{amountReceived.toFixed(2)}</span></p>
+                      <p>Balance/Change: <span className={`font-bold ${balanceAmount < 0 ? 'text-destructive' : 'text-green-600'}`}>{currencySymbol}{balanceAmount.toFixed(2)}</span></p>
+                    </div>
+                  )}
+                  {totalAmount > 0 && (typeof amountReceived === 'number' && amountReceived < totalAmount) && (
+                     <p className="text-sm text-destructive text-right">Amount received is less than total.</p>
+                  )}
+
+                   <Button onClick={handleGenerateInvoice} className="w-full h-12 text-lg" disabled={cartItems.length === 0}>
+                    Generate Invoice
+                  </Button>
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="paymentMethod">Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
-                  <SelectTrigger id="paymentMethod">
-                    <SelectValue placeholder="Select payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="Card">Credit/Debit Card</SelectItem>
-                    <SelectItem value="Digital Wallet">Digital Wallet</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-               <Button onClick={handleGenerateInvoice} className="w-full h-12 text-lg" disabled={cartItems.length === 0}>
-                Generate Invoice
-              </Button>
+              </ScrollArea>
             </CardContent>
           </Card>
         </div>
       </div>
 
       {currentInvoice && (
-        <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
+        <Dialog open={isInvoiceDialogOpen} onOpenChange={(open) => {
+            setIsInvoiceDialogOpen(open);
+            if(!open) setCurrentInvoice(null); // Clear current invoice when dialog closes
+        }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber}</DialogTitle>
             </DialogHeader>
-            <InvoiceView invoice={currentInvoice} /> {/* Currency symbol now comes from context within InvoiceView */}
+            <InvoiceView invoice={currentInvoice} />
             <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2 print-hide pt-4">
               <div className="flex flex-col sm:flex-row gap-2">
                   <Button
@@ -253,17 +414,17 @@ export default function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
-                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Thank you for your purchase!`;
-                        // In a real app, you might construct a whatsapp:// link
-                        // const whatsappUrl = `https://wa.me/${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-                        // window.open(whatsappUrl, '_blank');
-                        toast({ title: "WhatsApp Share Simulated", description: `Message for ${currentInvoice.customerPhoneNumber}: ${message.substring(0,100)}...` });
+                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? currentInvoice.totalAmount).toFixed(2)}. ${currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : ''} Thank you for your purchase!`;
+                        const whatsappUrl = `https://wa.me/${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+                        // window.open(whatsappUrl, '_blank'); // Uncomment to enable actual WhatsApp redirect
+                        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
                       } else {
-                        toast({ title: "WhatsApp Share Simulated", description: "Invoice would be shared via WhatsApp (no phone number provided)." });
+                        toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
                       }
                     }}
+                    disabled={!currentInvoice?.customerPhoneNumber}
                   >
-                    Share via WhatsApp (Simulated)
+                    Share via WhatsApp
                   </Button>
                   <Button
                     type="button"
@@ -272,9 +433,10 @@ export default function BillingPage() {
                       if (currentInvoice?.customerPhoneNumber) {
                         toast({ title: "SMS Send Simulated", description: `SMS with invoice ${currentInvoice.invoiceNumber} details would be sent to ${currentInvoice.customerPhoneNumber}.` });
                       } else {
-                        toast({ title: "SMS Send Simulated", description: "No phone number to send SMS." });
+                        toast({ title: "SMS Send Failed", description: "Customer phone number not available for SMS.", variant: "destructive" });
                       }
                     }}
+                    disabled={!currentInvoice?.customerPhoneNumber}
                   >
                     Send SMS (Simulated)
                   </Button>
@@ -292,3 +454,4 @@ export default function BillingPage() {
     </div>
   );
 }
+

@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -17,8 +18,8 @@ export interface CartItem extends Product {
 export interface Invoice {
   id: string;
   invoiceNumber: string;
-  customerName: string; // Simplified for now
-  customerPhoneNumber?: string; // Added optional phone number
+  customerName: string; 
+  customerPhoneNumber?: string; 
   items: CartItem[];
   subTotal: number;
   gstRate: number; // e.g., 0.18 for 18%
@@ -26,6 +27,8 @@ export interface Invoice {
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string; // ISO string
+  amountReceived?: number; // Amount paid by customer
+  balanceAmount?: number; // Change given back, if any
 }
 
 export interface AppSettings {

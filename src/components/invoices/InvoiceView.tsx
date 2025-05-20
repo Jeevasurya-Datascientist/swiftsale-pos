@@ -10,16 +10,18 @@ import Image from 'next/image';
 
 interface InvoiceViewProps {
   invoice: Invoice;
-  // currencySymbol prop is removed, will use context
 }
 
 export function InvoiceView({ invoice }: InvoiceViewProps) {
   const { shopName, shopLogoUrl, shopAddress, currencySymbol, isSettingsLoaded } = useSettings();
 
   if (!isSettingsLoaded) {
-      // Optionally, render a loading state or a basic version until settings are loaded
       return <div className="p-2 space-y-4 text-center">Loading invoice details...</div>;
   }
+
+  const displayAmountReceived = typeof invoice.amountReceived === 'number' ? invoice.amountReceived : invoice.totalAmount;
+  const displayBalanceAmount = typeof invoice.balanceAmount === 'number' ? invoice.balanceAmount : 0;
+
 
   return (
     <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto print-container">
@@ -32,6 +34,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             height={80} 
             className="rounded-sm object-contain mx-auto mb-2"
             data-ai-hint="shop logo"
+            onError={(e) => (e.currentTarget.style.display = 'none')}
           />
         )}
         <h2 className="text-2xl font-bold text-primary">INVOICE</h2>
@@ -44,7 +47,6 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           <h3 className="font-semibold mb-1">Billed To:</h3>
           <p>{invoice.customerName}</p>
           {invoice.customerPhoneNumber && <p>Phone: {invoice.customerPhoneNumber}</p>}
-          {/* Add more customer details if available */}
         </div>
         <div className="text-right">
           <h3 className="font-semibold mb-1">From:</h3>
@@ -104,6 +106,20 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             <TableCell className="text-right">Total Amount:</TableCell>
             <TableCell className="text-right">{currencySymbol}{invoice.totalAmount.toFixed(2)}</TableCell>
           </TableRow>
+          {typeof invoice.amountReceived === 'number' && (
+             <TableRow>
+              <TableCell colSpan={3} />
+              <TableCell className="text-right font-medium">Amount Received:</TableCell>
+              <TableCell className="text-right">{currencySymbol}{displayAmountReceived.toFixed(2)}</TableCell>
+            </TableRow>
+          )}
+          {typeof invoice.balanceAmount === 'number' && invoice.balanceAmount > 0 && (
+            <TableRow>
+              <TableCell colSpan={3} />
+              <TableCell className="text-right font-medium">Change Due:</TableCell>
+              <TableCell className="text-right">{currencySymbol}{displayBalanceAmount.toFixed(2)}</TableCell>
+            </TableRow>
+          )}
         </TableFooter>
       </Table>
 
@@ -112,7 +128,6 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
       <div className="mt-6 text-sm">
         <p><span className="font-semibold">Payment Method:</span> {invoice.paymentMethod}</p>
         <p className="mt-4 text-xs text-muted-foreground">Thank you for your business!</p>
-        {/* Add terms and conditions if needed */}
       </div>
        <style jsx global>{`
         @media print {
@@ -127,10 +142,9 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             left: 0;
             top: 0;
             width: 100%;
-            max-height: none; /* Allow full content height for printing */
-            overflow: visible; /* Ensure content isn't clipped */
+            max-height: none; 
+            overflow: visible; 
           }
-           /* Hide dialog footer and close button when printing */
           .print-hide {
             display: none !important;
           }
