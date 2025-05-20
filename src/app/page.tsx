@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BarcodeInput } from '@/components/dashboard/BarcodeInput'; // Keep for scanner button logic if BarcodeInput is enhanced
+// import { BarcodeInput } from '@/components/dashboard/BarcodeInput'; // Keep for scanner button logic if BarcodeInput is enhanced
 
 export default function BillingPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -152,13 +152,23 @@ export default function BillingPage() {
     }
   };
 
+  const checkAndNotifyLowStock = (product: Product, quantityInCart: number) => {
+    const effectiveRemainingStock = product.stock - quantityInCart;
+    if (effectiveRemainingStock < 15 && effectiveRemainingStock >= 0) {
+      toast({
+        title: "Low Stock Warning",
+        description: `${product.name} is low on stock. ${effectiveRemainingStock} units will remain if this quantity is sold.`,
+        variant: "default", // Or a custom "warning" variant if defined
+        duration: 5000,
+      });
+    }
+  };
+
   const handleAddItemToCart = (itemIdentifier: string, itemTypeFromSearch?: 'product' | 'service') => {
     let foundItem: SearchableItem | undefined;
 
-    // Check from the currently displayed (potentially filtered) items first
     foundItem = filteredSearchableItems.find(item => item.id === itemIdentifier);
     
-    // If not found in filtered, check all searchable items (this covers direct ID additions)
     if (!foundItem) {
         foundItem = searchableItems.find(item => item.id === itemIdentifier);
     }
@@ -177,6 +187,12 @@ export default function BillingPage() {
            toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
            return;
         }
+        // Low stock check before adding
+        const currentQuantityInCart = existingCartItem ? existingCartItem.quantity : 0;
+        const prospectiveQuantityInCart = currentQuantityInCart + 1;
+        if (prospectiveQuantityInCart <= product.stock) { // Only check if it's possible to add
+          checkAndNotifyLowStock(product, prospectiveQuantityInCart);
+        }
       }
 
       setCartItems((prevCart) => {
@@ -189,7 +205,8 @@ export default function BillingPage() {
                 item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
               );
             } else {
-              toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
+              // This case should ideally be caught by the earlier check, but as a fallback:
+              // toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
               return prevCart;
             }
           } else { 
@@ -233,16 +250,23 @@ export default function BillingPage() {
         handleRemoveItem(itemId);
         return;
     }
+    
+    const productDetails = products.find(p => p.id === itemId);
 
-    if (cartItem.type === 'product' && typeof cartItem.stock === 'number') {
-      if (newQuantity > cartItem.stock) {
-        toast({ title: "Stock Limit Exceeded", description: `Only ${cartItem.stock} units of ${cartItem.name} available.`, variant: "destructive" });
+    if (cartItem.type === 'product' && productDetails) {
+      if (newQuantity > productDetails.stock) {
+        toast({ title: "Stock Limit Exceeded", description: `Only ${productDetails.stock} units of ${cartItem.name} available.`, variant: "destructive" });
         setCartItems((prevCart) =>
-          prevCart.map((item) => (item.id === itemId ? { ...item, quantity: cartItem.stock! } : item))
+          prevCart.map((item) => (item.id === itemId ? { ...item, quantity: productDetails.stock! } : item))
         );
+        // Check for low stock even if quantity is capped at max stock
+        checkAndNotifyLowStock(productDetails, productDetails.stock);
         return;
       }
+      // Low stock check for valid quantity update
+      checkAndNotifyLowStock(productDetails, newQuantity);
     }
+
     setCartItems((prevCart) =>
       prevCart.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
     );
@@ -360,7 +384,6 @@ export default function BillingPage() {
     
     const storedAppInvoices = localStorage.getItem('appInvoices');
     let allAppInvoices: Invoice[] = storedAppInvoices ? JSON.parse(storedAppInvoices) : [];
-    // Prepend new invoice to ensure it's at the top when invoices are displayed by date (most recent first)
     allAppInvoices = [currentInvoice, ...allAppInvoices];
     localStorage.setItem('appInvoices', JSON.stringify(allAppInvoices));
 
@@ -373,18 +396,17 @@ export default function BillingPage() {
     setUpiId('');
     setAmountReceived('');
     setBalanceAmount(0);
-    setSearchTerm(''); // Clear search term after sale
+    setSearchTerm(''); 
     
     toast({ 
         title: currentInvoice.status === 'Paid' ? "Sale Finalized!" : "Invoice Saved (Payment Due)", 
         description: `${paymentSuccessMessage} ${currentInvoice.status === 'Paid' ? 'Stock updated.' : 'Stock not updated.'}`
     });
     
-    // Simulate SMS/WhatsApp notifications
     if (currentInvoice.customerPhoneNumber) {
-        const summaryMessage = `Thank you for shopping at ${currentInvoice.customerName}! Your invoice ${currentInvoice.invoiceNumber} (Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}, Status: ${currentInvoice.status}) has been generated.`;
-        toast({ title: "Simulated WhatsApp Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
-        toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
+      const summaryMessage = `Thank you, ${currentInvoice.customerName}! Your invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || "Our Store"} (Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}, Status: ${currentInvoice.status}) has been generated.`;
+      toast({ title: "Simulated WhatsApp Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
+      toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
     }
 
     setTimeout(() => {
@@ -431,7 +453,6 @@ export default function BillingPage() {
                   className="pl-10 pr-4 h-12 text-base w-full"
                 />
               </div>
-              {/* BarcodeInput can be re-enabled or its scanner button integrated here if needed */}
               {/* <BarcodeInput onItemSearch={handleAddItemToCart} searchableItems={searchableItems} /> */}
               <ItemGrid 
                 items={filteredSearchableItems}
@@ -623,7 +644,7 @@ export default function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
-                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Status: ${currentInvoice.status}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? 0).toFixed(2)}. ${currentInvoice.status === 'Due' && currentInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.` : (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase! Shop: ${currentInvoice.shopName || 'Our Store'}.`;
+                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || "Our Store"}. Status: ${currentInvoice.status}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? 0).toFixed(2)}. ${currentInvoice.status === 'Due' && currentInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.` : (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
                         toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
@@ -664,3 +685,6 @@ export default function BillingPage() {
     </div>
   );
 }
+
+
+    
