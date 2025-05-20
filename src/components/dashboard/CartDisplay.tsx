@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { CartItem } from '@/lib/types';
@@ -12,10 +13,10 @@ interface CartDisplayProps {
   cartItems: CartItem[];
   onRemoveItem: (productId: string) => void;
   onUpdateQuantity: (productId: string, newQuantity: number) => void;
-  currencySymbol?: string;
+  currencySymbol: string; // Now explicitly required from parent
 }
 
-export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currencySymbol = '$' }: CartDisplayProps) {
+export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currencySymbol }: CartDisplayProps) {
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const gstRate = 0.05; // Example GST rate (5%)
   const gstAmount = subTotal * gstRate;
@@ -62,7 +63,7 @@ export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currenc
                       width={64}
                       height={64}
                       className="rounded-md object-cover"
-                      data-ai-hint={item.dataAiHint}
+                      data-ai-hint={item.dataAiHint || item.name.split(" ").slice(0,2).join(" ")}
                     />
                   </TableCell>
                   <TableCell className="font-medium">{item.name}</TableCell>

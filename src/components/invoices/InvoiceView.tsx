@@ -1,6 +1,8 @@
+
 "use client";
 
 import type { Invoice } from '@/lib/types';
+import { useSettings } from '@/context/SettingsContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
@@ -8,13 +10,30 @@ import Image from 'next/image';
 
 interface InvoiceViewProps {
   invoice: Invoice;
-  currencySymbol?: string;
+  // currencySymbol prop is removed, will use context
 }
 
-export function InvoiceView({ invoice, currencySymbol = '$' }: InvoiceViewProps) {
+export function InvoiceView({ invoice }: InvoiceViewProps) {
+  const { shopName, shopLogoUrl, shopAddress, currencySymbol, isSettingsLoaded } = useSettings();
+
+  if (!isSettingsLoaded) {
+      // Optionally, render a loading state or a basic version until settings are loaded
+      return <div className="p-2 space-y-4 text-center">Loading invoice details...</div>;
+  }
+
   return (
-    <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto">
+    <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto print-container">
       <div className="text-center mb-6">
+        {shopLogoUrl && (
+          <Image 
+            src={shopLogoUrl} 
+            alt={`${shopName} Logo`} 
+            width={80} 
+            height={80} 
+            className="rounded-sm object-contain mx-auto mb-2"
+            data-ai-hint="shop logo"
+          />
+        )}
         <h2 className="text-2xl font-bold text-primary">INVOICE</h2>
         <p className="text-muted-foreground">Invoice Number: {invoice.invoiceNumber}</p>
         <p className="text-muted-foreground">Date: {format(new Date(invoice.date), 'PPPpp')}</p>
@@ -28,9 +47,10 @@ export function InvoiceView({ invoice, currencySymbol = '$' }: InvoiceViewProps)
         </div>
         <div className="text-right">
           <h3 className="font-semibold mb-1">From:</h3>
-          <p>SwiftSale POS Inc.</p>
-          <p>123 Business Rd, Suite 456</p>
-          <p>Commercetown, ST 78900</p>
+          <p className="font-bold">{shopName}</p>
+          {shopAddress.split(',').map((line, index) => (
+            <p key={index}>{line.trim()}</p>
+          ))}
         </div>
       </div>
       
@@ -57,7 +77,7 @@ export function InvoiceView({ invoice, currencySymbol = '$' }: InvoiceViewProps)
                   width={40} 
                   height={40} 
                   className="rounded-sm object-cover"
-                  data-ai-hint={item.dataAiHint} 
+                  data-ai-hint={item.dataAiHint || item.name.split(" ").slice(0,2).join(" ")} 
                 />
               </TableCell>
               <TableCell>{item.name}</TableCell>
@@ -93,6 +113,26 @@ export function InvoiceView({ invoice, currencySymbol = '$' }: InvoiceViewProps)
         <p className="mt-4 text-xs text-muted-foreground">Thank you for your business!</p>
         {/* Add terms and conditions if needed */}
       </div>
+       <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .print-container, .print-container * {
+            visibility: visible;
+          }
+          .print-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+           /* Hide dialog footer and close button when printing */
+          .print-hide {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

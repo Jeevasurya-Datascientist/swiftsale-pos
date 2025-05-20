@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useState } from 'react';
 import type { Invoice } from '@/lib/types';
-import { mockInvoices } from '@/lib/mockData'; // Assuming you'll add mock invoices
+import { mockInvoices } from '@/lib/mockData'; 
 import { InvoiceListItem } from '@/components/invoices/InvoiceListItem';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import {
@@ -10,23 +11,32 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { FileText, Search } from 'lucide-react';
+import { FileText, Search, Printer } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useSettings } from '@/context/SettingsContext';
+import { useToast } from '@/hooks/use-toast';
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices); // Use mockInvoices
+  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const { currencySymbol, isSettingsLoaded } = useSettings();
+  const { toast } = useToast();
 
   const handleViewDetails = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setIsViewOpen(true);
+  };
+
+  const handlePrintInvoice = () => {
+    // Basic browser print
+    window.print();
+    toast({ title: "Printing Invoice", description: "Your invoice should be printing." });
   };
 
   const filteredInvoices = invoices.filter(invoice => 
@@ -34,6 +44,14 @@ export default function InvoicesPage() {
     invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  if (!isSettingsLoaded) {
+    return (
+      <div className="container mx-auto py-4 flex justify-center items-center h-screen">
+        <FileText className="h-12 w-12 animate-pulse text-primary" />
+         <p className="ml-4 text-xl">Loading invoices...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-4">
@@ -60,7 +78,12 @@ export default function InvoicesPage() {
       {filteredInvoices.length > 0 ? (
         <div className="space-y-4">
           {filteredInvoices.map((invoice) => (
-            <InvoiceListItem key={invoice.id} invoice={invoice} onViewDetails={handleViewDetails} />
+            <InvoiceListItem 
+              key={invoice.id} 
+              invoice={invoice} 
+              onViewDetails={handleViewDetails} 
+              currencySymbol={currencySymbol}
+            />
           ))}
         </div>
       ) : (
@@ -79,9 +102,11 @@ export default function InvoicesPage() {
             <DialogHeader>
               <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber}</DialogTitle>
             </DialogHeader>
-            <InvoiceView invoice={selectedInvoice} currencySymbol="$" />
-            <DialogFooter>
-                <Button type="button" onClick={() => { /* Logic for printing */ alert("Printing (simulated)...") }}>Print</Button>
+            <InvoiceView invoice={selectedInvoice} /> {/* Currency symbol from context */}
+            <DialogFooter className="print-hide">
+                <Button type="button" onClick={handlePrintInvoice}>
+                  <Printer className="w-4 h-4 mr-2" /> Print
+                </Button>
                 <DialogClose asChild>
                     <Button type="button" variant="secondary">Close</Button>
                 </DialogClose>

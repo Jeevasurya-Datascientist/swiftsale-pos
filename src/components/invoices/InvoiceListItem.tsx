@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Invoice } from '@/lib/types';
@@ -10,10 +11,10 @@ import { Button } from '../ui/button';
 interface InvoiceListItemProps {
   invoice: Invoice;
   onViewDetails: (invoice: Invoice) => void;
-  currencySymbol?: string;
+  currencySymbol: string; // Now explicitly required
 }
 
-export function InvoiceListItem({ invoice, onViewDetails, currencySymbol = '$' }: InvoiceListItemProps) {
+export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: InvoiceListItemProps) {
   return (
     <Card className="hover:shadow-md transition-shadow duration-200">
       <CardHeader className="pb-2">

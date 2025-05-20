@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -28,6 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Package, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useSettings } from '@/context/SettingsContext';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>(mockProducts);
@@ -36,18 +38,20 @@ export default function ProductsPage() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { currencySymbol, isSettingsLoaded } = useSettings();
 
   const handleFormSubmit = (data: Omit<Product, 'id' | 'dataAiHint'>, existingProduct?: Product) => {
+    const productDataAiHint = data.name.toLowerCase().split(' ').slice(0,2).join(' ');
     if (existingProduct) {
       // Edit existing product
-      setProducts(products.map(p => p.id === existingProduct.id ? { ...existingProduct, ...data, dataAiHint: data.name.toLowerCase().split(' ').slice(0,2).join(' ') } : p));
+      setProducts(products.map(p => p.id === existingProduct.id ? { ...existingProduct, ...data, dataAiHint: productDataAiHint } : p));
       toast({ title: "Product Updated", description: `${data.name} has been updated.` });
     } else {
       // Add new product
       const newProduct: Product = {
         id: `prod-${Date.now()}`,
         ...data,
-        dataAiHint: data.name.toLowerCase().split(' ').slice(0,2).join(' '),
+        dataAiHint: productDataAiHint,
       };
       setProducts([newProduct, ...products]);
       toast({ title: "Product Added", description: `${data.name} has been added.` });
@@ -79,6 +83,15 @@ export default function ProductsPage() {
     product.barcode.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  if (!isSettingsLoaded) {
+     return (
+      <div className="container mx-auto py-4 flex justify-center items-center h-screen">
+        <Package className="h-12 w-12 animate-pulse text-primary" />
+         <p className="ml-4 text-xl">Loading products...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-4">
@@ -114,7 +127,8 @@ export default function ProductsPage() {
               key={product.id} 
               product={product} 
               onEdit={handleEditProduct} 
-              onDelete={() => openDeleteConfirm(product.id)} 
+              onDelete={() => openDeleteConfirm(product.id)}
+              currencySymbol={currencySymbol} 
             />
           ))}
         </div>

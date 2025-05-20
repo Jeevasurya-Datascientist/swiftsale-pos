@@ -1,14 +1,17 @@
+
+"use client"; // Required for useSettings hook
 import type React from 'react';
+import Image from 'next/image';
+import { useSettings } from '@/context/SettingsContext';
 import {
   SidebarProvider,
   Sidebar,
   SidebarHeader,
-  SidebarMain,
+  SidebarContent,
   SidebarFooter,
   SidebarTrigger,
-  SidebarContent,
   SidebarInset,
-} from '@/components/ui/sidebar'; // Assuming SidebarMain and SidebarFooter are part of your custom setup or ui/sidebar
+} from '@/components/ui/sidebar';
 import { SidebarNav } from './SidebarNav';
 import { Button } from '@/components/ui/button';
 import { Bell, LogOut, Settings, UserCircle } from 'lucide-react';
@@ -22,19 +25,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Placeholder for SidebarMain and SidebarFooter if not in shadcn/ui directly
-// These might be custom components or simple divs styled within SidebarContent
+const CustomSidebarHeader = () => {
+  const { shopName, shopLogoUrl, isSettingsLoaded } = useSettings();
 
-const CustomSidebarHeader = () => (
-  <SidebarHeader className="p-4">
-    <div className="flex items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-primary">
-        <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.027a.75.75 0 00-.516.678v10.19c0 .37.232.694.583.844l8.256 3.538a.75.75 0 00.592 0l8.256-3.538a.75.75 0 00.583-.844V6.705a.75.75 0 00-.516-.678L12.378 1.602zM12 7.5a.75.75 0 01.75.75v3.75H16.5a.75.75 0 010 1.5h-3.75V18a.75.75 0 01-1.5 0v-4.5H7.5a.75.75 0 010-1.5h3.75V8.25A.75.75 0 0112 7.5z" />
-      </svg>
-      <h1 className="text-2xl font-semibold text-primary group-data-[collapsible=icon]:hidden">SwiftSale POS</h1>
-    </div>
-  </SidebarHeader>
-);
+  return (
+    <SidebarHeader className="p-4">
+      <div className="flex items-center gap-2">
+        {isSettingsLoaded && shopLogoUrl ? (
+          <Image 
+            src={shopLogoUrl} 
+            alt={`${shopName} Logo`} 
+            width={32} 
+            height={32} 
+            className="rounded-sm object-contain"
+            data-ai-hint="shop logo"
+          />
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-primary">
+            <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.027a.75.75 0 00-.516.678v10.19c0 .37.232.694.583.844l8.256 3.538a.75.75 0 00.592 0l8.256-3.538a.75.75 0 00.583-.844V6.705a.75.75 0 00-.516-.678L12.378 1.602zM12 7.5a.75.75 0 01.75.75v3.75H16.5a.75.75 0 010 1.5h-3.75V18a.75.75 0 01-1.5 0v-4.5H7.5a.75.75 0 010-1.5h3.75V8.25A.75.75 0 0112 7.5z" />
+          </svg>
+        )}
+        <h1 className="text-xl font-semibold text-primary group-data-[collapsible=icon]:hidden">
+          {isSettingsLoaded ? shopName : 'Loading...'}
+        </h1>
+      </div>
+    </SidebarHeader>
+  );
+};
 
 const CustomSidebarFooter = () => (
   <SidebarFooter className="p-4 mt-auto border-t border-sidebar-border group-data-[collapsible=icon]:p-2">
@@ -42,7 +59,7 @@ const CustomSidebarFooter = () => (
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="flex items-center justify-start w-full gap-2 p-2 group-data-[collapsible=icon]:justify-center">
             <Avatar className="w-8 h-8">
-              <AvatarImage src="https://placehold.co/40x40.png" alt="User" />
+              <AvatarImage src="https://placehold.co/40x40.png" alt="User" data-ai-hint="user avatar"/>
               <AvatarFallback>U</AvatarFallback>
             </Avatar>
             <span className="group-data-[collapsible=icon]:hidden">User Name</span>
@@ -75,7 +92,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen>
       <Sidebar>
         <CustomSidebarHeader />
-        <SidebarContent> {/* Use SidebarContent for the main scrollable area */}
+        <SidebarContent>
           <SidebarNav />
         </SidebarContent>
         <CustomSidebarFooter />

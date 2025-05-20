@@ -5,6 +5,7 @@ export interface Product {
   description?: string;
   barcode: string;
   imageUrl?: string;
+  dataAiHint?: string; // Added for placeholder image hints
   stock: number; 
   category?: string; // For better organization and AI suggestions
 }
@@ -24,4 +25,11 @@ export interface Invoice {
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string; // ISO string
+}
+
+export interface AppSettings {
+  shopName: string;
+  shopLogoUrl: string;
+  shopAddress: string;
+  currencySymbol: string;
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -14,10 +15,10 @@ const navItems = [
   { href: '/', label: 'Billing', icon: Home },
   { href: '/products', label: 'Products', icon: Package },
   { href: '/invoices', label: 'Invoices', icon: FileText },
+  { href: '/settings', label: 'Settings', icon: Settings },
   // Future items:
   // { href: '/inventory', label: 'Inventory', icon: Barcode },
   // { href: '/customers', label: 'Customers', icon: Users },
-  // { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function SidebarNav() {
@@ -30,10 +31,10 @@ export function SidebarNav() {
           <Link href={item.href} passHref legacyBehavior>
             <SidebarMenuButton
               asChild
-              isActive={pathname === item.href}
+              isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
               className={cn(
                 "w-full justify-start",
-                pathname === item.href && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                 (pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))) && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
               )}
               tooltip={{ children: item.label, side: "right", align: "center" }}
             >

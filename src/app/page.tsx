@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, ShoppingBag, Lightbulb, CreditCard } from 'lucide-react';
+import { useSettings } from '@/context/SettingsContext';
 
 export default function BillingPage() {
   const [products, setProducts] = useState<Product[]>(mockProducts);
@@ -25,6 +27,7 @@ export default function BillingPage() {
   const [customerName, setCustomerName] = useState('');
 
   const { toast } = useToast();
+  const { currencySymbol, isSettingsLoaded } = useSettings();
 
   const handleProductSearch = (searchTerm: string) => {
     const foundProduct = products.find(
@@ -133,6 +136,15 @@ export default function BillingPage() {
 
 
   const cartItemNames = cartItems.map(item => item.name);
+  
+  if (!isSettingsLoaded) {
+    return (
+      <div className="container mx-auto py-4 flex justify-center items-center h-screen">
+        <ShoppingBag className="h-12 w-12 animate-pulse text-primary" />
+         <p className="ml-4 text-xl">Loading POS...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-4">
@@ -158,7 +170,7 @@ export default function BillingPage() {
             cartItems={cartItems} 
             onRemoveItem={handleRemoveItem} 
             onUpdateQuantity={handleUpdateQuantity} 
-            currencySymbol="$" // Or use a setting
+            currencySymbol={currencySymbol}
           />
         </div>
 
@@ -207,8 +219,8 @@ export default function BillingPage() {
             <DialogHeader>
               <DialogTitle>Invoice Details - {currentInvoice.invoiceNumber}</DialogTitle>
             </DialogHeader>
-            <InvoiceView invoice={currentInvoice} currencySymbol="$" />
-            <DialogFooter className="sm:justify-between gap-2">
+            <InvoiceView invoice={currentInvoice} /> {/* Currency symbol now comes from context within InvoiceView */}
+            <DialogFooter className="sm:justify-between gap-2 print-hide">
                <Button type="button" variant="outline" onClick={() => {
                  toast({ title: "WhatsApp Share Simulated", description: "Invoice would be shared via WhatsApp."});
                }}>

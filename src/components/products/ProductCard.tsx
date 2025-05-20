@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Product } from '@/lib/types';
@@ -11,10 +12,10 @@ interface ProductCardProps {
   product: Product;
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
-  currencySymbol?: string;
+  currencySymbol: string; // Now explicitly required
 }
 
-export function ProductCard({ product, onEdit, onDelete, currencySymbol = '$' }: ProductCardProps) {
+export function ProductCard({ product, onEdit, onDelete, currencySymbol }: ProductCardProps) {
   return (
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="p-4">
@@ -24,7 +25,7 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol = '$' }:
             alt={product.name}
             fill
             className="rounded-md object-cover"
-            data-ai-hint={product.dataAiHint}
+            data-ai-hint={product.dataAiHint || product.name.split(" ").slice(0,2).join(" ")}
           />
         </div>
         <CardTitle className="text-lg leading-tight">{product.name}</CardTitle>

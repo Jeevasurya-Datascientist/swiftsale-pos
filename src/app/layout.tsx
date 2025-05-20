@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Toaster } from "@/components/ui/toaster";
+import { SettingsProvider } from '@/context/SettingsContext';
 
 export const metadata: Metadata = {
   title: 'SwiftSale POS',
@@ -17,10 +18,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${GeistSans.variable} font-sans antialiased`}>
-        <AppLayout>
-          {children}
-        </AppLayout>
-        <Toaster />
+        <SettingsProvider>
+          <AppLayout>
+            {children}
+          </AppLayout>
+          <Toaster />
+        </SettingsProvider>
       </body>
     </html>
   );
