@@ -1,6 +1,7 @@
 
 "use client";
 
+import React from 'react'; // Added missing React import
 import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,6 +28,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircle } from 'lucide-react';
+import { cn } from "@/lib/utils"; // For FormItem className
 
 const editInvoiceSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
@@ -204,6 +206,7 @@ export function EditInvoiceDialog({ isOpen, onClose, invoice, onSave, currencySy
     </Dialog>
   );
 }
+
 // Helper to ensure correct use of FormField, FormItem, Label, Input
 const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
   <div ref={ref} className={cn("space-y-1", className)} {...props} />

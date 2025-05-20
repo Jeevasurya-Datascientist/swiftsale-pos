@@ -148,12 +148,13 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
 
       <div className="mt-6 text-sm print-footer-details">
         <p><span className="font-semibold">Payment Method:</span> {invoice.paymentMethod}</p>
-        <p className="mt-1"><span className="font-semibold">Status:</span>
-        <Badge variant={invoice.status === 'Paid' ? 'default' : 'destructive'} className="ml-2 print-status-badge">
-            {invoice.status === 'Paid' ? <CheckCircle2 className="w-3 h-3 mr-1 print-hide-icon" /> : <AlertTriangle className="w-3 h-3 mr-1 print-hide-icon" />}
-            {invoice.status}
-        </Badge>
-        </p>
+        <div className="mt-1 flex items-center">
+          <span className="font-semibold mr-1">Status:</span>
+          <Badge variant={invoice.status === 'Paid' ? 'default' : 'destructive'} className="print-status-badge">
+              {invoice.status === 'Paid' ? <CheckCircle2 className="w-3 h-3 mr-1 print-hide-icon" /> : <AlertTriangle className="w-3 h-3 mr-1 print-hide-icon" />}
+              {invoice.status}
+          </Badge>
+        </div>
         <p className="mt-4 text-xs text-muted-foreground print-thankyou">Thank you for your business!</p>
       </div>
        <style jsx global>{`
