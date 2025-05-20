@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, ChangeEvent, useRef } from 'react';
 import type { Product, Service, CartItem, Invoice, SearchableItem, ExistingCustomer } from '@/lib/types';
 import { mockProducts, mockServices, mockInvoices } from '@/lib/mockData';
-import { BarcodeInput } from '@/components/dashboard/BarcodeInput';
+import { ItemGrid } from '@/components/dashboard/ItemGrid'; // Changed from BarcodeInput
 import { CartDisplay } from '@/components/dashboard/CartDisplay';
 import { SmartSuggestions } from '@/components/dashboard/SmartSuggestions';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,22 @@ export default function BillingPage() {
 
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // IMPORTANT: You need to add a sound file (e.g., add-to-cart.mp3)
+      // to your `public/sounds/` directory for this to work.
+      audioRef.current = new Audio('/sounds/add-to-cart.mp3');
+    }
+  }, []);
+
+  const playSound = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0; // Rewind to the start
+      audioRef.current.play().catch(error => console.warn("Audio play failed:", error));
+    }
+  };
 
   useEffect(() => {
     if (isSettingsLoaded) {
@@ -52,7 +68,8 @@ export default function BillingPage() {
         const finalServices = storedServices ? JSON.parse(storedServices) : mockServices;
         setServices(finalServices);
         
-        setSearchableItems([...finalProducts, ...finalServices]);
+        setSearchableItems([...finalProducts, ...finalServices].sort((a, b) => a.name.localeCompare(b.name)));
+
 
         const storedInvoices = localStorage.getItem('appInvoices');
         const allInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : mockInvoices;
@@ -74,9 +91,10 @@ export default function BillingPage() {
   }, [isSettingsLoaded]);
 
    useEffect(() => {
-    if (isSettingsLoaded && products.length > 0) { 
+    if (isSettingsLoaded && (products.length > 0 || services.length > 0)) { 
         localStorage.setItem('appProducts', JSON.stringify(products));
-        setSearchableItems([...products, ...services]); 
+        localStorage.setItem('appServices', JSON.stringify(services));
+        setSearchableItems([...products, ...services].sort((a, b) => a.name.localeCompare(b.name))); 
     }
   }, [products, services, isSettingsLoaded]); 
 
@@ -105,29 +123,33 @@ export default function BillingPage() {
     }
   };
 
-  const handleItemSearch = (identifier: string, itemTypeFromSearch?: 'product' | 'service') => {
+  const handleAddItemToCart = (itemIdentifier: string, itemTypeFromSearch?: 'product' | 'service') => {
     let foundItem: SearchableItem | undefined;
 
     if (itemTypeFromSearch) { 
-        foundItem = searchableItems.find(item => item.id === identifier);
+        foundItem = searchableItems.find(item => item.id === itemIdentifier);
     } else { 
         foundItem = searchableItems.find(
         (item) =>
-            item.name.toLowerCase().includes(identifier.toLowerCase()) ||
-            ('barcode' in item && item.barcode.toLowerCase() === identifier.toLowerCase()) ||
-            ('serviceCode' in item && item.serviceCode?.toLowerCase() === identifier.toLowerCase())
+            item.name.toLowerCase().includes(itemIdentifier.toLowerCase()) ||
+            ('barcode' in item && item.barcode.toLowerCase() === itemIdentifier.toLowerCase()) ||
+            ('serviceCode' in item && item.serviceCode?.toLowerCase() === itemIdentifier.toLowerCase())
         );
     }
-
 
     if (foundItem) {
       const type: 'product' | 'service' = 'barcode' in foundItem ? 'product' : 'service';
 
       if (type === 'product') {
         const product = foundItem as Product;
-        if (product.stock <= 0) {
+        const existingCartItem = cartItems.find(ci => ci.id === product.id);
+        if (!existingCartItem && product.stock <= 0) {
           toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" });
           return;
+        }
+        if (existingCartItem && existingCartItem.quantity >= product.stock) {
+           toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
+           return;
         }
       }
 
@@ -141,6 +163,7 @@ export default function BillingPage() {
                 item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
               );
             } else {
+              // This case should ideally be caught before calling setCartItems, but as a fallback:
               toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
               return prevCart;
             }
@@ -165,6 +188,7 @@ export default function BillingPage() {
           return [...prevCart, cartItemToAdd];
         }
       });
+      playSound();
       toast({ title: "Item Added", description: `${foundItem.name} added to cart.` });
     } else {
       toast({ title: "Item Not Found", description: "No product or service matched your search.", variant: "destructive" });
@@ -197,6 +221,9 @@ export default function BillingPage() {
     setCartItems((prevCart) =>
       prevCart.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
     );
+    if (newQuantity > (cartItem.quantity || 0) ) { // Play sound if quantity increased
+        playSound();
+    }
   };
 
   const generateInvoiceNumber = () => {
@@ -275,7 +302,7 @@ export default function BillingPage() {
         toast({ 
             title: "Invoice Generated (Payment Due)", 
             description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}). Invoice status: 'Due'.`, 
-            variant: "default", // Changed from destructive to default or warning
+            variant: "default",
             duration: 7000 
         });
     }
@@ -296,14 +323,14 @@ export default function BillingPage() {
     }
 
     if (currentInvoice.status === 'Paid') {
-        const updatedStockProducts = products.map(p => {
-        const cartItem = cartItems.find(ci => ci.id === p.id && ci.type === 'product');
-        if (cartItem) {
-            return { ...p, stock: p.stock - cartItem.quantity };
-        }
-        return p;
+        const updatedProducts = products.map(p => {
+          const cartItem = cartItems.find(ci => ci.id === p.id && ci.type === 'product');
+          if (cartItem) {
+              return { ...p, stock: p.stock - cartItem.quantity };
+          }
+          return p;
         });
-        setProducts(updatedStockProducts); 
+        setProducts(updatedProducts); 
     }
     
     const storedAppInvoices = localStorage.getItem('appInvoices');
@@ -329,7 +356,7 @@ export default function BillingPage() {
     setTimeout(() => {
         window.print();
     }, 100);
-    setCurrentInvoice(null); // Close dialog after print
+    setCurrentInvoice(null); 
     setIsInvoiceDialogOpen(false);
   };
 
@@ -360,9 +387,12 @@ export default function BillingPage() {
               <CardTitle className="flex items-center gap-2"><FileText className="h-6 w-6 text-primary"/> Add Items to Cart</CardTitle>
             </CardHeader>
             <CardContent>
-              <BarcodeInput 
-                onItemSearch={handleItemSearch} 
-                searchableItems={searchableItems}
+              <ItemGrid 
+                items={searchableItems}
+                cartItems={cartItems}
+                onItemSelect={handleAddItemToCart}
+                onUpdateQuantity={handleUpdateQuantity}
+                currencySymbol={currencySymbol}
               />
             </CardContent>
           </Card>
@@ -510,7 +540,7 @@ export default function BillingPage() {
                       {typeof amountReceived === 'number' && amountReceived > 0 &&
                         <p>Received: <span className="font-semibold">{currencySymbol}{Number(amountReceived).toFixed(2)}</span></p>
                       }
-                      {typeof amountReceived === 'number' && balanceAmount >= 0 &&
+                      {typeof amountReceived === 'number' && balanceAmount >= 0 && amountReceived >= totalAmount &&
                         <p>Change: <span className="font-bold text-green-600">{currencySymbol}{balanceAmount.toFixed(2)}</span></p>
                       }
                        {typeof amountReceived === 'number' && amountReceived < totalAmount && totalAmount > 0 &&
@@ -533,7 +563,7 @@ export default function BillingPage() {
       {currentInvoice && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(open) => {
             setIsInvoiceDialogOpen(open);
-            if(!open) setCurrentInvoice(null); // Clear current invoice when dialog closes
+            if(!open) setCurrentInvoice(null); 
         }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>

@@ -11,8 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Image from 'next/image';
 
 interface BarcodeInputProps {
-  onItemSearch: (itemIdentifier: string, itemType?: 'product' | 'service') => void; // Can be barcode, serviceCode, or name
-  searchableItems: SearchableItem[]; // Combined list of products and services
+  onItemSearch: (itemIdentifier: string, itemType?: 'product' | 'service') => void; 
+  searchableItems: SearchableItem[]; 
 }
 
 export function BarcodeInput({ onItemSearch, searchableItems }: BarcodeInputProps) {
@@ -30,7 +30,6 @@ export function BarcodeInput({ onItemSearch, searchableItems }: BarcodeInputProp
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
-      // Attempt to find by exact match first (barcode/serviceCode), then general search
       const directMatch = searchableItems.find(item =>
         ('barcode' in item && item.barcode.toLowerCase() === inputValue.trim().toLowerCase()) ||
         ('serviceCode' in item && item.serviceCode?.toLowerCase() === inputValue.trim().toLowerCase())
@@ -38,7 +37,7 @@ export function BarcodeInput({ onItemSearch, searchableItems }: BarcodeInputProp
       if (directMatch) {
         onItemSearch(directMatch.id, 'barcode' in directMatch ? 'product' : 'service');
       } else {
-        onItemSearch(inputValue.trim()); // General search term, let parent decide
+        onItemSearch(inputValue.trim()); 
       }
       setInputValue('');
       setIsDropdownVisible(false);
@@ -66,7 +65,7 @@ export function BarcodeInput({ onItemSearch, searchableItems }: BarcodeInputProp
 
   const handleItemSelect = (item: SearchableItem) => {
     const itemType = 'barcode' in item ? 'product' : 'service';
-    onItemSearch(item.id, itemType); // Pass ID and type for direct addition
+    onItemSearch(item.id, itemType); 
     setInputValue('');
     setSearchResults([]);
     setIsDropdownVisible(false);
@@ -134,7 +133,7 @@ export function BarcodeInput({ onItemSearch, searchableItems }: BarcodeInputProp
   }, []);
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 hidden"> {/* This component is now hidden as per new UI request */}
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <div className="relative flex-grow" ref={dropdownContainerRef}>
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
@@ -177,7 +176,7 @@ export function BarcodeInput({ onItemSearch, searchableItems }: BarcodeInputProp
                         {'barcode' in item ? `Code: ${item.barcode}` : ('serviceCode' in item && item.serviceCode ? `Code: ${item.serviceCode}` : 'No Code')}
                         {'stock' in item && ` | Stock: ${item.stock}`}
                         {'duration' in item && item.duration && ` | Duration: ${item.duration}`}
-                        {` | Price: ${item.price}`}
+                        {` | Price: ${currencySymbol}${item.price}`}
                       </div>
                     </div>
                   </li>
