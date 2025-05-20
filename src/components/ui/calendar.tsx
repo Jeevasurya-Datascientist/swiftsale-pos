@@ -1,18 +1,27 @@
+
 "use client"
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker } from "react-day-picker"
+import { DayPicker, type DateRange } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>
+export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
+  selected?: Date | DateRange | undefined;
+  onSelect?: (range: DateRange | undefined) => void;
+  mode?: "single" | "multiple" | "range" | "default";
+};
+
 
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  selected,
+  onSelect,
+  mode = "default",
   ...props
 }: CalendarProps) {
   return (
@@ -61,6 +70,9 @@ function Calendar({
           <ChevronRight className={cn("h-4 w-4", className)} {...props} />
         ),
       }}
+      mode={mode as "single" | "multiple" | "range" | "default" | undefined} // Cast mode
+      selected={selected as any} // Cast selected
+      onSelect={onSelect as any} // Cast onSelect
       {...props}
     />
   )

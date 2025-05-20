@@ -82,4 +82,9 @@ export interface KeyValueDataPoint {
   [key: string]: any;
 }
 
-export type ReportTimeFilter = "today" | "last7days" | "last30days" | "
+export type ReportTimeFilter = "today" | "last7days" | "last30days" | "thisMonth" | "allTime" | "custom";
+
+export interface ReportDateRange {
+    from: Date | undefined;
+    to: Date | undefined;
+}
