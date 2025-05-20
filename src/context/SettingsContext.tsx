@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   shopLogoUrl: '',
   shopAddress: '123 Commerce Street, Business City, 12345',
   currencySymbol: '$',
+  userName: 'Store Admin', // Default user name
 };
 
 interface SettingsContextType extends AppSettings {
@@ -27,16 +28,15 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     if (storedSettings) {
       try {
         const parsedSettings = JSON.parse(storedSettings);
-        // Validate parsed settings against AppSettings structure if necessary
-        setSettings(prevSettings => ({ ...prevSettings, ...parsedSettings }));
+        // Ensure all keys from DEFAULT_SETTINGS are present, even if new ones were added
+        const completeSettings = { ...DEFAULT_SETTINGS, ...parsedSettings };
+        setSettings(completeSettings);
       } catch (error) {
         console.error("Failed to parse settings from localStorage", error);
-        // Fallback to default if parsing fails or structure is incorrect
         localStorage.setItem('appSettings', JSON.stringify(DEFAULT_SETTINGS));
         setSettings(DEFAULT_SETTINGS);
       }
     } else {
-        // If no settings in localStorage, initialize with defaults
         localStorage.setItem('appSettings', JSON.stringify(DEFAULT_SETTINGS));
         setSettings(DEFAULT_SETTINGS);
     }
@@ -44,7 +44,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (isSettingsLoaded) { // Only save to localStorage if settings have been loaded/initialized
+    if (isSettingsLoaded) { 
         localStorage.setItem('appSettings', JSON.stringify(settings));
     }
   }, [settings, isSettingsLoaded]);
@@ -67,3 +67,4 @@ export const useSettings = () => {
   }
   return context;
 };
+

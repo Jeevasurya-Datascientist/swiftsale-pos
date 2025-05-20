@@ -32,4 +32,6 @@ export interface AppSettings {
   shopLogoUrl: string;
   shopAddress: string;
   currencySymbol: string;
+  userName: string; // Added user name
 }
+
