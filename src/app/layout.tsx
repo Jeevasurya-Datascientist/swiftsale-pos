@@ -1,9 +1,9 @@
+
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
-import { AppLayout } from '@/components/layout/AppLayout';
-import { Toaster } from "@/components/ui/toaster";
 import { SettingsProvider } from '@/context/SettingsContext';
+import { LayoutRenderer } from '@/components/layout/LayoutRenderer'; // New component to handle path-based rendering
 
 export const metadata: Metadata = {
   title: 'SwiftSale POS',
@@ -19,10 +19,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${GeistSans.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <SettingsProvider>
-          <AppLayout>
-            {children}
-          </AppLayout>
-          <Toaster />
+          <LayoutRenderer>{children}</LayoutRenderer>
         </SettingsProvider>
       </body>
     </html>
