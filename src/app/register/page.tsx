@@ -40,6 +40,7 @@ export default function RegisterPage() {
     console.log('Registration attempt with:', { email });
     // In a real app, you'd call your auth service here
     localStorage.setItem('isAuthenticated', 'true'); // Simple flag for simulation
+    localStorage.setItem('userEmail', email); // Store email
     toast({
       title: 'Registration Successful',
       description: 'Account created! Redirecting to your dashboard...',

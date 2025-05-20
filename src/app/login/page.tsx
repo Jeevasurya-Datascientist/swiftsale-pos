@@ -31,6 +31,7 @@ export default function LoginPage() {
     console.log('Login attempt with:', { email, password });
     // In a real app, you'd call your auth service here
     localStorage.setItem('isAuthenticated', 'true'); // Simple flag for simulation
+    localStorage.setItem('userEmail', email); // Store email
     toast({
       title: 'Login Successful',
       description: 'Redirecting to your dashboard...',

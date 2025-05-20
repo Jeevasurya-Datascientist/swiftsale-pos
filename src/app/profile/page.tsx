@@ -7,10 +7,19 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { UserCircle, Edit, Building, MapPin, Mail, Globe, Settings as SettingsIcon } from 'lucide-react';
-import { Label } from '@/components/ui/label'; // Added import
+import { Label } from '@/components/ui/label';
+import { useState, useEffect } from 'react';
 
 export default function ProfilePage() {
   const { shopName, shopLogoUrl, shopAddress, userName, isSettingsLoaded } = useSettings();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedEmail = localStorage.getItem('userEmail');
+      setUserEmail(storedEmail);
+    }
+  }, []);
 
   if (!isSettingsLoaded) {
     return (
@@ -63,8 +72,12 @@ export default function ProfilePage() {
               <p className="text-lg font-medium">{userName || 'Not Set'}</p>
             </div>
             <div>
-              <Label className="text-sm text-muted-foreground">Email Address</Label>
-              <p className="text-lg font-medium text-muted-foreground italic">(Email not configured)</p>
+              <Label className="text-sm text-muted-foreground flex items-center gap-1"><Mail size={14}/> Email Address</Label>
+              {userEmail ? (
+                <p className="text-lg font-medium">{userEmail}</p>
+              ) : (
+                <p className="text-lg font-medium text-muted-foreground italic">(Email not available)</p>
+              )}
             </div>
              <div>
               <Label className="text-sm text-muted-foreground">Role</Label>
@@ -101,5 +114,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    

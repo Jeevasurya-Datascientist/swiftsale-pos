@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation'; // Added for logout redirection
+import { useRouter } from 'next/navigation'; 
 
 const CustomSidebarHeader = () => {
   const { shopName, shopLogoUrl, isSettingsLoaded } = useSettings();
@@ -64,7 +64,7 @@ const CustomSidebarHeader = () => {
 const CustomSidebarFooter = () => {
   const { userName, isSettingsLoaded } = useSettings();
   const { toast } = useToast(); 
-  const router = useRouter(); // Initialize router
+  const router = useRouter(); 
 
   const displayUserName = isSettingsLoaded ? (userName || "User") : "Loading...";
   const avatarFallback = isSettingsLoaded ? (userName?.[0]?.toUpperCase() || 'U') : "L";
@@ -75,7 +75,7 @@ const CustomSidebarFooter = () => {
     localStorage.removeItem('appProducts');
     localStorage.removeItem('appServices');
     localStorage.removeItem('isAuthenticated'); // Clear simulated auth flag
-    // Potentially clear other localStorage items if your app uses more
+    localStorage.removeItem('userEmail'); // Clear stored email
 
     toast({
       title: "Logged Out",
