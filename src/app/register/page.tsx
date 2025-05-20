@@ -9,38 +9,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Eye, EyeOff } from 'lucide-react';
+import { useForm, SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const registerSchema = z.object({
+  email: z.string().email({ message: "Invalid email address." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"], // path to show error under
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-     if (!email || !password || !confirmPassword) {
-      toast({
-        title: "Missing Fields",
-        description: "Please fill in all fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast({
-        title: 'Passwords Do Not Match',
-        description: 'Please ensure your passwords match.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    // Simulate registration
-    console.log('Registration attempt with:', { email });
+  const handleRegister: SubmitHandler<RegisterFormValues> = (data) => {
+    console.log('Registration attempt with:', { email: data.email });
     // In a real app, you'd call your auth service here
-    localStorage.setItem('isAuthenticated', 'true'); // Simple flag for simulation
-    localStorage.setItem('userEmail', email); // Store email
+    localStorage.setItem('isAuthenticated', 'true'); 
+    localStorage.setItem('userEmail', data.email); 
     toast({
       title: 'Registration Successful',
       description: 'Account created! Redirecting to your dashboard...',
@@ -59,42 +57,59 @@ export default function RegisterPage() {
           <CardDescription>Join SwiftSale POS and streamline your business.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegister} className="space-y-6">
+          <form onSubmit={handleSubmit(handleRegister)} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                {...register("email")}
                 className="h-12 text-base"
               />
+              {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="Create a strong password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-12 text-base"
+                {...register("password")}
+                className="h-12 text-base pr-10"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-8 h-8 w-8"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
+              </Button>
+              {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
                 id="confirmPassword"
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 placeholder="Re-enter your password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="h-12 text-base"
+                {...register("confirmPassword")}
+                className="h-12 text-base pr-10"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-8 h-8 w-8"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                <span className="sr-only">{showConfirmPassword ? 'Hide password' : 'Show password'}</span>
+              </Button>
+              {errors.confirmPassword && <p className="text-sm text-destructive mt-1">{errors.confirmPassword.message}</p>}
             </div>
             <Button type="submit" className="w-full h-12 text-lg">
               <UserPlus className="mr-2 h-5 w-5" /> Create Account

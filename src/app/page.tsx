@@ -3,8 +3,8 @@
 
 import { useState, useEffect, ChangeEvent, useRef } from 'react';
 import type { Product, Service, CartItem, Invoice, SearchableItem, ExistingCustomer } from '@/lib/types';
-import { mockProducts, mockServices, mockInvoices } from '@/lib/mockData';
-import { ItemGrid } from '@/components/dashboard/ItemGrid'; // Changed from BarcodeInput
+import { mockProducts, mockServices, mockInvoices as initialMockInvoices } from '@/lib/mockData';
+import { ItemGrid } from '@/components/dashboard/ItemGrid';
 import { CartDisplay } from '@/components/dashboard/CartDisplay';
 import { SmartSuggestions } from '@/components/dashboard/SmartSuggestions';
 import { Button } from '@/components/ui/button';
@@ -15,14 +15,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { BarcodeInput } from '@/components/dashboard/BarcodeInput'; // Keep for scanner button logic if BarcodeInput is enhanced
 
 export default function BillingPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [searchableItems, setSearchableItems] = useState<SearchableItem[]>([]);
+  const [filteredSearchableItems, setFilteredSearchableItems] = useState<SearchableItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
   const [existingCustomers, setExistingCustomers] = useState<ExistingCustomer[]>([]);
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -45,15 +49,13 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // IMPORTANT: You need to add a sound file (e.g., add-to-cart.mp3)
-      // to your `public/sounds/` directory for this to work.
-      audioRef.current = new Audio('/sounds/add-to-cart.mp3');
+      audioRef.current = new Audio('/sounds/add-to-cart.mp3'); // Ensure this path is correct
     }
   }, []);
 
   const playSound = () => {
     if (audioRef.current) {
-      audioRef.current.currentTime = 0; // Rewind to the start
+      audioRef.current.currentTime = 0;
       audioRef.current.play().catch(error => console.warn("Audio play failed:", error));
     }
   };
@@ -68,11 +70,13 @@ export default function BillingPage() {
         const finalServices = storedServices ? JSON.parse(storedServices) : mockServices;
         setServices(finalServices);
         
-        setSearchableItems([...finalProducts, ...finalServices].sort((a, b) => a.name.localeCompare(b.name)));
+        const allItems = [...finalProducts, ...finalServices].sort((a, b) => a.name.localeCompare(b.name));
+        setSearchableItems(allItems);
+        setFilteredSearchableItems(allItems);
 
 
         const storedInvoices = localStorage.getItem('appInvoices');
-        const allInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : mockInvoices;
+        const allInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : initialMockInvoices;
         const uniqueCusts: Record<string, ExistingCustomer> = {};
         allInvoices.forEach(inv => {
             if (inv.customerName) {
@@ -94,9 +98,34 @@ export default function BillingPage() {
     if (isSettingsLoaded && (products.length > 0 || services.length > 0)) { 
         localStorage.setItem('appProducts', JSON.stringify(products));
         localStorage.setItem('appServices', JSON.stringify(services));
-        setSearchableItems([...products, ...services].sort((a, b) => a.name.localeCompare(b.name))); 
+        const allItems = [...products, ...services].sort((a, b) => a.name.localeCompare(b.name));
+        setSearchableItems(allItems);
+        // Apply search term if it exists
+        if (searchTerm) {
+            setFilteredSearchableItems(
+                allItems.filter(item =>
+                    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()))
+                )
+            );
+        } else {
+            setFilteredSearchableItems(allItems);
+        }
     }
-  }, [products, services, isSettingsLoaded]); 
+  }, [products, services, isSettingsLoaded, searchTerm]); 
+
+  useEffect(() => {
+    if (searchTerm === '') {
+      setFilteredSearchableItems(searchableItems);
+    } else {
+      setFilteredSearchableItems(
+        searchableItems.filter(item =>
+          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+      );
+    }
+  }, [searchTerm, searchableItems]);
 
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const gstRate = 0.05; 
@@ -126,15 +155,12 @@ export default function BillingPage() {
   const handleAddItemToCart = (itemIdentifier: string, itemTypeFromSearch?: 'product' | 'service') => {
     let foundItem: SearchableItem | undefined;
 
-    if (itemTypeFromSearch) { 
+    // Check from the currently displayed (potentially filtered) items first
+    foundItem = filteredSearchableItems.find(item => item.id === itemIdentifier);
+    
+    // If not found in filtered, check all searchable items (this covers direct ID additions)
+    if (!foundItem) {
         foundItem = searchableItems.find(item => item.id === itemIdentifier);
-    } else { 
-        foundItem = searchableItems.find(
-        (item) =>
-            item.name.toLowerCase().includes(itemIdentifier.toLowerCase()) ||
-            ('barcode' in item && item.barcode.toLowerCase() === itemIdentifier.toLowerCase()) ||
-            ('serviceCode' in item && item.serviceCode?.toLowerCase() === itemIdentifier.toLowerCase())
-        );
     }
 
     if (foundItem) {
@@ -163,7 +189,6 @@ export default function BillingPage() {
                 item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
               );
             } else {
-              // This case should ideally be caught before calling setCartItems, but as a fallback:
               toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
               return prevCart;
             }
@@ -221,7 +246,7 @@ export default function BillingPage() {
     setCartItems((prevCart) =>
       prevCart.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
     );
-    if (newQuantity > (cartItem.quantity || 0) ) { // Play sound if quantity increased
+    if (newQuantity > (cartItem.quantity || 0) ) { 
         playSound();
     }
   };
@@ -334,8 +359,9 @@ export default function BillingPage() {
     }
     
     const storedAppInvoices = localStorage.getItem('appInvoices');
-    const allAppInvoices: Invoice[] = storedAppInvoices ? JSON.parse(storedAppInvoices) : [];
-    allAppInvoices.unshift(currentInvoice);
+    let allAppInvoices: Invoice[] = storedAppInvoices ? JSON.parse(storedAppInvoices) : [];
+    // Prepend new invoice to ensure it's at the top when invoices are displayed by date (most recent first)
+    allAppInvoices = [currentInvoice, ...allAppInvoices];
     localStorage.setItem('appInvoices', JSON.stringify(allAppInvoices));
 
     setCartItems([]);
@@ -347,12 +373,20 @@ export default function BillingPage() {
     setUpiId('');
     setAmountReceived('');
     setBalanceAmount(0);
+    setSearchTerm(''); // Clear search term after sale
     
     toast({ 
         title: currentInvoice.status === 'Paid' ? "Sale Finalized!" : "Invoice Saved (Payment Due)", 
         description: `${paymentSuccessMessage} ${currentInvoice.status === 'Paid' ? 'Stock updated.' : 'Stock not updated.'}`
     });
     
+    // Simulate SMS/WhatsApp notifications
+    if (currentInvoice.customerPhoneNumber) {
+        const summaryMessage = `Thank you for shopping at ${currentInvoice.customerName}! Your invoice ${currentInvoice.invoiceNumber} (Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}, Status: ${currentInvoice.status}) has been generated.`;
+        toast({ title: "Simulated WhatsApp Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
+        toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
+    }
+
     setTimeout(() => {
         window.print();
     }, 100);
@@ -387,8 +421,20 @@ export default function BillingPage() {
               <CardTitle className="flex items-center gap-2"><FileText className="h-6 w-6 text-primary"/> Add Items to Cart</CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
+                <Input
+                  type="text"
+                  placeholder="Search items by name or category..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 h-12 text-base w-full"
+                />
+              </div>
+              {/* BarcodeInput can be re-enabled or its scanner button integrated here if needed */}
+              {/* <BarcodeInput onItemSearch={handleAddItemToCart} searchableItems={searchableItems} /> */}
               <ItemGrid 
-                items={searchableItems}
+                items={filteredSearchableItems}
                 cartItems={cartItems}
                 onItemSelect={handleAddItemToCart}
                 onUpdateQuantity={handleUpdateQuantity}
@@ -577,7 +623,7 @@ export default function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
-                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Status: ${currentInvoice.status}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? 0).toFixed(2)}. ${currentInvoice.status === 'Due' && currentInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.` : (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
+                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Status: ${currentInvoice.status}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? 0).toFixed(2)}. ${currentInvoice.status === 'Due' && currentInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.` : (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase! Shop: ${currentInvoice.shopName || 'Our Store'}.`;
                         toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
@@ -592,7 +638,8 @@ export default function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
-                        toast({ title: "SMS Send Simulated", description: `SMS with invoice ${currentInvoice.invoiceNumber} details would be sent to ${currentInvoice.customerPhoneNumber}.` });
+                         const message = `Invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || 'Our Store'}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}. Thanks!`;
+                        toast({ title: "SMS Send Simulated", description: `SMS with invoice details would be sent to ${currentInvoice.customerPhoneNumber}. Msg: ${message.substring(0,100)}...` });
                       } else {
                         toast({ title: "SMS Send Failed", description: "Customer phone number not available for SMS.", variant: "destructive" });
                       }
