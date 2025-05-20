@@ -12,12 +12,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Settings as SettingsIcon, Save, User } from 'lucide-react';
-import { useEffect } from 'react';
+import { Settings as SettingsIcon, Save, User, UploadCloud } from 'lucide-react';
+import Image from 'next/image';
+import React, { useEffect, useState } from 'react';
 
 const settingsSchema = z.object({
   shopName: z.string().min(1, "Shop name is required"),
-  shopLogoUrl: z.string().url("Must be a valid URL for the logo, or leave empty.").or(z.literal('')).optional(),
+  shopLogoUrl: z.string().optional(), // Relaxed for Data URLs or empty
   shopAddress: z.string().min(1, "Shop address is required"),
   currencySymbol: z.string().min(1, "Currency symbol is required").max(5),
   userName: z.string().min(2, "User name must be at least 2 characters.").max(50).or(z.literal('')).optional(),
@@ -28,8 +29,9 @@ type SettingsFormValues = z.infer<typeof settingsSchema>;
 export default function SettingsPage() {
   const { shopName, shopLogoUrl, shopAddress, currencySymbol, userName, updateSettings, isSettingsLoaded } = useSettings();
   const { toast } = useToast();
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
-  const { control, handleSubmit, reset, formState: { errors, isDirty } } = useForm<SettingsFormValues>({
+  const { control, handleSubmit, reset, formState: { errors, isDirty }, setValue, watch } = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       shopName,
@@ -40,17 +42,25 @@ export default function SettingsPage() {
     }
   });
 
+  const currentShopLogoUrl = watch('shopLogoUrl');
+
   useEffect(() => {
     if (isSettingsLoaded) {
-      reset({
+      const initialValues = {
         shopName,
-        shopLogoUrl,
+        shopLogoUrl: shopLogoUrl || '',
         shopAddress,
         currencySymbol,
-        userName,
-      });
+        userName: userName || '',
+      };
+      reset(initialValues);
+      setLogoPreview(shopLogoUrl || null);
     }
   }, [isSettingsLoaded, shopName, shopLogoUrl, shopAddress, currencySymbol, userName, reset]);
+
+  useEffect(() => {
+    setLogoPreview(currentShopLogoUrl || null);
+  }, [currentShopLogoUrl]);
 
 
   const onSubmit = (data: SettingsFormValues) => {
@@ -59,6 +69,19 @@ export default function SettingsPage() {
       title: 'Settings Saved',
       description: 'Your application settings have been updated.',
     });
+  };
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        setValue('shopLogoUrl', dataUrl, { shouldDirty: true });
+        setLogoPreview(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
   };
   
   if (!isSettingsLoaded) {
@@ -81,8 +104,8 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Manage your shop details, user profile, and application preferences.</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card className="shadow-lg">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <Card className="md:col-span-2 shadow-lg">
           <CardHeader>
             <CardTitle>Shop Configuration</CardTitle>
             <CardDescription>Update your shop's information. These details will appear on invoices and other parts of the application.</CardDescription>
@@ -100,14 +123,47 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label htmlFor="shopLogoUrl">Shop Logo URL (Optional)</Label>
-                <Controller
-                  name="shopLogoUrl"
-                  control={control}
-                  render={({ field }) => <Input id="shopLogoUrl" {...field} placeholder="https://example.com/logo.png" />}
-                />
-                 <p className="text-xs text-muted-foreground mt-1">Recommended: Square or landscape transparent PNG. Use https://placehold.co for placeholders.</p>
-                {errors.shopLogoUrl && <p className="text-sm text-destructive mt-1">{errors.shopLogoUrl.message}</p>}
+                <Label htmlFor="shopLogoUrl">Shop Logo</Label>
+                <div className="mt-1 flex items-center gap-4">
+                  {logoPreview && (
+                    <Image
+                      src={logoPreview}
+                      alt="Shop Logo Preview"
+                      width={64}
+                      height={64}
+                      className="rounded-md object-contain border"
+                      onError={() => setLogoPreview(null)} // Hide if URL is broken
+                    />
+                  )}
+                  <div className="flex-grow">
+                    <Controller
+                      name="shopLogoUrl"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          id="shopLogoUrlInput" // Changed id to avoid conflict with label's htmlFor
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Enter image URL or upload"
+                        />
+                      )}
+                    />
+                     {errors.shopLogoUrl && <p className="text-sm text-destructive mt-1">{errors.shopLogoUrl.message}</p>}
+                  </div>
+                  <Button type="button" variant="outline" asChild className="relative">
+                    <div>
+                      <UploadCloud className="w-4 h-4 mr-2" /> Upload
+                      <input 
+                        type="file" 
+                        id="logoUpload"
+                        accept="image/*" 
+                        onChange={handleLogoUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                       />
+                    </div>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Enter a URL or upload an image (PNG, JPG, GIF). Recommended: Square or landscape transparent PNG. Using https://placehold.co for placeholders is also an option.</p>
               </div>
 
               <div>
@@ -125,13 +181,13 @@ export default function SettingsPage() {
                 <Controller
                   name="currencySymbol"
                   control={control}
-                  render={({ field }) => <Input id="currencySymbol" {...field} placeholder="$" className="w-24" />}
+                  render={({ field }) => <Input id="currencySymbol" {...field} placeholder="₹" className="w-24" />}
                 />
                 {errors.currencySymbol && <p className="text-sm text-destructive mt-1">{errors.currencySymbol.message}</p>}
               </div>
 
               <Button type="submit" className="w-full h-12 text-lg" disabled={!isDirty}>
-                <Save className="w-5 h-5 mr-2" /> Save All Settings
+                <Save className="w-5 h-5 mr-2" /> Save Shop Settings
               </Button>
             </form>
           </CardContent>
@@ -154,7 +210,7 @@ export default function SettingsPage() {
                 {errors.userName && <p className="text-sm text-destructive mt-1">{errors.userName.message}</p>}
               </div>
                <Button type="submit" className="w-full h-12 text-lg" disabled={!isDirty}>
-                <Save className="w-5 h-5 mr-2" /> Save All Settings
+                <Save className="w-5 h-5 mr-2" /> Save User Settings
               </Button>
             </form>
           </CardContent>
@@ -163,3 +219,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    

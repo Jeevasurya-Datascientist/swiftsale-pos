@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast'; // Added for logout toast
 
 const CustomSidebarHeader = () => {
   const { shopName, shopLogoUrl, isSettingsLoaded } = useSettings();
@@ -40,7 +41,11 @@ const CustomSidebarHeader = () => {
             height={32} 
             className="rounded-sm object-contain"
             data-ai-hint="shop logo"
-            onError={(e) => (e.currentTarget.src = 'https://placehold.co/32x32.png')} // Fallback placeholder
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.onerror = null; // Prevent infinite loop if placeholder also fails
+              target.src = 'https://placehold.co/32x32.png/E3F2FD/212121?text=Logo'; // Fallback placeholder
+            }}
           />
         ) : (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-primary">
@@ -57,8 +62,28 @@ const CustomSidebarHeader = () => {
 
 const CustomSidebarFooter = () => {
   const { userName, isSettingsLoaded } = useSettings();
+  const { toast } = useToast(); // For logout toast
+
   const displayUserName = isSettingsLoaded ? (userName || "User") : "Loading...";
   const avatarFallback = isSettingsLoaded ? (userName?.[0]?.toUpperCase() || 'U') : "L";
+
+  const handleLogout = () => {
+    localStorage.removeItem('appSettings');
+    localStorage.removeItem('appProducts');
+    localStorage.removeItem('appServices');
+    // Potentially clear other localStorage items if your app uses more
+
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out. App data has been cleared.",
+    });
+
+    // Reload the page to reset the app state and effectively "log out"
+    // For a real app, you might redirect to a login page: router.push('/login');
+    setTimeout(() => {
+        window.location.reload();
+    }, 1500); // Delay for toast visibility
+  };
 
   return (
     <SidebarFooter className="p-4 mt-auto border-t border-sidebar-border group-data-[collapsible=icon]:p-2">
@@ -66,8 +91,7 @@ const CustomSidebarFooter = () => {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center justify-start w-full gap-2 p-2 group-data-[collapsible=icon]:justify-center">
               <Avatar className="w-8 h-8">
-                {/* For future, user might set their own avatar URL in settings */}
-                <AvatarImage src="https://placehold.co/40x40.png" alt={displayUserName} data-ai-hint="user avatar"/>
+                <AvatarImage src="https://placehold.co/40x40.png/7B1FA2/FFFFFF?text=User" alt={displayUserName} data-ai-hint="user avatar"/>
                 <AvatarFallback>{avatarFallback}</AvatarFallback>
               </Avatar>
               <span className="group-data-[collapsible=icon]:hidden">{displayUserName}</span>
@@ -76,10 +100,12 @@ const CustomSidebarFooter = () => {
           <DropdownMenuContent side="right" align="start" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled> {/* Disabled for now */}
-              <UserCircle className="w-4 h-4 mr-2" />
-              Profile
-            </DropdownMenuItem>
+            <Link href="/profile" passHref>
+              <DropdownMenuItem>
+                <UserCircle className="w-4 h-4 mr-2" />
+                Profile
+              </DropdownMenuItem>
+            </Link>
             <Link href="/settings" passHref>
               <DropdownMenuItem>
                 <Settings className="w-4 h-4 mr-2" />
@@ -87,7 +113,7 @@ const CustomSidebarFooter = () => {
               </DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled> {/* Disabled for now */}
+            <DropdownMenuItem onSelect={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </DropdownMenuItem>
@@ -126,16 +152,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <p className="font-medium">No new notifications</p>
                   <p className="text-xs text-muted-foreground">Your notification feed is currently empty.</p>
                 </DropdownMenuItem>
-                {/* 
-                  // Example of a future notification item:
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="p-3">
-                    <div className="flex flex-col">
-                      <p className="font-medium text-sm">Low Stock Alert: Fresh Milk 1L</p>
-                      <p className="text-xs text-muted-foreground">Only 5 units left in stock.</p>
-                    </div>
-                  </DropdownMenuItem>
-                */}
               </DropdownMenuContent>
             </DropdownMenu>
             <SidebarTrigger className="hidden md:flex"/> {/* Show on desktop */}
@@ -148,3 +164,5 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    
