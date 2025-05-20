@@ -10,20 +10,11 @@ interface CategorySalesChartProps {
   currencySymbol: string;
 }
 
-// For Pie charts, config can be dynamic based on data names or a generic setup
-const chartConfig = {
-  // We'll let the Cell component define fill colors.
-  // This config is mainly for ChartTooltipContent to access context.
-  // If we used ChartLegendContent from shadcn, we'd define item labels/colors here.
-} satisfies ChartConfig;
-
-
 export default function CategorySalesChart({ data, currencySymbol }: CategorySalesChartProps) {
    if (!data || data.length === 0) {
     return <p className="text-muted-foreground text-center py-8">No category sales data available.</p>;
   }
 
-  // Dynamically build a config for tooltip if needed, or use a simpler formatter
   const dynamicChartConfig = data.reduce((acc, entry) => {
     acc[entry.name] = { label: entry.name, color: entry.fill || `hsl(var(--chart-1))` };
     return acc;
@@ -32,12 +23,15 @@ export default function CategorySalesChart({ data, currencySymbol }: CategorySal
 
   return (
     <div className="h-[350px] w-full">
-      <ChartContainer config={dynamicChartConfig}> {/* Pass config for tooltip context */}
+      <ChartContainer config={dynamicChartConfig}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Tooltip
               content={<ChartTooltipContent 
-                  formatter={(value, name, props) => [`${currencySymbol}${Number(value).toFixed(2)} (${(props.payload.percent * 100).toFixed(1)}%)`, props.payload.name]}
+                  formatter={(value, name, props) => {
+                    const percentage = props.payload?.percent !== undefined ? (props.payload.percent * 100).toFixed(1) : 'N/A';
+                    return [`${currencySymbol}${Number(value).toFixed(2)} (${percentage}%)`, props.payload.name];
+                  }}
                   nameKey="name" 
               />}
             />
@@ -45,24 +39,28 @@ export default function CategorySalesChart({ data, currencySymbol }: CategorySal
             <Pie
               data={data}
               dataKey="value"
-              nameKey="name" // This corresponds to the 'name' property in KeyValueDataPoint
+              nameKey="name"
               cx="50%"
               cy="50%"
               outerRadius={100}
-              innerRadius={60} // For doughnut chart
+              innerRadius={60} 
               paddingAngle={2}
               labelLine={false}
               label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
                 const RADIAN = Math.PI / 180;
-                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                // Show label only if percent is significant
-                return (percent * 100) > 5 ? (
-                  <text x={x} y={y} fill="hsl(var(--primary-foreground))" textAnchor="middle" dominantBaseline="central" fontSize={12}>
-                    {`${name.substring(0,8)}${(percent * 100).toFixed(0)}%`}
-                  </text>
-                ) : null;
+                // Adjust label radius to be closer to the middle of the doughnut slice
+                const labelRadius = innerRadius + (outerRadius - innerRadius) * 0.4; 
+                const x = cx + labelRadius * Math.cos(-midAngle * RADIAN);
+                const y = cy + labelRadius * Math.sin(-midAngle * RADIAN);
+                
+                if ((percent * 100) > 5) { // Show label only if percent is significant
+                  return (
+                    <text x={x} y={y} fill="hsl(var(--primary-foreground))" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight="medium">
+                      {`${name.substring(0, 7)}${(name.length > 7 ? '...' : '')}`}
+                    </text>
+                  );
+                }
+                return null;
               }}
             >
               {data.map((entry, index) => (
@@ -75,4 +73,3 @@ export default function CategorySalesChart({ data, currencySymbol }: CategorySal
     </div>
   );
 }
-

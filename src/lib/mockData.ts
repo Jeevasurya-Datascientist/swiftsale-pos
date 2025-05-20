@@ -106,7 +106,6 @@ export const mockServices: Service[] = [
   }
 ];
 
-// Ensure mockItems have dataAiHint where imageUrl is a placeholder
 mockProducts.forEach(p => {
   if (p.imageUrl && p.imageUrl.startsWith('https://placehold.co') && !p.dataAiHint) {
     p.dataAiHint = p.name.toLowerCase().split(' ').slice(0, 2).join(' ');
@@ -118,17 +117,14 @@ mockServices.forEach(s => {
   }
 });
 
-
-// Helper to create a CartItem from Product for mock invoices
 const productToCartItem = (product: Product, quantity: number): CartItem => ({
-  ...product, // Includes category
+  ...product,
   quantity,
   type: 'product',
 });
 
-// Helper to create a CartItem from Service for mock invoices
 const serviceToCartItem = (service: Service, quantity: number): CartItem => ({
-  ...service, // Includes category
+  ...service,
   quantity,
   type: 'service',
 });
@@ -140,17 +136,18 @@ export const mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-20240701-001',
     customerName: 'John Doe',
     items: [
-      productToCartItem(mockProducts[0], 2), // Fresh Milk (Groceries)
-      productToCartItem(mockProducts[1], 1), // Whole Wheat Bread (Groceries)
+      productToCartItem(mockProducts[0], 2), 
+      productToCartItem(mockProducts[1], 1), 
     ],
     subTotal: (mockProducts[0].price * 2) + mockProducts[1].price,
     gstRate: 0.05,
     gstAmount: ((mockProducts[0].price * 2) + mockProducts[1].price) * 0.05,
     totalAmount: (((mockProducts[0].price * 2) + mockProducts[1].price) * 1.05),
     paymentMethod: 'Cash',
-    date: new Date(Date.now() - 86400000 * 5).toISOString(), // 5 days ago
+    date: new Date(Date.now() - 86400000 * 5).toISOString(), 
     amountReceived: (((mockProducts[0].price * 2) + mockProducts[1].price) * 1.05),
     balanceAmount: 0,
+    status: 'Paid',
   },
   {
     id: 'inv002',
@@ -158,74 +155,77 @@ export const mockInvoices: Invoice[] = [
     customerName: 'Jane Smith',
     customerPhoneNumber: '9876543210',
     items: [
-      productToCartItem(mockProducts[3], 1), // T-Shirt (Apparel)
-      serviceToCartItem(mockServices[0], 1), // Haircut (Salon)
-      productToCartItem(mockProducts[5], 4), // Cola (Beverages)
+      productToCartItem(mockProducts[3], 1), 
+      serviceToCartItem(mockServices[0], 1), 
+      productToCartItem(mockProducts[5], 4), 
     ],
     subTotal: mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4),
     gstRate: 0.05,
     gstAmount: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * 0.05,
     totalAmount: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * 1.05,
     paymentMethod: 'Card',
-    date: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
+    date: new Date(Date.now() - 86400000 * 2).toISOString(), 
     amountReceived: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * 1.05,
     balanceAmount: 0,
+    status: 'Paid',
   },
   {
     id: 'inv003',
     invoiceNumber: 'INV-20240704-001',
     customerName: 'Alice Brown',
     items: [
-      productToCartItem(mockProducts[2], 2), // Organic Eggs (Groceries)
-      productToCartItem(mockProducts[4], 1), // Slim Fit Jeans (Apparel)
-      serviceToCartItem(mockServices[2], 1), // Express Car Wash (Automotive)
+      productToCartItem(mockProducts[2], 2), 
+      productToCartItem(mockProducts[4], 1), 
+      serviceToCartItem(mockServices[2], 1), 
     ],
     subTotal: (mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price,
     gstRate: 0.05,
     gstAmount: ((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * 0.05,
     totalAmount: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * 1.05),
     paymentMethod: 'UPI',
-    date: new Date(Date.now() - 86400000 * 1).toISOString(), // 1 day ago
-    amountReceived: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * 1.05),
-    balanceAmount: 0,
+    date: new Date(Date.now() - 86400000 * 1).toISOString(), 
+    amountReceived: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * 1.05) - 100, // Underpaid
+    balanceAmount: -100,
+    status: 'Due',
   },
     {
     id: 'inv004',
     invoiceNumber: 'INV-20240615-001',
     customerName: 'Bob Green',
     items: [
-      serviceToCartItem(mockServices[1], 1), // Software Consultation (IT Services)
-      productToCartItem(mockProducts[0], 5), // Fresh Milk (Groceries)
+      serviceToCartItem(mockServices[1], 1), 
+      productToCartItem(mockProducts[0], 5), 
     ],
     subTotal: mockServices[1].price + (mockProducts[0].price * 5),
     gstRate: 0.05,
     gstAmount: (mockServices[1].price + (mockProducts[0].price * 5)) * 0.05,
     totalAmount: (mockServices[1].price + (mockProducts[0].price * 5)) * 1.05,
     paymentMethod: 'Digital Wallet',
-    date: new Date(Date.now() - 86400000 * 20).toISOString(), // 20 days ago (last month)
+    date: new Date(Date.now() - 86400000 * 20).toISOString(), 
     amountReceived: (mockServices[1].price + (mockProducts[0].price * 5)) * 1.05,
     balanceAmount: 0,
+    status: 'Paid',
   },
   {
     id: 'inv005',
-    invoiceNumber: 'INV-20240705-001', // Today
+    invoiceNumber: 'INV-20240705-001', 
     customerName: 'Eve Davis',
     customerPhoneNumber: '9988776655',
     items: [
-      productToCartItem(mockProducts[5], 10), // Cola (Beverages)
+      productToCartItem(mockProducts[5], 10), 
     ],
     subTotal: mockProducts[5].price * 10,
     gstRate: 0.05,
     gstAmount: (mockProducts[5].price * 10) * 0.05,
     totalAmount: (mockProducts[5].price * 10) * 1.05,
     paymentMethod: 'Cash',
-    date: new Date().toISOString(), // Today
-    amountReceived: (mockProducts[5].price * 10) * 1.05 + 50, // Overpaid
+    date: new Date().toISOString(), 
+    amountReceived: (mockProducts[5].price * 10) * 1.05 + 50, 
     balanceAmount: 50,
+    status: 'Paid',
   }
 ];
 
-// Ensure all mock invoice items have a category for reports
 mockInvoices.forEach(invoice => {
   invoice.items.forEach(item => {
     if (!item.category) {
@@ -234,3 +234,14 @@ mockInvoices.forEach(invoice => {
     }
   });
 });
+// Ensure mockInvoices is used to initialize localStorage if 'appInvoices' is not present
+if (typeof window !== 'undefined' && !localStorage.getItem('appInvoices')) {
+    localStorage.setItem('appInvoices', JSON.stringify(mockInvoices));
+}
+if (typeof window !== 'undefined' && !localStorage.getItem('appProducts')) {
+    localStorage.setItem('appProducts', JSON.stringify(mockProducts));
+}
+if (typeof window !== 'undefined' && !localStorage.getItem('appServices')) {
+    localStorage.setItem('appServices', JSON.stringify(mockServices));
+}
+

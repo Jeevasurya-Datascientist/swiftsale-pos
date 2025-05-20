@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Invoice } from '@/lib/types';
-import { mockInvoices } from '@/lib/mockData'; 
+import { mockInvoices as fallbackMockInvoices } from '@/lib/mockData'; 
 import { InvoiceListItem } from '@/components/invoices/InvoiceListItem';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import {
@@ -21,12 +21,23 @@ import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { currencySymbol, isSettingsLoaded } = useSettings();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isSettingsLoaded) {
+        const storedInvoices = localStorage.getItem('appInvoices');
+        const loadedInvoices = storedInvoices ? JSON.parse(storedInvoices) : fallbackMockInvoices;
+        // Sort invoices by date, most recent first
+        loadedInvoices.sort((a: Invoice, b: Invoice) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setInvoices(loadedInvoices);
+    }
+  }, [isSettingsLoaded]);
+
 
   const handleViewDetails = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
@@ -41,7 +52,8 @@ export default function InvoicesPage() {
 
   const filteredInvoices = invoices.filter(invoice => 
     invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+    invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (invoice.status && invoice.status.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (!isSettingsLoaded) {
@@ -67,7 +79,7 @@ export default function InvoicesPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
             type="text"
-            placeholder="Search invoices by number or customer name..."
+            placeholder="Search invoices by number, customer, or status (Paid/Due)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full md:w-1/2 lg:w-1/3"
@@ -97,10 +109,13 @@ export default function InvoicesPage() {
       )}
 
       {selectedInvoice && (
-        <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <Dialog open={isViewOpen} onOpenChange={(open) => {
+            setIsViewOpen(open);
+            if (!open) setSelectedInvoice(null); // Clear selection when dialog closes
+        }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber}</DialogTitle>
+              <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber} ({selectedInvoice.status || 'N/A'})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={selectedInvoice} /> {/* Currency symbol from context */}
             <DialogFooter className="print-hide">

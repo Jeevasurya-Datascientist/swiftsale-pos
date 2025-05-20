@@ -45,16 +45,37 @@ const downloadCSV = (data: any[], filename: string, headers: string[]) => {
   // Add data rows
   for (const row of data) {
     const values = headers.map(header => {
-      // Attempt to map header to a key in the row object
-      // Simple mapping for now, assumes headers match keys or are handled by pre-processing
-      let value = row[header.toLowerCase().replace(/\s+/g, '')] ?? row[header]; // Attempt variations
-      if (header === 'Customer Name') value = row.customerName; // Specific handling for key variations
-      if (header === 'Phone Number') value = row.customerPhoneNumber;
-      if (header === 'Items (Name & Qty)') value = row.itemsSummary; // Use pre-calculated summary
+      let value;
+      // Explicit mapping for known headers to avoid case/space issues
+      if (header === 'Invoice Number') value = row.invoiceNumber;
+      else if (header === 'Date') value = row.date; // Assuming row.date is pre-formatted string
+      else if (header === 'Customer Name') value = row.customerName;
+      else if (header === 'Phone Number') value = row.customerPhoneNumber;
+      else if (header === 'Total Amount') value = row.totalAmount;
+      else if (header === 'Payment Method') value = row.paymentMethod;
+      else if (header === 'Status') value = row.status;
+      else if (header === 'Items (Name & Qty)') value = row.itemsSummary;
+      else if (header === 'ID') value = row.id;
+      else if (header === 'Name') value = row.name;
+      else if (header === 'Price') value = row.price;
+      else if (header === 'Barcode') value = row.barcode;
+      else if (header === 'Stock') value = row.stock;
+      else if (header === 'Category') value = row.category;
+      else if (header === 'Description') value = row.description;
+      else if (header === 'Service Code') value = row.serviceCode;
+      else if (header === 'Duration') value = row.duration;
+      else {
+          // Fallback for any other headers
+          const keySimple = header.toLowerCase().replace(/\s+/g, '');
+          const keyCamelCase = header.replace(/\s+(.)/g, (_match, group1) => group1.toUpperCase()).replace(/\s+/g, '');
+          const keyFirstLowerCamelCase = keyCamelCase.charAt(0).toLowerCase() + keyCamelCase.slice(1);
+          value = row[header] ?? row[keySimple] ?? row[keyCamelCase] ?? row[keyFirstLowerCamelCase];
+      }
 
-
-      if (typeof value === 'string' && value.includes(',')) {
-        return `"${value}"`; // Enclose in quotes if it contains a comma
+      if (value === undefined || value === null) {
+        value = ''; // Ensure empty string for undefined/null
+      } else if (typeof value === 'string' && value.includes(',')) {
+        value = `"${value}"`; // Enclose in quotes if it contains a comma
       }
       return value;
     });
@@ -76,11 +97,11 @@ const downloadCSV = (data: any[], filename: string, headers: string[]) => {
 
 
 export default function ReportsPage() {
-  const [allInvoices, setAllInvoices] = useState<Invoice[]>(initialMockInvoices);
-  const [allProducts, setAllProducts] = useState<Product[]>(mockProducts);
-  const [allServices, setAllServices] = useState<Service[]>(mockServices);
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
 
-  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>(initialMockInvoices);
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [timeFilter, setTimeFilter] = useState<ReportTimeFilter>('last7days');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
   
@@ -88,28 +109,33 @@ export default function ReportsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedProducts = localStorage.getItem('appProducts');
-    const loadedProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : mockProducts;
-    setAllProducts(loadedProducts);
+    if (isSettingsLoaded) {
+        const storedProducts = localStorage.getItem('appProducts');
+        const loadedProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : mockProducts;
+        setAllProducts(loadedProducts);
 
-    const storedServices = localStorage.getItem('appServices');
-    const loadedServices: Service[] = storedServices ? JSON.parse(storedServices) : mockServices;
-    setAllServices(loadedServices);
-    
-    // Enrich all invoices with category from loaded products/services for consistent reporting
-    const allItems: SearchableItem[] = [...loadedProducts, ...loadedServices];
-    const enrichedInvoices = initialMockInvoices.map(inv => ({
-        ...inv,
-        items: inv.items.map(item => {
-            const masterItem = allItems.find(mi => mi.id === item.id);
-            return {
-                ...item,
-                category: item.category || masterItem?.category || 'Uncategorized'
-            }
-        })
-    }));
-    setAllInvoices(enrichedInvoices);
-  }, []);
+        const storedServices = localStorage.getItem('appServices');
+        const loadedServices: Service[] = storedServices ? JSON.parse(storedServices) : mockServices;
+        setAllServices(loadedServices);
+        
+        const storedInvoices = localStorage.getItem('appInvoices');
+        const loadedAppInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : initialMockInvoices;
+
+        // Enrich all invoices with category from loaded products/services for consistent reporting
+        const allItems: SearchableItem[] = [...loadedProducts, ...loadedServices];
+        const enrichedInvoices = loadedAppInvoices.map(inv => ({
+            ...inv,
+            items: inv.items.map(item => {
+                const masterItem = allItems.find(mi => mi.id === item.id);
+                return {
+                    ...item,
+                    category: item.category || masterItem?.category || 'Uncategorized'
+                }
+            })
+        }));
+        setAllInvoices(enrichedInvoices);
+    }
+  }, [isSettingsLoaded]);
 
 
   useEffect(() => {
@@ -130,15 +156,21 @@ export default function ReportsPage() {
   const handleExportCustomers = () => {
     const uniqueCustomers: { [key: string]: { customerName: string; customerPhoneNumber?: string } } = {};
     allInvoices.forEach(invoice => {
-      const key = `${invoice.customerName}-${invoice.customerPhoneNumber || ''}`;
-      if (!uniqueCustomers[key]) {
-        uniqueCustomers[key] = { 
-          customerName: invoice.customerName,
-          customerPhoneNumber: invoice.customerPhoneNumber || 'N/A'
-        };
+      if(invoice.customerName){
+        const key = `${invoice.customerName}-${invoice.customerPhoneNumber || ''}`;
+        if (!uniqueCustomers[key]) {
+          uniqueCustomers[key] = { 
+            customerName: invoice.customerName,
+            customerPhoneNumber: invoice.customerPhoneNumber || 'N/A'
+          };
+        }
       }
     });
     const customerData = Object.values(uniqueCustomers);
+    if (customerData.length === 0) {
+       toast({ title: "No Customers", description: "No customer data to export.", variant: "destructive" });
+       return;
+    }
     downloadCSV(customerData, 'customers_export', ['Customer Name', 'Phone Number']);
     toast({ title: "Customers Exported", description: "Customer data downloaded as CSV." });
   };
@@ -155,13 +187,18 @@ export default function ReportsPage() {
       customerPhoneNumber: inv.customerPhoneNumber || 'N/A',
       totalAmount: inv.totalAmount.toFixed(2),
       paymentMethod: inv.paymentMethod,
+      status: inv.status || 'N/A',
       itemsSummary: inv.items.map(item => `${item.name} (Qty: ${item.quantity})`).join('; ')
     }));
-    downloadCSV(invoiceData, 'invoices_export', ['Invoice Number', 'Date', 'Customer Name', 'Phone Number', 'Total Amount', 'Payment Method', 'Items (Name & Qty)']);
+    downloadCSV(invoiceData, 'invoices_export', ['Invoice Number', 'Date', 'Customer Name', 'Phone Number', 'Total Amount', 'Payment Method', 'Status', 'Items (Name & Qty)']);
     toast({ title: "Invoices Exported", description: "Filtered invoice data downloaded as CSV." });
   };
 
   const handleExportProducts = () => {
+     if (allProducts.length === 0) {
+       toast({ title: "No Products", description: "No product data to export.", variant: "destructive" });
+       return;
+    }
     const productData = allProducts.map(p => ({
       id: p.id,
       name: p.name,
@@ -176,6 +213,10 @@ export default function ReportsPage() {
   };
 
   const handleExportServices = () => {
+    if (allServices.length === 0) {
+       toast({ title: "No Services", description: "No service data to export.", variant: "destructive" });
+       return;
+    }
     const serviceData = allServices.map(s => ({
       id: s.id,
       name: s.name,
@@ -330,5 +371,3 @@ export default function ReportsPage() {
     </ScrollArea>
   );
 }
-
-    

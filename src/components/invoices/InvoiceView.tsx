@@ -5,9 +5,10 @@ import type { Invoice, CartItem } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import Image from 'next/image';
-import { Package, ConciergeBell } from 'lucide-react';
+import { Package, ConciergeBell, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface InvoiceViewProps {
   invoice: Invoice;
@@ -72,7 +73,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {invoice.items.map((item: CartItem) => ( // Ensure item is typed as CartItem
+          {invoice.items.map((item: CartItem) => ( 
             <TableRow key={item.id}>
               <TableCell>
                 <Image 
@@ -124,11 +125,15 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
               <TableCell className="text-right">{currencySymbol}{displayAmountReceived.toFixed(2)}</TableCell>
             </TableRow>
           )}
-          {typeof invoice.balanceAmount === 'number' && invoice.balanceAmount > 0 && (
-            <TableRow>
+          {typeof invoice.balanceAmount === 'number' && invoice.balanceAmount !== 0 && (
+            <TableRow className={invoice.balanceAmount < 0 ? "text-destructive" : ""}>
               <TableCell colSpan={3} />
-              <TableCell className="text-right font-medium">Change Due:</TableCell>
-              <TableCell className="text-right">{currencySymbol}{displayBalanceAmount.toFixed(2)}</TableCell>
+              <TableCell className="text-right font-medium">
+                {invoice.balanceAmount > 0 ? "Change Due:" : "Balance Due:"}
+              </TableCell>
+              <TableCell className="text-right font-semibold">
+                {currencySymbol}{Math.abs(displayBalanceAmount).toFixed(2)}
+              </TableCell>
             </TableRow>
           )}
         </TableFooter>
@@ -138,6 +143,14 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
 
       <div className="mt-6 text-sm">
         <p><span className="font-semibold">Payment Method:</span> {invoice.paymentMethod}</p>
+        {invoice.status && (
+            <p className="mt-1"><span className="font-semibold">Status:</span>
+            <Badge variant={invoice.status === 'Paid' ? 'default' : 'destructive'} className="ml-2">
+                {invoice.status === 'Paid' ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
+                {invoice.status}
+            </Badge>
+            </p>
+        )}
         <p className="mt-4 text-xs text-muted-foreground">Thank you for your business!</p>
       </div>
        <style jsx global>{`

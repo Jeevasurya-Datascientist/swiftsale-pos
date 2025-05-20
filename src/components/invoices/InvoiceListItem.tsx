@@ -5,13 +5,13 @@ import type { Invoice } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { FileText, User, CalendarDays, CreditCard, Eye } from 'lucide-react';
+import { FileText, User, CalendarDays, CreditCard, Eye, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface InvoiceListItemProps {
   invoice: Invoice;
   onViewDetails: (invoice: Invoice) => void;
-  currencySymbol: string; // Now explicitly required
+  currencySymbol: string;
 }
 
 export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: InvoiceListItemProps) {
@@ -28,7 +28,7 @@ export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: Invo
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <div className="flex items-center gap-1 text-muted-foreground">
           <User className="w-4 h-4" />
           <span>Customer:</span>
@@ -47,6 +47,13 @@ export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: Invo
         <div className="flex items-center gap-1 text-muted-foreground">
           <strong className="text-foreground">Total:</strong>
           <span className="font-semibold text-lg text-primary">{currencySymbol}{invoice.totalAmount.toFixed(2)}</span>
+        </div>
+         <div className="flex items-center gap-1 text-muted-foreground md:col-span-2"> {/* Status can take full width on smaller item view */}
+          <strong className="text-foreground">Status:</strong>
+           <Badge variant={invoice.status === 'Paid' ? 'default' : 'destructive'} className="text-xs">
+            {invoice.status === 'Paid' ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
+            {invoice.status || 'N/A'}
+          </Badge>
         </div>
       </CardContent>
     </Card>

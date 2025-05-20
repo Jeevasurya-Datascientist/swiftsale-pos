@@ -58,6 +58,7 @@ export interface Invoice {
   date: string; // ISO string
   amountReceived?: number; // Amount paid by customer
   balanceAmount?: number; // Change given back, if any
+  status?: 'Paid' | 'Due'; // Status of the invoice
 }
 
 export interface AppSettings {
@@ -87,4 +88,10 @@ export type ReportTimeFilter = "today" | "last7days" | "last30days" | "thisMonth
 export interface ReportDateRange {
     from: Date | undefined;
     to: Date | undefined;
+}
+
+export interface ExistingCustomer {
+  name: string;
+  phoneNumber: string;
+  id: string; // A unique ID for the customer, e.g., name-phone
 }

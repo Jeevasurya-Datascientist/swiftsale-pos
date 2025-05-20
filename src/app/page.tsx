@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useEffect, ChangeEvent } from 'react';
-import type { Product, Service, CartItem, Invoice, SearchableItem } from '@/lib/types';
-import { mockProducts, mockServices } from '@/lib/mockData';
+import type { Product, Service, CartItem, Invoice, SearchableItem, ExistingCustomer } from '@/lib/types';
+import { mockProducts, mockServices, mockInvoices } from '@/lib/mockData';
 import { BarcodeInput } from '@/components/dashboard/BarcodeInput';
 import { CartDisplay } from '@/components/dashboard/CartDisplay';
 import { SmartSuggestions } from '@/components/dashboard/SmartSuggestions';
@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -23,6 +23,7 @@ export default function BillingPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [searchableItems, setSearchableItems] = useState<SearchableItem[]>([]);
+  const [existingCustomers, setExistingCustomers] = useState<ExistingCustomer[]>([]);
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
@@ -41,9 +42,8 @@ export default function BillingPage() {
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
 
-  // Load products and services from localStorage or use mock data
   useEffect(() => {
-    if (isSettingsLoaded) { // Ensure settings (currency) are loaded before prices are processed
+    if (isSettingsLoaded) {
         const storedProducts = localStorage.getItem('appProducts');
         const finalProducts = storedProducts ? JSON.parse(storedProducts) : mockProducts;
         setProducts(finalProducts);
@@ -53,19 +53,35 @@ export default function BillingPage() {
         setServices(finalServices);
         
         setSearchableItems([...finalProducts, ...finalServices]);
+
+        const storedInvoices = localStorage.getItem('appInvoices');
+        const allInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : mockInvoices;
+        const uniqueCusts: Record<string, ExistingCustomer> = {};
+        allInvoices.forEach(inv => {
+            if (inv.customerName) {
+                const custId = `${inv.customerName.toLowerCase().replace(/\s/g, '_')}-${(inv.customerPhoneNumber || '').replace(/\D/g, '')}`;
+                if (!uniqueCusts[custId]) {
+                    uniqueCusts[custId] = { 
+                        id: custId,
+                        name: inv.customerName, 
+                        phoneNumber: inv.customerPhoneNumber || '' 
+                    };
+                }
+            }
+        });
+        setExistingCustomers(Object.values(uniqueCusts).sort((a,b) => a.name.localeCompare(b.name)));
     }
   }, [isSettingsLoaded]);
 
-   // Update products in localStorage when they change (e.g. stock update)
    useEffect(() => {
-    if (isSettingsLoaded && products.length > 0) { // Avoid saving empty initial array if loaded async
+    if (isSettingsLoaded && products.length > 0) { 
         localStorage.setItem('appProducts', JSON.stringify(products));
-        setSearchableItems([...products, ...services]); // Update searchableItems when products change
+        setSearchableItems([...products, ...services]); 
     }
-  }, [products, services, isSettingsLoaded]); // services dependency to update searchableItems
+  }, [products, services, isSettingsLoaded]); 
 
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const gstRate = 0.05; // 5% GST
+  const gstRate = 0.05; 
   const gstAmount = subTotal * gstRate;
   const totalAmount = subTotal + gstAmount;
 
@@ -92,9 +108,9 @@ export default function BillingPage() {
   const handleItemSearch = (identifier: string, itemTypeFromSearch?: 'product' | 'service') => {
     let foundItem: SearchableItem | undefined;
 
-    if (itemTypeFromSearch) { // Direct selection from dropdown (identifier is ID)
+    if (itemTypeFromSearch) { 
         foundItem = searchableItems.find(item => item.id === identifier);
-    } else { // General search term (identifier is name, barcode, or serviceCode)
+    } else { 
         foundItem = searchableItems.find(
         (item) =>
             item.name.toLowerCase().includes(identifier.toLowerCase()) ||
@@ -128,12 +144,12 @@ export default function BillingPage() {
               toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
               return prevCart;
             }
-          } else { // For services, no stock limit for quantity increase
+          } else { 
             return prevCart.map((item) =>
               item.id === foundItem!.id ? { ...item, quantity: item.quantity + 1 } : item
             );
           }
-        } else { // New item to cart
+        } else { 
           const cartItemToAdd: CartItem = {
             id: foundItem.id,
             name: foundItem.name,
@@ -142,6 +158,7 @@ export default function BillingPage() {
             type: type,
             imageUrl: foundItem.imageUrl,
             dataAiHint: foundItem.dataAiHint,
+            category: foundItem.category,
             ...(type === 'product' && { barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock }),
             ...(type === 'service' && { serviceCode: (foundItem as Service).serviceCode, duration: (foundItem as Service).duration }),
           };
@@ -177,8 +194,6 @@ export default function BillingPage() {
         return;
       }
     }
-    // No stock check for services or if stock is not defined
-
     setCartItems((prevCart) =>
       prevCart.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
     );
@@ -229,15 +244,13 @@ export default function BillingPage() {
       }
     }
     
-    const numericAmountReceived = typeof amountReceived === 'string' ? parseFloat(amountReceived) : amountReceived;
+    const numericAmountReceived = typeof amountReceived === 'string' || amountReceived === '' ? parseFloat(amountReceived as string) : amountReceived as number;
     if (typeof numericAmountReceived !== 'number' || isNaN(numericAmountReceived) || numericAmountReceived < 0) {
         toast({ title: "Invalid Amount", description: "Please enter a valid Amount Received.", variant: "destructive" });
         return;
     }
-    if (numericAmountReceived < totalAmount) {
-        toast({ title: "Insufficient Amount", description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}). Please collect full amount.`, variant: "destructive" });
-        return;
-    }
+    
+    const invoiceStatus = numericAmountReceived >= totalAmount ? 'Paid' : 'Due';
 
     const newInvoice: Invoice = {
       id: `inv-${Date.now()}`,
@@ -253,16 +266,28 @@ export default function BillingPage() {
       date: new Date().toISOString(),
       amountReceived: numericAmountReceived,
       balanceAmount: numericAmountReceived - totalAmount,
+      status: invoiceStatus,
     };
     setCurrentInvoice(newInvoice);
     setIsInvoiceDialogOpen(true); 
+
+    if (invoiceStatus === 'Due') {
+        toast({ 
+            title: "Invoice Generated (Payment Due)", 
+            description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}). Invoice status: 'Due'.`, 
+            variant: "default", // Changed from destructive to default or warning
+            duration: 7000 
+        });
+    }
   };
 
   const handleFinalizeSaleAndPrint = () => {
     if (!currentInvoice) return;
 
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
-    if (paymentMethod === 'Card') {
+    if (currentInvoice.status === 'Due') {
+        paymentSuccessMessage = `Invoice recorded with Due status. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${currentInvoice.amountReceived?.toFixed(2)}.`;
+    } else if (paymentMethod === 'Card') {
       paymentSuccessMessage = `Simulated: Card ending with ${cardNumber.slice(-4)} charged ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}.`;
     } else if (paymentMethod === 'UPI') {
       paymentSuccessMessage = `Simulated: UPI request for ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} sent to ${upiId}.`;
@@ -270,15 +295,21 @@ export default function BillingPage() {
         paymentSuccessMessage += ` Change due: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`;
     }
 
-    // Update stock for products
-    const updatedStockProducts = products.map(p => {
-      const cartItem = cartItems.find(ci => ci.id === p.id && ci.type === 'product');
-      if (cartItem) {
-        return { ...p, stock: p.stock - cartItem.quantity };
-      }
-      return p;
-    });
-    setProducts(updatedStockProducts); 
+    if (currentInvoice.status === 'Paid') {
+        const updatedStockProducts = products.map(p => {
+        const cartItem = cartItems.find(ci => ci.id === p.id && ci.type === 'product');
+        if (cartItem) {
+            return { ...p, stock: p.stock - cartItem.quantity };
+        }
+        return p;
+        });
+        setProducts(updatedStockProducts); 
+    }
+    
+    const storedAppInvoices = localStorage.getItem('appInvoices');
+    const allAppInvoices: Invoice[] = storedAppInvoices ? JSON.parse(storedAppInvoices) : [];
+    allAppInvoices.unshift(currentInvoice);
+    localStorage.setItem('appInvoices', JSON.stringify(allAppInvoices));
 
     setCartItems([]);
     setCustomerName('');
@@ -290,11 +321,16 @@ export default function BillingPage() {
     setAmountReceived('');
     setBalanceAmount(0);
     
-    toast({ title: "Sale Finalized!", description: `Invoice ${currentInvoice?.invoiceNumber} generated. Stock updated. ${paymentSuccessMessage}` });
+    toast({ 
+        title: currentInvoice.status === 'Paid' ? "Sale Finalized!" : "Invoice Saved (Payment Due)", 
+        description: `${paymentSuccessMessage} ${currentInvoice.status === 'Paid' ? 'Stock updated.' : 'Stock not updated.'}`
+    });
     
     setTimeout(() => {
         window.print();
     }, 100);
+    setCurrentInvoice(null); // Close dialog after print
+    setIsInvoiceDialogOpen(false);
   };
 
   const cartItemNames = cartItems.map(item => item.name);
@@ -349,6 +385,39 @@ export default function BillingPage() {
             <CardContent>
               <ScrollArea className="h-[calc(100vh-28rem)] md:h-auto pr-3">
                 <div className="space-y-4">
+                <div>
+                    <Label htmlFor="existingCustomer" className="flex items-center">
+                        <Users className="h-4 w-4 mr-2 text-muted-foreground" /> Select Existing Customer (Optional)
+                    </Label>
+                    <Select
+                        onValueChange={(value) => {
+                        if (value === "new_customer_option") {
+                            setCustomerName('');
+                            setCustomerPhoneNumber('');
+                        } else {
+                            const selectedCust = existingCustomers.find(c => c.id === value);
+                            if (selectedCust) {
+                            setCustomerName(selectedCust.name);
+                            setCustomerPhoneNumber(selectedCust.phoneNumber);
+                            }
+                        }
+                        }}
+                        value={existingCustomers.find(c=> c.name === customerName && c.phoneNumber === customerPhoneNumber)?.id || "new_customer_option" }
+                    >
+                        <SelectTrigger id="existingCustomer">
+                        <SelectValue placeholder="Search or select a customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="new_customer_option">-- Add New Customer --</SelectItem>
+                        {existingCustomers.map(cust => (
+                            <SelectItem key={cust.id} value={cust.id}>
+                            {cust.name} {cust.phoneNumber && `(${cust.phoneNumber})`}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    </div>
+
                   <div>
                     <Label htmlFor="customerName" className="flex items-center">
                       <User className="h-4 w-4 mr-2 text-muted-foreground" /> Customer Name <span className="text-destructive ml-1">*</span>
@@ -441,11 +510,11 @@ export default function BillingPage() {
                       {typeof amountReceived === 'number' && amountReceived > 0 &&
                         <p>Received: <span className="font-semibold">{currencySymbol}{Number(amountReceived).toFixed(2)}</span></p>
                       }
-                      {typeof amountReceived === 'number' && amountReceived >= totalAmount && balanceAmount >= 0 &&
+                      {typeof amountReceived === 'number' && balanceAmount >= 0 &&
                         <p>Change: <span className="font-bold text-green-600">{currencySymbol}{balanceAmount.toFixed(2)}</span></p>
                       }
-                       {typeof amountReceived === 'number' && amountReceived < totalAmount &&
-                        <p className="text-sm text-destructive">Amount received is less than total.</p>
+                       {typeof amountReceived === 'number' && amountReceived < totalAmount && totalAmount > 0 &&
+                        <p className="text-sm text-destructive font-semibold">Balance Due: {currencySymbol}{(totalAmount - amountReceived).toFixed(2)}</p>
                       }
                     </div>
                   )}
@@ -464,11 +533,11 @@ export default function BillingPage() {
       {currentInvoice && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(open) => {
             setIsInvoiceDialogOpen(open);
-            if(!open) setCurrentInvoice(null);
+            if(!open) setCurrentInvoice(null); // Clear current invoice when dialog closes
         }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber}</DialogTitle>
+              <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status || 'N/A'})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
             <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2 print-hide pt-4">
@@ -478,8 +547,7 @@ export default function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
-                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? currentInvoice.totalAmount).toFixed(2)}. ${currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : ''} Thank you for your purchase!`;
-                        // const whatsappUrl = `https://wa.me/${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Status: ${currentInvoice.status}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? 0).toFixed(2)}. ${currentInvoice.status === 'Due' && currentInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.` : (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
                         toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
@@ -508,7 +576,9 @@ export default function BillingPage() {
                 <DialogClose asChild>
                     <Button type="button" variant="secondary">Close</Button>
                 </DialogClose>
-                <Button type="button" onClick={handleFinalizeSaleAndPrint}>Finalize Sale & Print</Button>
+                <Button type="button" onClick={handleFinalizeSaleAndPrint}>
+                    {currentInvoice.status === 'Due' ? 'Save Due Invoice & Print' : 'Finalize Sale & Print'}
+                </Button>
               </div>
             </DialogFooter>
           </DialogContent>
@@ -517,4 +587,3 @@ export default function BillingPage() {
     </div>
   );
 }
-
