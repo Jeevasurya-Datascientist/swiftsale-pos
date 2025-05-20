@@ -101,11 +101,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 bg-background/80 backdrop-blur-sm border-b">
           <SidebarTrigger className="md:hidden" /> {/* Only show on mobile */}
           <div className="flex items-center gap-4 ml-auto">
-             <Button variant="ghost" size="icon">
-                <Bell className="w-5 h-5" />
-                <span className="sr-only">Notifications</span>
-              </Button>
-              <SidebarTrigger className="hidden md:flex"/> {/* Show on desktop */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Bell className="w-5 h-5" />
+                  <span className="sr-only">Notifications</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 sm:w-80">
+                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="flex flex-col items-start p-3">
+                  <p className="font-medium">No new notifications</p>
+                  <p className="text-xs text-muted-foreground">Your notification feed is currently empty.</p>
+                </DropdownMenuItem>
+                {/* 
+                  // Example of a future notification item:
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="p-3">
+                    <div className="flex flex-col">
+                      <p className="font-medium text-sm">Low Stock Alert: Fresh Milk 1L</p>
+                      <p className="text-xs text-muted-foreground">Only 5 units left in stock.</p>
+                    </div>
+                  </DropdownMenuItem>
+                */}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <SidebarTrigger className="hidden md:flex"/> {/* Show on desktop */}
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
