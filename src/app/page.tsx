@@ -11,11 +11,12 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -31,6 +32,8 @@ export default function BillingPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [isPrintFormatDialogOpen, setIsPrintFormatDialogOpen] = useState(false);
+
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Card' | 'Digital Wallet'>('Cash');
   const [customerName, setCustomerName] = useState('');
   const [customerPhoneNumber, setCustomerPhoneNumber] = useState('');
@@ -325,7 +328,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate: currentGstRate, // Store the decimal rate used for this invoice
+      gstRate: currentGstRate, 
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -348,7 +351,7 @@ export default function BillingPage() {
     }
   };
 
-  const handleFinalizeSaleAndPrint = () => {
+  const handleFinalizeSale = () => { // Renamed from handleFinalizeSaleAndPrint
     if (!currentInvoice) return;
 
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
@@ -371,30 +374,17 @@ export default function BillingPage() {
           return p;
         });
         setProducts(updatedProducts); 
-        // Note: localStorage for products will be updated by its own useEffect
     }
     
     const storedAppInvoices = localStorage.getItem('appInvoices');
     let allAppInvoices: Invoice[] = storedAppInvoices ? JSON.parse(storedAppInvoices) : [];
-    allAppInvoices = [currentInvoice, ...allAppInvoices]; // Add new invoice to the beginning
+    allAppInvoices = [currentInvoice, ...allAppInvoices];
     localStorage.setItem('appInvoices', JSON.stringify(allAppInvoices));
 
-    // Update existing customers list if new customer
     const custId = `${currentInvoice.customerName.toLowerCase().replace(/\s/g, '_')}-${(currentInvoice.customerPhoneNumber || '').replace(/\D/g, '')}`;
     if(!existingCustomers.find(c => c.id === custId)){
         setExistingCustomers(prev => [...prev, {id: custId, name: currentInvoice.customerName, phoneNumber: currentInvoice.customerPhoneNumber || ''}].sort((a,b) => a.name.localeCompare(b.name)));
     }
-
-    setCartItems([]);
-    setCustomerName('');
-    setCustomerPhoneNumber('');
-    setCardNumber('');
-    setCardExpiry('');
-    setCardCvv('');
-    setUpiId('');
-    setAmountReceived('');
-    setBalanceAmount(0);
-    setSearchTerm(''); 
     
     toast({ 
         title: currentInvoice.status === 'Paid' ? "Sale Finalized!" : "Invoice Saved (Payment Due)", 
@@ -406,13 +396,44 @@ export default function BillingPage() {
       toast({ title: "Simulated WhatsApp Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
       toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
     }
+    // Does not print immediately, opens print format dialog instead
+    setIsPrintFormatDialogOpen(true);
+  };
+  
+  const performPrint = (mode: 'a4' | 'thermal') => {
+    if (!currentInvoice) return;
+
+    if (mode === 'a4') {
+        document.body.classList.add('print-mode-a4');
+        document.body.classList.remove('print-mode-thermal');
+    } else {
+        document.body.classList.add('print-mode-thermal');
+        document.body.classList.remove('print-mode-a4');
+    }
 
     setTimeout(() => {
         window.print();
-    }, 100);
-    setCurrentInvoice(null); 
-    setIsInvoiceDialogOpen(false);
+        document.body.classList.remove('print-mode-a4');
+        document.body.classList.remove('print-mode-thermal');
+
+        // Reset cart and close dialogs after printing is initiated
+        setCartItems([]);
+        setCustomerName('');
+        setCustomerPhoneNumber('');
+        setCardNumber('');
+        setCardExpiry('');
+        setCardCvv('');
+        setUpiId('');
+        setAmountReceived('');
+        setBalanceAmount(0);
+        setSearchTerm(''); 
+        
+        setCurrentInvoice(null); 
+        setIsInvoiceDialogOpen(false);
+        setIsPrintFormatDialogOpen(false);
+    }, 100); // Small delay to allow class changes to apply
   };
+
 
   const cartItemNames = cartItems.map(item => item.name);
   
@@ -625,10 +646,12 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {currentInvoice && (
+      {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(open) => {
-            setIsInvoiceDialogOpen(open);
-            if(!open) setCurrentInvoice(null); 
+            if(!open) {
+              setIsInvoiceDialogOpen(false);
+              setCurrentInvoice(null); 
+            }
         }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -669,17 +692,60 @@ export default function BillingPage() {
                   </Button>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <DialogClose asChild>
-                    <Button type="button" variant="secondary">Close</Button>
-                </DialogClose>
-                <Button type="button" onClick={handleFinalizeSaleAndPrint}>
-                    {currentInvoice.status === 'Due' ? 'Save Due Invoice & Print' : 'Finalize Sale & Print'}
+                <Button type="button" variant="secondary" onClick={() => {setIsInvoiceDialogOpen(false); setCurrentInvoice(null);}}>Close</Button>
+                <Button type="button" onClick={handleFinalizeSale}>
+                    <Printer className="w-4 h-4 mr-2" />
+                    {currentInvoice.status === 'Due' ? 'Save & Print Options' : 'Finalize & Print Options'}
                 </Button>
               </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
+
+      {isPrintFormatDialogOpen && currentInvoice && (
+         <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
+            if (!open) {
+                setIsPrintFormatDialogOpen(false);
+                // Also close main invoice dialog and reset cart if print options are simply dismissed
+                setCurrentInvoice(null); 
+                setIsInvoiceDialogOpen(false);
+                setCartItems([]);
+                setCustomerName('');
+                setCustomerPhoneNumber('');
+                 // ... other resets ...
+            }
+         }}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Select Print Format</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Choose the format for printing your invoice. The invoice preview below will be printed.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                {/* InvoiceView is already visible in the main dialog, no need to render again here */}
+                <AlertDialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => performPrint('a4')}>
+                        <Printer className="w-4 h-4 mr-2" /> Print A4
+                    </Button>
+                    <Button variant="outline" onClick={() => performPrint('thermal')}>
+                        <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
+                    </Button>
+                     <AlertDialogCancel onClick={() => {
+                        setIsPrintFormatDialogOpen(false);
+                        // If cancelled, still ensure main dialog closes and cart resets
+                        setCurrentInvoice(null); 
+                        setIsInvoiceDialogOpen(false);
+                        setCartItems([]);
+                        setCustomerName('');
+                        setCustomerPhoneNumber('');
+                        // ... other resets ...
+                     }}>Cancel Printing</AlertDialogCancel>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
+

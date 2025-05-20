@@ -17,20 +17,20 @@ interface InvoiceViewProps {
 export function InvoiceView({ invoice }: InvoiceViewProps) {
   const { shopName: contextShopName, shopLogoUrl, shopAddress, currencySymbol, isSettingsLoaded } = useSettings();
 
-  if (!isSettingsLoaded && !invoice.shopName) { // Check if invoice has shopName if context not loaded
+  if (!isSettingsLoaded && !invoice.shopName) { 
       return <div className="p-2 space-y-4 text-center">Loading invoice details...</div>;
   }
 
   const displayShopName = invoice.shopName || contextShopName;
-  const displayAmountReceived = invoice.amountReceived; // amountReceived is now mandatory
-  const displayBalanceAmount = invoice.balanceAmount; // balanceAmount is now mandatory
+  const displayAmountReceived = invoice.amountReceived; 
+  const displayBalanceAmount = invoice.balanceAmount; 
   const displayGstRatePercentage = (invoice.gstRate * 100).toFixed(invoice.gstRate * 100 % 1 === 0 ? 0 : 2);
 
 
   return (
     <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto print-container">
       <div className="text-center mb-6">
-        {shopLogoUrl && ( // Still use contextShopLogoUrl for consistency in app, invoice.shopName for text
+        {shopLogoUrl && ( 
           <Image 
             src={shopLogoUrl} 
             alt={`${displayShopName} Logo`} 
@@ -55,7 +55,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         <div className="text-right">
           <h3 className="font-semibold mb-1 print-section-title">From:</h3>
           <p className="font-bold print-shop-details">{displayShopName}</p>
-          {shopAddress.split(',').map((line, index) => ( // Shop address from context
+          {shopAddress.split(',').map((line, index) => ( 
             <p key={index} className="print-shop-details">{line.trim()}</p>
           ))}
         </div>
@@ -106,32 +106,32 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         </TableBody>
         <TableFooter className="print-table-footer">
           <TableRow>
-            <TableCell colSpan={3} className="print-hide-image" />
+            <TableCell colSpan={3} className="print-hide-image-footer" />
             <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
             <TableCell className="text-right font-medium print-summary-label">Subtotal:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.subTotal.toFixed(2)}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell colSpan={3} className="print-hide-image" />
+            <TableCell colSpan={3} className="print-hide-image-footer" />
             <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
             <TableCell className="text-right font-medium print-summary-label">GST ({displayGstRatePercentage}%):</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.gstAmount.toFixed(2)}</TableCell>
           </TableRow>
           <TableRow className="font-bold text-lg">
-            <TableCell colSpan={3} className="print-hide-image" />
+            <TableCell colSpan={3} className="print-hide-image-footer" />
             <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
             <TableCell className="text-right print-summary-label">Total Amount:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.totalAmount.toFixed(2)}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell colSpan={3} className="print-hide-image" />
+            <TableCell colSpan={3} className="print-hide-image-footer" />
             <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
             <TableCell className="text-right font-medium print-summary-label">Amount Received:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{displayAmountReceived.toFixed(2)}</TableCell>
           </TableRow>
           {displayBalanceAmount !== 0 && (
             <TableRow className={`${displayBalanceAmount < 0 ? "text-destructive print-destructive" : "print-positive-balance"}`}>
-              <TableCell colSpan={3} className="print-hide-image" />
+              <TableCell colSpan={3} className="print-hide-image-footer" />
               <TableCell colSpan={2} className="print-show-colspan2-itemsonly"/>
               <TableCell className="text-right font-medium print-summary-label">
                 {displayBalanceAmount > 0 ? "Change Due:" : "Balance Due:"}
@@ -158,11 +158,11 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
       </div>
        <style jsx global>{`
         @media print {
+          /* Common Styles */
           body * {
             visibility: hidden;
-            font-family: 'Courier New', Courier, monospace !important; 
-            font-size: 10pt !important; 
-            color: #000 !important; 
+            color: #000 !important;
+            background-color: transparent !important; /* Ensure no background colors interfere */
           }
           .print-container, .print-container * {
             visibility: visible;
@@ -173,63 +173,105 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             top: 0;
             width: 100%; 
             max-height: none; 
-            overflow: visible;
-            padding: 5mm !important;
+            overflow: visible !important; /* Ensure full content is printed */
+            padding: 0 !important;
             margin: 0 !important;
             box-shadow: none !important;
             border: none !important;
           }
-          .print-hide, .print-hide-icon, .print-hide-image {
+          .print-hide, .print-hide-icon, .print-hide-image, .print-hide-image-footer {
             display: none !important;
           }
           .print-show-colspan2-itemsonly { 
              display: table-cell !important;
              width: auto !important; 
           }
-          .print-table-footer .print-hide-image ~ .print-show-colspan2-itemsonly:not(:nth-child(1)) {
+          .print-table-footer .print-hide-image-footer ~ .print-show-colspan2-itemsonly:not(:nth-child(1)) {
             display: none !important; 
           }
-          .print-logo { max-width: 50px !important; height: auto !important; margin-bottom: 5px !important; }
-          .print-shop-name, .print-section-title { font-size: 12pt !important; font-weight: bold !important; margin-bottom: 2px !important; }
-          .print-invoice-details, .print-customer-details, .print-shop-details, .print-item-code { font-size: 9pt !important; line-height: 1.2 !important; }
-          .print-table { width: 100% !important; margin-bottom: 5px !important; }
-          .print-table-head { font-size: 10pt !important; padding: 2px !important; border-bottom: 1px solid #ccc !important; }
-          .print-table-cell { font-size: 9pt !important; padding: 2px !important; vertical-align: top !important; }
-          .print-table-footer { font-size: 10pt !important; }
+          .print-logo { max-height: 40px !important; width: auto !important; margin-bottom: 5px !important; }
+          .print-shop-name { font-size: 14pt !important; font-weight: bold !important; margin-bottom: 2px !important; }
+          .print-section-title { font-size: 10pt !important; font-weight: bold !important; margin-bottom: 1px !important; }
+          .print-invoice-details, .print-customer-details, .print-shop-details, .print-item-code { font-size: 8pt !important; line-height: 1.2 !important; }
+          .print-table { width: 100% !important; margin-bottom: 5px !important; border-collapse: collapse !important; }
+          .print-table-head { font-size: 9pt !important; padding: 2px !important; border-bottom: 1px solid #ccc !important; }
+          .print-table-cell { font-size: 8pt !important; padding: 2px !important; vertical-align: top !important; }
+          .print-table-footer { font-size: 9pt !important; }
           .print-summary-label { padding: 2px !important; text-align: right !important; }
           .print-summary-value { padding: 2px !important; text-align: right !important; }
           .print-separator { margin: 5px 0 !important; border-color: #ccc !important; }
-          .print-footer-details { margin-top: 5px !important; font-size: 9pt !important; }
-          .print-status-badge { font-size: 9pt !important; padding: 1px 3px !important; }
+          .print-footer-details { margin-top: 5px !important; font-size: 8pt !important; }
+          .print-status-badge { font-size: 8pt !important; padding: 1px 3px !important; }
           .print-thankyou { margin-top: 5px !important; text-align: center !important; font-style: italic !important; }
           .print-destructive { color: #000 !important; }
-          
-          @page {
-            size: 57mm auto; 
-            margin: 3mm; 
-          }
-           .print-container {
-            width: 51mm !important; 
-          }
           .print-grid { grid-template-columns: 1fr !important; text-align: left !important; } 
+          .print-grid > div { text-align: left !important; }
           .print-grid > div:nth-child(2) { text-align: left !important; margin-top: 5px; } 
-          .print-table-footer td:nth-child(1), .print-table-footer td:nth-child(2) { 
-            display: none !important;
+
+          /* A4 Specific Styles */
+          body.print-mode-a4 .print-container {
+            font-family: Arial, Helvetica, sans-serif !important;
+            padding: 15mm !important; /* Add some padding for A4 */
           }
-           .print-table-footer .print-show-colspan2-itemsonly { 
-             display: table-cell !important;
-             text-align: right;
-             font-weight: normal;
+          body.print-mode-a4 @page {
+            size: A4 portrait;
+            margin: 10mm; /* Standard A4 margins */
           }
-          .print-table-footer .print-summary-label {
+           body.print-mode-a4 .print-logo { max-height: 60px !important; }
+           body.print-mode-a4 .print-shop-name { font-size: 18pt !important; }
+           body.print-mode-a4 .print-section-title { font-size: 12pt !important; }
+           body.print-mode-a4 .print-invoice-details, 
+           body.print-mode-a4 .print-customer-details, 
+           body.print-mode-a4 .print-shop-details, 
+           body.print-mode-a4 .print-item-code { font-size: 10pt !important; }
+           body.print-mode-a4 .print-table-head { font-size: 11pt !important; padding: 4px !important; }
+           body.print-mode-a4 .print-table-cell { font-size: 10pt !important; padding: 4px !important; }
+           body.print-mode-a4 .print-table-footer { font-size: 11pt !important; }
+           body.print-mode-a4 .print-hide-image { display: table-cell !important; } /* Show images for A4 */
+
+
+          /* Thermal Specific Styles */
+          body.print-mode-thermal .print-container {
+            font-family: 'Courier New', Courier, monospace !important;
+            width: 51mm !important; /* Approx 2 inch width */
+            padding: 0 !important; /* Minimal padding */
+          }
+          body.print-mode-thermal @page {
+            size: 57mm auto; /* Common thermal paper width */
+            margin: 3mm; /* Minimal margins for thermal */
+          }
+          body.print-mode-thermal .print-logo { max-height: 30px !important; }
+          body.print-mode-thermal .print-hide-image, body.print-mode-thermal .print-hide-image-footer {
+            display: none !important; /* Hide images for thermal */
+          }
+          body.print-mode-thermal .print-table-footer td[colspan="3"].print-hide-image-footer {
+             display: none !important;
+          }
+          body.print-mode-thermal .print-table-footer .print-show-colspan2-itemsonly {
+            display: table-cell !important;
+            text-align: right;
+            font-weight: normal;
+          }
+          body.print-mode-thermal .print-table-footer .print-summary-label {
             text-align: right;
             font-weight: bold;
           }
-          .print-table-footer .print-summary-value {
+           body.print-mode-thermal .print-table-footer .print-summary-value {
             text-align: right;
           }
-           
-          .print-table-footer tr td[colspan="3"] {
+
+          /* Fallback/Default Print (if no mode class, assume thermal-like as per previous setup) */
+          body:not(.print-mode-a4):not(.print-mode-thermal) .print-container {
+            font-family: 'Courier New', Courier, monospace !important;
+            width: 51mm !important; 
+            padding: 0 !important;
+          }
+          body:not(.print-mode-a4):not(.print-mode-thermal) @page {
+            size: 57mm auto; 
+            margin: 3mm;
+          }
+           body:not(.print-mode-a4):not(.print-mode-thermal) .print-hide-image,
+           body:not(.print-mode-a4):not(.print-mode-thermal) .print-hide-image-footer {
             display: none !important;
           }
         }
@@ -237,3 +279,4 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
     </div>
   );
 }
+
