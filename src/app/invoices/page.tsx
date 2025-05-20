@@ -118,7 +118,7 @@ export default function InvoicesPage() {
               <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber} ({selectedInvoice.status || 'N/A'})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={selectedInvoice} /> {/* Currency symbol from context */}
-            <DialogFooter className="print-hide">
+            <DialogFooter className="print-hide"> {/* Added print-hide here */}
                 <Button type="button" onClick={handlePrintInvoice}>
                   <Printer className="w-4 h-4 mr-2" /> Print
                 </Button>

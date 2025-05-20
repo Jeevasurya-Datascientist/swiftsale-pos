@@ -5,7 +5,7 @@ import type { Invoice } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { FileText, User, CalendarDays, CreditCard, Eye, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { FileText, User, CalendarDays, CreditCard, Eye, AlertTriangle, CheckCircle2, Edit } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface InvoiceListItemProps {
@@ -15,6 +15,13 @@ interface InvoiceListItemProps {
 }
 
 export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: InvoiceListItemProps) {
+  const handleEditClick = () => {
+    // For now, edit also opens view. Full edit functionality TBD.
+    onViewDetails(invoice);
+    // Optionally, add a toast message here if you want to inform the user about limited edit functionality
+    // e.g., toast({ title: "Edit Invoice", description: "Viewing invoice details. Full editing coming soon." });
+  };
+
   return (
     <Card className="hover:shadow-md transition-shadow duration-200">
       <CardHeader className="pb-2">
@@ -23,9 +30,14 @@ export function InvoiceListItem({ invoice, onViewDetails, currencySymbol }: Invo
             <FileText className="w-5 h-5 text-primary" />
             Invoice {invoice.invoiceNumber}
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onViewDetails(invoice)}>
-            <Eye className="w-4 h-4 mr-1" /> View
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onViewDetails(invoice)}>
+              <Eye className="w-4 h-4 mr-1" /> View
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleEditClick}>
+              <Edit className="w-4 h-4 mr-1" /> Edit
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
