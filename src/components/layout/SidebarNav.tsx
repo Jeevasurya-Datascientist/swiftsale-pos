@@ -1,9 +1,8 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Package, FileText, Settings, ConciergeBell } from 'lucide-react'; // Added ConciergeBell for Services
+import { Home, Package, FileText, Settings, ConciergeBell, BarChart3 } from 'lucide-react'; // Added BarChart3 for Reports
 import {
   SidebarMenu,
   SidebarMenuItem,
@@ -14,12 +13,10 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Billing', icon: Home },
   { href: '/products', label: 'Products', icon: Package },
-  { href: '/services', label: 'Services', icon: ConciergeBell }, // Added Services navigation item
+  { href: '/services', label: 'Services', icon: ConciergeBell },
   { href: '/invoices', label: 'Invoices', icon: FileText },
+  { href: '/reports', label: 'Reports', icon: BarChart3 }, // Added Reports navigation item
   { href: '/settings', label: 'Settings', icon: Settings },
-  // Future items:
-  // { href: '/inventory', label: 'Inventory', icon: Barcode },
-  // { href: '/customers', label: 'Customers', icon: Users },
 ];
 
 export function SidebarNav() {

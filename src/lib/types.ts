@@ -32,6 +32,7 @@ export interface CartItem {
   imageUrl?: string;
   dataAiHint?: string;
   type: 'product' | 'service'; // Differentiator
+  category?: string; // Added for reporting
 
   // Product-specific properties, optional in CartItem
   barcode?: string;
@@ -66,3 +67,19 @@ export interface AppSettings {
   currencySymbol: string;
   userName: string;
 }
+
+// For charts
+export interface TimeSeriesDataPoint {
+  date: string; // e.g., "YYYY-MM-DD" or "Mon", "Tue"
+  value: number;
+  [key: string]: any; // For additional properties like different series
+}
+
+export interface KeyValueDataPoint {
+  name: string;
+  value: number;
+  fill?: string; // For pie chart colors
+  [key: string]: any;
+}
+
+export type ReportTimeFilter = "today" | "last7days" | "last30days" | "
