@@ -2,25 +2,28 @@
 "use client";
 
 import { useState, useEffect, ChangeEvent } from 'react';
-import type { Product, CartItem, Invoice } from '@/lib/types';
-import { mockProducts } from '@/lib/mockData';
+import type { Product, Service, CartItem, Invoice, SearchableItem } from '@/lib/types';
+import { mockProducts, mockServices } from '@/lib/mockData';
 import { BarcodeInput } from '@/components/dashboard/BarcodeInput';
 import { CartDisplay } from '@/components/dashboard/CartDisplay';
 import { SmartSuggestions } from '@/components/dashboard/SmartSuggestions';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, Lightbulb, CreditCard, Phone, User, DollarSign, AlertCircle } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function BillingPage() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [searchableItems, setSearchableItems] = useState<SearchableItem[]>([]);
+
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
@@ -28,9 +31,8 @@ export default function BillingPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhoneNumber, setCustomerPhoneNumber] = useState('');
 
-  // Payment specific state
   const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState(''); // MM/YY
+  const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [upiId, setUpiId] = useState('');
   const [amountReceived, setAmountReceived] = useState<number | string>('');
@@ -38,6 +40,29 @@ export default function BillingPage() {
 
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
+
+  // Load products and services from localStorage or use mock data
+  useEffect(() => {
+    if (isSettingsLoaded) { // Ensure settings (currency) are loaded before prices are processed
+        const storedProducts = localStorage.getItem('appProducts');
+        const finalProducts = storedProducts ? JSON.parse(storedProducts) : mockProducts;
+        setProducts(finalProducts);
+
+        const storedServices = localStorage.getItem('appServices');
+        const finalServices = storedServices ? JSON.parse(storedServices) : mockServices;
+        setServices(finalServices);
+        
+        setSearchableItems([...finalProducts, ...finalServices]);
+    }
+  }, [isSettingsLoaded]);
+
+   // Update products in localStorage when they change (e.g. stock update)
+   useEffect(() => {
+    if (isSettingsLoaded && products.length > 0) { // Avoid saving empty initial array if loaded async
+        localStorage.setItem('appProducts', JSON.stringify(products));
+        setSearchableItems([...products, ...services]); // Update searchableItems when products change
+    }
+  }, [products, services, isSettingsLoaded]); // services dependency to update searchableItems
 
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const gstRate = 0.05; // 5% GST
@@ -64,69 +89,104 @@ export default function BillingPage() {
     }
   };
 
-  const handleProductSearch = (searchTermOrBarcode: string) => {
-    const foundProduct = products.find(
-      (p) => p.barcode.toLowerCase() === searchTermOrBarcode.toLowerCase() || 
-               p.name.toLowerCase().includes(searchTermOrBarcode.toLowerCase()) // Allow name search if not specific barcode from dropdown
-    );
+  const handleItemSearch = (identifier: string, itemTypeFromSearch?: 'product' | 'service') => {
+    let foundItem: SearchableItem | undefined;
 
-    if (foundProduct) {
-      if (foundProduct.stock <= 0) {
-        toast({ title: "Out of Stock", description: `${foundProduct.name} is currently out of stock.`, variant: "destructive" });
-        return;
+    if (itemTypeFromSearch) { // Direct selection from dropdown (identifier is ID)
+        foundItem = searchableItems.find(item => item.id === identifier);
+    } else { // General search term (identifier is name, barcode, or serviceCode)
+        foundItem = searchableItems.find(
+        (item) =>
+            item.name.toLowerCase().includes(identifier.toLowerCase()) ||
+            ('barcode' in item && item.barcode.toLowerCase() === identifier.toLowerCase()) ||
+            ('serviceCode' in item && item.serviceCode?.toLowerCase() === identifier.toLowerCase())
+        );
+    }
+
+
+    if (foundItem) {
+      const type: 'product' | 'service' = 'barcode' in foundItem ? 'product' : 'service';
+
+      if (type === 'product') {
+        const product = foundItem as Product;
+        if (product.stock <= 0) {
+          toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" });
+          return;
+        }
       }
 
       setCartItems((prevCart) => {
-        const existingItem = prevCart.find((item) => item.id === foundProduct.id);
+        const existingItem = prevCart.find((item) => item.id === foundItem!.id);
         if (existingItem) {
-          if (existingItem.quantity < foundProduct.stock) {
+          if (type === 'product') {
+            const product = foundItem as Product;
+            if (existingItem.quantity < product.stock) {
+              return prevCart.map((item) =>
+                item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+              );
+            } else {
+              toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
+              return prevCart;
+            }
+          } else { // For services, no stock limit for quantity increase
             return prevCart.map((item) =>
-              item.id === foundProduct.id ? { ...item, quantity: item.quantity + 1 } : item
+              item.id === foundItem!.id ? { ...item, quantity: item.quantity + 1 } : item
             );
-          } else {
-            toast({ title: "Stock Limit Reached", description: `Cannot add more ${foundProduct.name}. Max stock available.`, variant: "destructive" });
-            return prevCart;
           }
-        } else {
-          return [...prevCart, { ...foundProduct, quantity: 1 }];
+        } else { // New item to cart
+          const cartItemToAdd: CartItem = {
+            id: foundItem.id,
+            name: foundItem.name,
+            price: foundItem.price,
+            quantity: 1,
+            type: type,
+            imageUrl: foundItem.imageUrl,
+            dataAiHint: foundItem.dataAiHint,
+            ...(type === 'product' && { barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock }),
+            ...(type === 'service' && { serviceCode: (foundItem as Service).serviceCode, duration: (foundItem as Service).duration }),
+          };
+          return [...prevCart, cartItemToAdd];
         }
       });
-      toast({ title: "Item Added", description: `${foundProduct.name} added to cart.` });
+      toast({ title: "Item Added", description: `${foundItem.name} added to cart.` });
     } else {
-      toast({ title: "Product Not Found", description: "No product matched your search.", variant: "destructive" });
+      toast({ title: "Item Not Found", description: "No product or service matched your search.", variant: "destructive" });
     }
   };
 
-  const handleRemoveItem = (productId: string) => {
-    setCartItems((prevCart) => prevCart.filter((item) => item.id !== productId));
+  const handleRemoveItem = (itemId: string) => {
+    setCartItems((prevCart) => prevCart.filter((item) => item.id !== itemId));
     toast({ title: "Item Removed", description: "Item removed from cart." });
   };
 
-  const handleUpdateQuantity = (productId: string, newQuantity: number) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
+  const handleUpdateQuantity = (itemId: string, newQuantity: number) => {
+    const cartItem = cartItems.find(ci => ci.id === itemId);
+    if (!cartItem) return;
 
     if (newQuantity <= 0) {
-        handleRemoveItem(productId);
+        handleRemoveItem(itemId);
         return;
     }
 
-    if (newQuantity > product.stock) {
-      toast({ title: "Stock Limit Exceeded", description: `Only ${product.stock} units of ${product.name} available.`, variant: "destructive" });
-      setCartItems((prevCart) =>
-        prevCart.map((item) => (item.id === productId ? { ...item, quantity: product.stock } : item))
-      );
-      return;
+    if (cartItem.type === 'product' && typeof cartItem.stock === 'number') {
+      if (newQuantity > cartItem.stock) {
+        toast({ title: "Stock Limit Exceeded", description: `Only ${cartItem.stock} units of ${cartItem.name} available.`, variant: "destructive" });
+        setCartItems((prevCart) =>
+          prevCart.map((item) => (item.id === itemId ? { ...item, quantity: cartItem.stock! } : item))
+        );
+        return;
+      }
     }
+    // No stock check for services or if stock is not defined
 
     setCartItems((prevCart) =>
-      prevCart.map((item) => (item.id === productId ? { ...item, quantity: newQuantity } : item))
+      prevCart.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
     );
   };
 
   const generateInvoiceNumber = () => {
     const date = new Date();
-    return `INV-${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    return `INV-${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
   };
   
   const handleGenerateInvoice = () => {
@@ -175,7 +235,7 @@ export default function BillingPage() {
         return;
     }
     if (numericAmountReceived < totalAmount) {
-        toast({ title: "Insufficient Amount", description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}).`, variant: "destructive" });
+        toast({ title: "Insufficient Amount", description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}). Please collect full amount.`, variant: "destructive" });
         return;
     }
 
@@ -210,14 +270,15 @@ export default function BillingPage() {
         paymentSuccessMessage += ` Change due: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`;
     }
 
-    const updatedProducts = products.map(p => {
-      const cartItem = cartItems.find(ci => ci.id === p.id);
+    // Update stock for products
+    const updatedStockProducts = products.map(p => {
+      const cartItem = cartItems.find(ci => ci.id === p.id && ci.type === 'product');
       if (cartItem) {
         return { ...p, stock: p.stock - cartItem.quantity };
       }
       return p;
     });
-    setProducts(updatedProducts); 
+    setProducts(updatedStockProducts); 
 
     setCartItems([]);
     setCustomerName('');
@@ -260,12 +321,12 @@ export default function BillingPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><FileText className="h-6 w-6 text-primary"/> Add Products to Cart</CardTitle>
+              <CardTitle className="flex items-center gap-2"><FileText className="h-6 w-6 text-primary"/> Add Items to Cart</CardTitle>
             </CardHeader>
             <CardContent>
               <BarcodeInput 
-                onProductSearch={handleProductSearch} 
-                allProducts={products} 
+                onItemSearch={handleItemSearch} 
+                searchableItems={searchableItems}
               />
             </CardContent>
           </Card>
@@ -374,18 +435,23 @@ export default function BillingPage() {
                     />
                   </div>
 
-                  {totalAmount > 0 && (typeof amountReceived === 'number' && amountReceived >= totalAmount) && (
-                    <div className="text-right text-lg">
+                  {totalAmount > 0 && (
+                    <div className="text-right text-lg mt-2 space-y-1">
                       <p>Total: <span className="font-semibold">{currencySymbol}{totalAmount.toFixed(2)}</span></p>
-                      <p>Received: <span className="font-semibold">{currencySymbol}{amountReceived.toFixed(2)}</span></p>
-                      <p>Balance/Change: <span className={`font-bold ${balanceAmount < 0 ? 'text-destructive' : 'text-green-600'}`}>{currencySymbol}{balanceAmount.toFixed(2)}</span></p>
+                      {typeof amountReceived === 'number' && amountReceived > 0 &&
+                        <p>Received: <span className="font-semibold">{currencySymbol}{Number(amountReceived).toFixed(2)}</span></p>
+                      }
+                      {typeof amountReceived === 'number' && amountReceived >= totalAmount && balanceAmount >= 0 &&
+                        <p>Change: <span className="font-bold text-green-600">{currencySymbol}{balanceAmount.toFixed(2)}</span></p>
+                      }
+                       {typeof amountReceived === 'number' && amountReceived < totalAmount &&
+                        <p className="text-sm text-destructive">Amount received is less than total.</p>
+                      }
                     </div>
                   )}
-                  {totalAmount > 0 && (typeof amountReceived === 'number' && amountReceived < totalAmount) && (
-                     <p className="text-sm text-destructive text-right">Amount received is less than total.</p>
-                  )}
 
-                   <Button onClick={handleGenerateInvoice} className="w-full h-12 text-lg" disabled={cartItems.length === 0}>
+
+                   <Button onClick={handleGenerateInvoice} className="w-full h-12 text-lg mt-4" disabled={cartItems.length === 0}>
                     Generate Invoice
                   </Button>
                 </div>
@@ -413,7 +479,7 @@ export default function BillingPage() {
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
                         const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${(currentInvoice.amountReceived ?? currentInvoice.totalAmount).toFixed(2)}. ${currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : ''} Thank you for your purchase!`;
-                        const whatsappUrl = `https://wa.me/${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+                        // const whatsappUrl = `https://wa.me/${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
                         toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });

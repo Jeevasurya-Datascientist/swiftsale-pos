@@ -8,8 +8,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   shopName: 'SwiftSale POS',
   shopLogoUrl: '',
   shopAddress: '123 Commerce Street, Business City, 12345',
-  currencySymbol: '$',
-  userName: 'Store Admin', // Default user name
+  currencySymbol: '₹', // Changed to INR
+  userName: 'Store Admin',
 };
 
 interface SettingsContextType extends AppSettings {
@@ -28,7 +28,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     if (storedSettings) {
       try {
         const parsedSettings = JSON.parse(storedSettings);
-        // Ensure all keys from DEFAULT_SETTINGS are present, even if new ones were added
         const completeSettings = { ...DEFAULT_SETTINGS, ...parsedSettings };
         setSettings(completeSettings);
       } catch (error) {
@@ -44,7 +43,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (isSettingsLoaded) { 
+    if (isSettingsLoaded) {
         localStorage.setItem('appSettings', JSON.stringify(settings));
     }
   }, [settings, isSettingsLoaded]);
@@ -67,4 +66,3 @@ export const useSettings = () => {
   }
   return context;
 };
-

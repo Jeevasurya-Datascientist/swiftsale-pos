@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Barcode, Home, FileText, Package, Users, Settings, ShoppingCart } from 'lucide-react';
+import { Home, Package, FileText, Settings, ConciergeBell } from 'lucide-react'; // Added ConciergeBell for Services
 import {
   SidebarMenu,
   SidebarMenuItem,
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Billing', icon: Home },
   { href: '/products', label: 'Products', icon: Package },
+  { href: '/services', label: 'Services', icon: ConciergeBell }, // Added Services navigation item
   { href: '/invoices', label: 'Invoices', icon: FileText },
   { href: '/settings', label: 'Settings', icon: Settings },
   // Future items:

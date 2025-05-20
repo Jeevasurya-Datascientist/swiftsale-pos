@@ -1,12 +1,13 @@
 
 "use client";
 
-import type { Invoice } from '@/lib/types';
+import type { Invoice, CartItem } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import Image from 'next/image';
+import { Package, ConciergeBell } from 'lucide-react';
 
 interface InvoiceViewProps {
   invoice: Invoice;
@@ -64,14 +65,14 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         <TableHeader>
           <TableRow>
             <TableHead className="w-[60px]">Img</TableHead>
-            <TableHead>Product</TableHead>
+            <TableHead>Item</TableHead>
             <TableHead className="text-center">Qty</TableHead>
             <TableHead className="text-right">Price</TableHead>
             <TableHead className="text-right">Total</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {invoice.items.map((item) => (
+          {invoice.items.map((item: CartItem) => ( // Ensure item is typed as CartItem
             <TableRow key={item.id}>
               <TableCell>
                 <Image 
@@ -83,7 +84,17 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
                   data-ai-hint={item.dataAiHint || item.name.split(" ").slice(0,2).join(" ")} 
                 />
               </TableCell>
-              <TableCell>{item.name}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                    {item.name}
+                    {item.type === 'product' ? 
+                        <Package size={14} className="text-muted-foreground" title="Product"/> : 
+                        <ConciergeBell size={14} className="text-muted-foreground" title="Service"/>
+                    }
+                </div>
+                {item.type === 'product' && item.barcode && <div className="text-xs text-muted-foreground">Code: {item.barcode}</div>}
+                {item.type === 'service' && item.serviceCode && <div className="text-xs text-muted-foreground">Code: {item.serviceCode}</div>}
+              </TableCell>
               <TableCell className="text-center">{item.quantity}</TableCell>
               <TableCell className="text-right">{currencySymbol}{item.price.toFixed(2)}</TableCell>
               <TableCell className="text-right">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</TableCell>

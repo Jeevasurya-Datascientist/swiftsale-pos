@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Product } from '@/lib/types';
 import { mockProducts } from '@/lib/mockData';
 import { ProductCard } from '@/components/products/ProductCard';
@@ -13,7 +13,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -24,7 +23,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Package, Search } from 'lucide-react';
@@ -39,6 +37,28 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
+
+  // Load products from localStorage or use mockProducts
+  useEffect(() => {
+    const storedProducts = localStorage.getItem('appProducts');
+    if (storedProducts) {
+      try {
+        setProducts(JSON.parse(storedProducts));
+      } catch (e) {
+        setProducts(mockProducts); // fallback to mock if parsing fails
+      }
+    } else {
+      setProducts(mockProducts); // initialize with mock if nothing in localStorage
+    }
+  }, []);
+
+  // Save products to localStorage whenever they change
+  useEffect(() => {
+    if (isSettingsLoaded) { // Ensure settings (and thus the app) are loaded before saving
+        localStorage.setItem('appProducts', JSON.stringify(products));
+    }
+  }, [products, isSettingsLoaded]);
+
 
   const handleFormSubmit = (data: Omit<Product, 'id' | 'dataAiHint'>, existingProduct?: Product) => {
     const productDataAiHint = data.name.toLowerCase().split(' ').slice(0,2).join(' ');

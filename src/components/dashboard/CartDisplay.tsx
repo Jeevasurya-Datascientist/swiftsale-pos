@@ -7,13 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
-import { X, Plus, Minus } from 'lucide-react';
+import { X, Plus, Minus, Package, ConciergeBell } from 'lucide-react';
 
 interface CartDisplayProps {
   cartItems: CartItem[];
-  onRemoveItem: (productId: string) => void;
-  onUpdateQuantity: (productId: string, newQuantity: number) => void;
-  currencySymbol: string; // Now explicitly required from parent
+  onRemoveItem: (itemId: string) => void;
+  onUpdateQuantity: (itemId: string, newQuantity: number) => void;
+  currencySymbol: string;
 }
 
 export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currencySymbol }: CartDisplayProps) {
@@ -29,7 +29,7 @@ export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currenc
           <CardTitle>Shopping Cart</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-center py-8">Your cart is empty. Add products to get started.</p>
+          <p className="text-muted-foreground text-center py-8">Your cart is empty. Add items to get started.</p>
         </CardContent>
       </Card>
     );
@@ -46,7 +46,7 @@ export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currenc
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">Image</TableHead>
-                <TableHead>Product</TableHead>
+                <TableHead>Item</TableHead>
                 <TableHead className="text-center">Quantity</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -66,7 +66,17 @@ export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currenc
                       data-ai-hint={item.dataAiHint || item.name.split(" ").slice(0,2).join(" ")}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-1">
+                        {item.name}
+                        {item.type === 'product' ? 
+                            <Package size={14} className="text-muted-foreground" title="Product"/> : 
+                            <ConciergeBell size={14} className="text-muted-foreground" title="Service"/>
+                        }
+                    </div>
+                    {item.type === 'product' && item.barcode && <div className="text-xs text-muted-foreground">Code: {item.barcode}</div>}
+                    {item.type === 'service' && item.serviceCode && <div className="text-xs text-muted-foreground">Code: {item.serviceCode}</div>}
+                  </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
                       <Button
@@ -84,7 +94,7 @@ export function CartDisplay({ cartItems, onRemoveItem, onUpdateQuantity, currenc
                         size="icon"
                         className="h-7 w-7"
                         onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                        disabled={item.quantity >= item.stock}
+                        disabled={item.type === 'product' && typeof item.stock === 'number' && item.quantity >= item.stock}
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
