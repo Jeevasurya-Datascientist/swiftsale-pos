@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Invoice, ReportTimeFilter, ReportDateRange, SearchableItem } from '@/lib/types';
-import { mockInvoices, mockProducts, mockServices } from '@/lib/mockData';
+import type { Invoice, ReportTimeFilter, ReportDateRange, SearchableItem, Product, Service } from '@/lib/types';
+import { mockInvoices as initialMockInvoices, mockProducts, mockServices } from '@/lib/mockData';
 import { useSettings } from '@/context/SettingsContext';
 import {
   filterInvoicesByDate,
@@ -19,9 +19,10 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, BarChart3, LineChart, PieChart, ShoppingBag, Users } from 'lucide-react';
+import { CalendarIcon, BarChart3, LineChart, PieChart, ShoppingBag, Users, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
+import { useToast } from '@/hooks/use-toast';
 
 import SalesSummaryCards from '@/components/reports/SalesSummaryCards';
 import SalesOverTimeChart from '@/components/reports/SalesOverTimeChart';
@@ -30,27 +31,74 @@ import CategorySalesChart from '@/components/reports/CategorySalesChart';
 import PaymentMethodsChart from '@/components/reports/PaymentMethodsChart';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+// Helper to convert array of objects to CSV and trigger download
+const downloadCSV = (data: any[], filename: string, headers: string[]) => {
+  if (data.length === 0) {
+    alert("No data available to export.");
+    return;
+  }
+  
+  const csvRows = [];
+  // Add headers
+  csvRows.push(headers.join(','));
+
+  // Add data rows
+  for (const row of data) {
+    const values = headers.map(header => {
+      // Attempt to map header to a key in the row object
+      // Simple mapping for now, assumes headers match keys or are handled by pre-processing
+      let value = row[header.toLowerCase().replace(/\s+/g, '')] ?? row[header]; // Attempt variations
+      if (header === 'Customer Name') value = row.customerName; // Specific handling for key variations
+      if (header === 'Phone Number') value = row.customerPhoneNumber;
+      if (header === 'Items (Name & Qty)') value = row.itemsSummary; // Use pre-calculated summary
+
+
+      if (typeof value === 'string' && value.includes(',')) {
+        return `"${value}"`; // Enclose in quotes if it contains a comma
+      }
+      return value;
+    });
+    csvRows.push(values.join(','));
+  }
+
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${filename}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+
 export default function ReportsPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices); // Use mock data for now
-  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>(mockInvoices);
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>(initialMockInvoices);
+  const [allProducts, setAllProducts] = useState<Product[]>(mockProducts);
+  const [allServices, setAllServices] = useState<Service[]>(mockServices);
+
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>(initialMockInvoices);
   const [timeFilter, setTimeFilter] = useState<ReportTimeFilter>('last7days');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
   
   const { currencySymbol, isSettingsLoaded } = useSettings();
+  const { toast } = useToast();
 
-  // In a real app, you might fetch invoices based on filters or fetch all and filter client-side
-  // For now, we'll use mockInvoices and filter client-side.
-  // Also, load products/services to enrich invoice items if necessary (e.g. for category)
   useEffect(() => {
     const storedProducts = localStorage.getItem('appProducts');
-    const allProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : mockProducts;
-    const storedServices = localStorage.getItem('appServices');
-    const allServices: Service[] = storedServices ? JSON.parse(storedServices) : mockServices;
-    const allItems: SearchableItem[] = [...allProducts, ...allServices];
+    const loadedProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : mockProducts;
+    setAllProducts(loadedProducts);
 
-    // Simulate fetching invoices and enriching them (if necessary)
-    // For mock data, ensure items have category
-    const enrichedInvoices = mockInvoices.map(inv => ({
+    const storedServices = localStorage.getItem('appServices');
+    const loadedServices: Service[] = storedServices ? JSON.parse(storedServices) : mockServices;
+    setAllServices(loadedServices);
+    
+    // Enrich all invoices with category from loaded products/services for consistent reporting
+    const allItems: SearchableItem[] = [...loadedProducts, ...loadedServices];
+    const enrichedInvoices = initialMockInvoices.map(inv => ({
         ...inv,
         items: inv.items.map(item => {
             const masterItem = allItems.find(mi => mi.id === item.id);
@@ -60,7 +108,7 @@ export default function ReportsPage() {
             }
         })
     }));
-    setInvoices(enrichedInvoices);
+    setAllInvoices(enrichedInvoices);
   }, []);
 
 
@@ -69,15 +117,78 @@ export default function ReportsPage() {
       timeFilter === 'custom' && customDateRange 
       ? { from: customDateRange.from, to: customDateRange.to } 
       : undefined;
-    const newFilteredInvoices = filterInvoicesByDate(invoices, timeFilter, range);
+    const newFilteredInvoices = filterInvoicesByDate(allInvoices, timeFilter, range);
     setFilteredInvoices(newFilteredInvoices);
-  }, [invoices, timeFilter, customDateRange]);
+  }, [allInvoices, timeFilter, customDateRange]);
 
   const salesSummary = calculateSalesSummary(filteredInvoices);
   const salesOverTimeData = getSalesOverTimeData(filteredInvoices, timeFilter, customDateRange);
   const topSellingItemsData = getTopSellingItemsData(filteredInvoices);
   const salesByCategoryData = getSalesByCategoryData(filteredInvoices);
   const paymentMethodData = getPaymentMethodDistributionData(filteredInvoices);
+
+  const handleExportCustomers = () => {
+    const uniqueCustomers: { [key: string]: { customerName: string; customerPhoneNumber?: string } } = {};
+    allInvoices.forEach(invoice => {
+      const key = `${invoice.customerName}-${invoice.customerPhoneNumber || ''}`;
+      if (!uniqueCustomers[key]) {
+        uniqueCustomers[key] = { 
+          customerName: invoice.customerName,
+          customerPhoneNumber: invoice.customerPhoneNumber || 'N/A'
+        };
+      }
+    });
+    const customerData = Object.values(uniqueCustomers);
+    downloadCSV(customerData, 'customers_export', ['Customer Name', 'Phone Number']);
+    toast({ title: "Customers Exported", description: "Customer data downloaded as CSV." });
+  };
+
+  const handleExportInvoices = () => {
+    if (filteredInvoices.length === 0) {
+      toast({ title: "No Invoices", description: "No invoices in the current filter to export.", variant: "destructive" });
+      return;
+    }
+    const invoiceData = filteredInvoices.map(inv => ({
+      invoiceNumber: inv.invoiceNumber,
+      date: format(new Date(inv.date), 'yyyy-MM-dd HH:mm'),
+      customerName: inv.customerName,
+      customerPhoneNumber: inv.customerPhoneNumber || 'N/A',
+      totalAmount: inv.totalAmount.toFixed(2),
+      paymentMethod: inv.paymentMethod,
+      itemsSummary: inv.items.map(item => `${item.name} (Qty: ${item.quantity})`).join('; ')
+    }));
+    downloadCSV(invoiceData, 'invoices_export', ['Invoice Number', 'Date', 'Customer Name', 'Phone Number', 'Total Amount', 'Payment Method', 'Items (Name & Qty)']);
+    toast({ title: "Invoices Exported", description: "Filtered invoice data downloaded as CSV." });
+  };
+
+  const handleExportProducts = () => {
+    const productData = allProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price.toFixed(2),
+      barcode: p.barcode,
+      stock: p.stock,
+      category: p.category || 'N/A',
+      description: p.description || 'N/A'
+    }));
+    downloadCSV(productData, 'products_export', ['ID', 'Name', 'Price', 'Barcode', 'Stock', 'Category', 'Description']);
+    toast({ title: "Products Exported", description: "Product data downloaded as CSV." });
+  };
+
+  const handleExportServices = () => {
+    const serviceData = allServices.map(s => ({
+      id: s.id,
+      name: s.name,
+      price: s.price.toFixed(2),
+      serviceCode: s.serviceCode || 'N/A',
+      category: s.category || 'N/A',
+      description: s.description || 'N/A',
+      duration: s.duration || 'N/A'
+    }));
+    downloadCSV(serviceData, 'services_export', ['ID', 'Name', 'Price', 'Service Code', 'Category', 'Description', 'Duration']);
+    toast({ title: "Services Exported", description: "Service data downloaded as CSV." });
+  };
+
 
   if (!isSettingsLoaded) {
     return (
@@ -101,60 +212,68 @@ export default function ReportsPage() {
       {/* Filters Section */}
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Filters & Exports</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-4 items-center">
-          <Select value={timeFilter} onValueChange={(value) => {
-            setTimeFilter(value as ReportTimeFilter);
-            if (value !== 'custom') setCustomDateRange(undefined);
-          }}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Select time range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="last7days">Last 7 Days</SelectItem>
-              <SelectItem value="last30days">Last 30 Days</SelectItem>
-              <SelectItem value="thisMonth">This Month</SelectItem>
-              <SelectItem value="allTime">All Time</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
-            </SelectContent>
-          </Select>
+        <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+                <Select value={timeFilter} onValueChange={(value) => {
+                    setTimeFilter(value as ReportTimeFilter);
+                    if (value !== 'custom') setCustomDateRange(undefined);
+                }}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Select time range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="last7days">Last 7 Days</SelectItem>
+                    <SelectItem value="last30days">Last 30 Days</SelectItem>
+                    <SelectItem value="thisMonth">This Month</SelectItem>
+                    <SelectItem value="allTime">All Time</SelectItem>
+                    <SelectItem value="custom">Custom Range</SelectItem>
+                    </SelectContent>
+                </Select>
 
-          {timeFilter === 'custom' && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className="w-full sm:w-auto justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {customDateRange?.from ? (
-                    customDateRange.to ? (
-                      <>
-                        {format(customDateRange.from, "LLL dd, y")} -{" "}
-                        {format(customDateRange.to, "LLL dd, y")}
-                      </>
-                    ) : (
-                      format(customDateRange.from, "LLL dd, y")
-                    )
-                  ) : (
-                    <span>Pick a date range</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={customDateRange?.from}
-                  selected={customDateRange}
-                  onSelect={setCustomDateRange}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
-          )}
+                {timeFilter === 'custom' && (
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        variant={"outline"}
+                        className="w-full sm:w-auto justify-start text-left font-normal"
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {customDateRange?.from ? (
+                            customDateRange.to ? (
+                            <>
+                                {format(customDateRange.from, "LLL dd, y")} -{" "}
+                                {format(customDateRange.to, "LLL dd, y")}
+                            </>
+                            ) : (
+                            format(customDateRange.from, "LLL dd, y")
+                            )
+                        ) : (
+                            <span>Pick a date range</span>
+                        )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={customDateRange?.from}
+                        selected={customDateRange}
+                        onSelect={setCustomDateRange}
+                        numberOfMonths={2}
+                        />
+                    </PopoverContent>
+                    </Popover>
+                )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={handleExportCustomers}><Download className="mr-2 h-4 w-4"/>Export Customers</Button>
+                <Button variant="outline" onClick={handleExportInvoices}><Download className="mr-2 h-4 w-4"/>Export Invoices</Button>
+                <Button variant="outline" onClick={handleExportProducts}><Download className="mr-2 h-4 w-4"/>Export Products</Button>
+                <Button variant="outline" onClick={handleExportServices}><Download className="mr-2 h-4 w-4"/>Export Services</Button>
+            </div>
         </CardContent>
       </Card>
 
@@ -212,3 +331,4 @@ export default function ReportsPage() {
   );
 }
 
+    
