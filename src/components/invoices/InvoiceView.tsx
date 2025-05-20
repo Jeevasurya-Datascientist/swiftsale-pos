@@ -43,6 +43,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         <div>
           <h3 className="font-semibold mb-1">Billed To:</h3>
           <p>{invoice.customerName}</p>
+          {invoice.customerPhoneNumber && <p>Phone: {invoice.customerPhoneNumber}</p>}
           {/* Add more customer details if available */}
         </div>
         <div className="text-right">
@@ -126,6 +127,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             left: 0;
             top: 0;
             width: 100%;
+            max-height: none; /* Allow full content height for printing */
+            overflow: visible; /* Ensure content isn't clipped */
           }
            /* Hide dialog footer and close button when printing */
           .print-hide {

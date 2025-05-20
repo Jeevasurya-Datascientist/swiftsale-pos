@@ -18,6 +18,7 @@ export interface Invoice {
   id: string;
   invoiceNumber: string;
   customerName: string; // Simplified for now
+  customerPhoneNumber?: string; // Added optional phone number
   items: CartItem[];
   subTotal: number;
   gstRate: number; // e.g., 0.18 for 18%
@@ -34,4 +35,3 @@ export interface AppSettings {
   currencySymbol: string;
   userName: string; // Added user name
 }
-

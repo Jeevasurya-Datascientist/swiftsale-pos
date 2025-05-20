@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, Lightbulb, CreditCard } from 'lucide-react';
+import { FileText, ShoppingBag, Lightbulb, CreditCard, Phone } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 
 export default function BillingPage() {
@@ -25,6 +25,7 @@ export default function BillingPage() {
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Card' | 'Digital Wallet'>('Cash');
   const [customerName, setCustomerName] = useState('');
+  const [customerPhoneNumber, setCustomerPhoneNumber] = useState('');
 
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
@@ -103,6 +104,7 @@ export default function BillingPage() {
       id: `inv-${Date.now()}`,
       invoiceNumber: generateInvoiceNumber(),
       customerName: customerName || "Walk-in Customer",
+      customerPhoneNumber: customerPhoneNumber || undefined,
       items: cartItems,
       subTotal,
       gstRate,
@@ -115,7 +117,7 @@ export default function BillingPage() {
     setIsInvoiceDialogOpen(true); // Open the dialog
   };
 
-  const handleFinalizeSale = () => {
+  const handleFinalizeSaleAndPrint = () => {
      // Update stock levels
     const updatedProducts = products.map(p => {
       const cartItem = cartItems.find(ci => ci.id === p.id);
@@ -126,12 +128,22 @@ export default function BillingPage() {
     });
     setProducts(updatedProducts); // This would ideally be an API call
 
-    // Clear cart and customer name
+    // Clear cart and customer details
     setCartItems([]);
     setCustomerName('');
-    setIsInvoiceDialogOpen(false); // Close the dialog
-    setCurrentInvoice(null);
+    setCustomerPhoneNumber('');
+    
     toast({ title: "Sale Finalized!", description: `Invoice ${currentInvoice?.invoiceNumber} generated. Stock updated.` });
+    
+    // Trigger print after a short delay to allow dialog to render with final invoice.
+    // Note: printing from within a dialog might have browser-specific quirks.
+    setTimeout(() => {
+        window.print();
+    }, 100);
+    
+    // Keep dialog open for a bit after print, or close it:
+    // setIsInvoiceDialogOpen(false); 
+    // setCurrentInvoice(null);
   };
 
 
@@ -192,6 +204,20 @@ export default function BillingPage() {
                 />
               </div>
               <div>
+                <Label htmlFor="customerPhoneNumber">Customer Phone (Optional)</Label>
+                <div className="relative">
+                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      id="customerPhoneNumber" 
+                      type="tel"
+                      placeholder="e.g., 9876543210" 
+                      value={customerPhoneNumber}
+                      onChange={(e) => setCustomerPhoneNumber(e.target.value)} 
+                      className="pl-10"
+                    />
+                </div>
+              </div>
+              <div>
                 <Label htmlFor="paymentMethod">Payment Method</Label>
                 <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
                   <SelectTrigger id="paymentMethod">
@@ -217,20 +243,47 @@ export default function BillingPage() {
         <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Invoice Details - {currentInvoice.invoiceNumber}</DialogTitle>
+              <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber}</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={currentInvoice} /> {/* Currency symbol now comes from context within InvoiceView */}
-            <DialogFooter className="sm:justify-between gap-2 print-hide">
-               <Button type="button" variant="outline" onClick={() => {
-                 toast({ title: "WhatsApp Share Simulated", description: "Invoice would be shared via WhatsApp."});
-               }}>
-                Share via WhatsApp (Simulated)
-              </Button>
-              <div className="flex gap-2">
+            <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2 print-hide pt-4">
+              <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (currentInvoice?.customerPhoneNumber) {
+                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Thank you for your purchase!`;
+                        // In a real app, you might construct a whatsapp:// link
+                        // const whatsappUrl = `https://wa.me/${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+                        // window.open(whatsappUrl, '_blank');
+                        toast({ title: "WhatsApp Share Simulated", description: `Message for ${currentInvoice.customerPhoneNumber}: ${message.substring(0,100)}...` });
+                      } else {
+                        toast({ title: "WhatsApp Share Simulated", description: "Invoice would be shared via WhatsApp (no phone number provided)." });
+                      }
+                    }}
+                  >
+                    Share via WhatsApp (Simulated)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (currentInvoice?.customerPhoneNumber) {
+                        toast({ title: "SMS Send Simulated", description: `SMS with invoice ${currentInvoice.invoiceNumber} details would be sent to ${currentInvoice.customerPhoneNumber}.` });
+                      } else {
+                        toast({ title: "SMS Send Simulated", description: "No phone number to send SMS." });
+                      }
+                    }}
+                  >
+                    Send SMS (Simulated)
+                  </Button>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
                 <DialogClose asChild>
                     <Button type="button" variant="secondary">Close</Button>
                 </DialogClose>
-                <Button type="button" onClick={handleFinalizeSale}>Finalize Sale & Print</Button>
+                <Button type="button" onClick={handleFinalizeSaleAndPrint}>Finalize Sale & Print</Button>
               </div>
             </DialogFooter>
           </DialogContent>
