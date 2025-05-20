@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { UserCircle, Edit, Building, MapPin, Mail, Globe, Settings as SettingsIcon } from 'lucide-react';
+import { Label } from '@/components/ui/label'; // Added import
 
 export default function ProfilePage() {
   const { shopName, shopLogoUrl, shopAddress, userName, isSettingsLoaded } = useSettings();
