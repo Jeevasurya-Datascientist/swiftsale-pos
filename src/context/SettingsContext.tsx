@@ -29,15 +29,20 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     if (storedSettings) {
       try {
         const parsedSettings = JSON.parse(storedSettings);
+        
         // Ensure gstRate is a number, and provide default if missing or invalid
+        if (parsedSettings.gstRate === undefined || parsedSettings.gstRate === null || typeof parsedSettings.gstRate === 'string') {
+           parsedSettings.gstRate = Number(parsedSettings.gstRate);
+        }
         if (typeof parsedSettings.gstRate !== 'number' || isNaN(parsedSettings.gstRate)) {
           parsedSettings.gstRate = DEFAULT_SETTINGS.gstRate;
         }
+
         const completeSettings = { ...DEFAULT_SETTINGS, ...parsedSettings };
         setSettings(completeSettings);
       } catch (error) {
         console.error("Failed to parse settings from localStorage", error);
-        localStorage.setItem('appSettings', JSON.stringify(DEFAULT_SETTINGS));
+        localStorage.setItem('appSettings', JSON.stringify(DEFAULT_SETTINGS)); // Save defaults if parse fails
         setSettings(DEFAULT_SETTINGS);
       }
     } else {
@@ -48,7 +53,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (isSettingsLoaded) {
+    if (isSettingsLoaded) { // Only save if initial load is complete
         localStorage.setItem('appSettings', JSON.stringify(settings));
     }
   }, [settings, isSettingsLoaded]);
@@ -81,3 +86,4 @@ export const useSettings = () => {
   }
   return context;
 };
+
