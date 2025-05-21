@@ -74,18 +74,22 @@ export default function BillingPage() {
             try {
                 const parsed = JSON.parse(storedProducts);
                 if(Array.isArray(parsed)) {
-                    finalProducts = parsed.map((p: any) => ({
-                        id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
-                        name: p.name || "Unnamed Product",
-                        costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
-                        sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : 0,
-                        stock: typeof p.stock === 'number' ? p.stock : 0,
-                        barcode: p.barcode || "",
-                        imageUrl: p.imageUrl || defaultPlaceholder(p.name || 'Product'),
-                        dataAiHint: p.dataAiHint || (p.name ? p.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
-                        category: p.category || undefined,
-                        description: p.description || undefined,
-                    }));
+                    finalProducts = parsed.map((p: any) => {
+                        const mock = mockProducts.find(mp => mp.id === p.id);
+                        const pName = p.name || (mock ? mock.name : "Unnamed Product");
+                        return {
+                            id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                            name: pName,
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0),
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            stock: typeof p.stock === 'number' ? p.stock : (mock && typeof mock.stock === 'number' ? mock.stock : 0),
+                            barcode: p.barcode || (mock ? mock.barcode : "") || "",
+                            imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
+                            dataAiHint: p.dataAiHint || (mock ? mock.dataAiHint : (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image')),
+                            category: p.category || (mock ? mock.category : undefined),
+                            description: p.description || (mock ? mock.description : undefined),
+                        };
+                    });
                 } else {
                    finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
                 }
@@ -104,17 +108,21 @@ export default function BillingPage() {
             try {
                 const parsed = JSON.parse(storedServices);
                 if(Array.isArray(parsed)) {
-                    finalServices = parsed.map((s: any) => ({
-                        id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
-                        name: s.name || "Unnamed Service",
-                        sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : 0,
-                        serviceCode: s.serviceCode || undefined,
-                        imageUrl: s.imageUrl || defaultPlaceholder(s.name || 'Service'),
-                        dataAiHint: s.dataAiHint || (s.name ? s.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
-                        category: s.category || undefined,
-                        description: s.description || undefined,
-                        duration: s.duration || undefined,
-                    }));
+                    finalServices = parsed.map((s: any) => {
+                        const mock = mockServices.find(ms => ms.id === s.id);
+                        const sName = s.name || (mock ? mock.name : "Unnamed Service");
+                        return {
+                            id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                            name: sName,
+                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
+                            imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
+                            dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
+                            category: s.category || (mock ? mock.category : undefined),
+                            description: s.description || (mock ? mock.description : undefined),
+                            duration: s.duration || (mock ? mock.duration : undefined),
+                        };
+                    });
                 } else {
                     finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
                 }
@@ -122,6 +130,8 @@ export default function BillingPage() {
               console.error("Failed to parse services from localStorage, using mock data.", e);
               finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
             }
+        } else {
+            finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
         }
         setServices(finalServices);
 
@@ -172,7 +182,7 @@ export default function BillingPage() {
             setFilteredSearchableItems(allItems);
         }
     }
-  }, [products, services, isSettingsLoaded, searchTerm]);
+  }, [products, services, isSettingsLoaded, searchTerm]); // Added searchTerm here
 
   useEffect(() => {
     if (searchTerm === '') {
@@ -280,13 +290,13 @@ export default function BillingPage() {
           const cartItemToAdd: CartItem = {
             id: foundItem.id,
             name: foundItem.name,
-            price: foundItem.price, // Use foundItem.price (which is derived from sellingPrice)
+            price: foundItem.price, 
             quantity: 1,
             type: type,
             imageUrl: foundItem.imageUrl || defaultPlaceholder(foundItem.name),
             dataAiHint: foundItem.dataAiHint,
             category: foundItem.category,
-            itemSpecificPhoneNumber: '', // Initialize for services
+            itemSpecificPhoneNumber: '', 
             ...(type === 'product' && {
               barcode: (foundItem as Product).barcode,
               stock: (foundItem as Product).stock,
@@ -410,7 +420,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate: currentGstRate, // Store the decimal rate
+      gstRate: currentGstRate, 
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -525,7 +535,7 @@ export default function BillingPage() {
         setCurrentInvoice(null);
         setIsInvoiceDialogOpen(false);
         setIsPrintFormatDialogOpen(false);
-    }, 250); // Increased timeout slightly for styles to apply
+    }, 250); 
   };
 
 
@@ -725,7 +735,7 @@ export default function BillingPage() {
                         <p>Change: <span className="font-bold text-green-600">{currencySymbol}{balanceAmount.toFixed(2)}</span></p>
                       }
                        {(typeof amountReceived === 'number' && !isNaN(amountReceived) && amountReceived < totalAmount && totalAmount > 0) &&
-                        <p className="text-sm text-destructive font-semibold">Balance Due: {currencySymbol}{(totalAmount - amountReceived).toFixed(2)}</p>
+                        <p className="text-sm text-destructive font-semibold">Balance Due: {currencySymbol}{(totalAmount - Number(amountReceived)).toFixed(2)}</p>
                       }
                     </div>
                   )}

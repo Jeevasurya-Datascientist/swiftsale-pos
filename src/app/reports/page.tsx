@@ -110,47 +110,69 @@ export default function ReportsPage() {
   useEffect(() => {
     if (isSettingsLoaded && typeof window !== 'undefined') {
         const storedProducts = localStorage.getItem('appProducts');
-        let loadedProducts: Product[] = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+        let loadedProducts: Product[] = [];
         if(storedProducts){
             try {
                 const parsed = JSON.parse(storedProducts);
                 if(Array.isArray(parsed)){
-                    loadedProducts = parsed.map((p: any) => ({
-                        id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
-                        name: p.name || "Unnamed Product",
-                        costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
-                        sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : 0,
-                        stock: typeof p.stock === 'number' ? p.stock : 0,
-                        barcode: p.barcode || "",
-                        imageUrl: p.imageUrl || defaultPlaceholder(p.name || 'Product'),
-                        dataAiHint: p.dataAiHint || (p.name ? p.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
-                        category: p.category || undefined,
-                        description: p.description || undefined,
-                    }));
+                    loadedProducts = parsed.map((p: any) => {
+                        const mock = mockProducts.find(mp => mp.id === p.id);
+                        const pName = p.name || (mock ? mock.name : "Unnamed Product");
+                        return {
+                            id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                            name: pName,
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0),
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            stock: typeof p.stock === 'number' ? p.stock : (mock && typeof mock.stock === 'number' ? mock.stock : 0),
+                            barcode: p.barcode || (mock ? mock.barcode : "") || "",
+                            imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
+                            dataAiHint: p.dataAiHint || (mock ? mock.dataAiHint : (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image')),
+                            category: p.category || (mock ? mock.category : undefined),
+                            description: p.description || (mock ? mock.description : undefined),
+                        };
+                    });
+                } else {
+                    loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
                 }
-            } catch(e) { console.error("Failed to parse products from localStorage for reports", e); }
+            } catch(e) { 
+                console.error("Failed to parse products from localStorage for reports", e); 
+                loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+            }
+        } else {
+            loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
         }
         setAllProducts(loadedProducts);
 
         const storedServices = localStorage.getItem('appServices');
-        let loadedServices: Service[] = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+        let loadedServices: Service[] = [];
         if(storedServices){
             try {
                 const parsed = JSON.parse(storedServices);
                 if(Array.isArray(parsed)){
-                     loadedServices = parsed.map((s: any) => ({
-                        id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
-                        name: s.name || "Unnamed Service",
-                        sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : 0,
-                        serviceCode: s.serviceCode || undefined,
-                        imageUrl: s.imageUrl || defaultPlaceholder(s.name || 'Service'),
-                        dataAiHint: s.dataAiHint || (s.name ? s.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
-                        category: s.category || undefined,
-                        description: s.description || undefined,
-                        duration: s.duration || undefined,
-                    }));
+                     loadedServices = parsed.map((s: any) => {
+                        const mock = mockServices.find(ms => ms.id === s.id);
+                        const sName = s.name || (mock ? mock.name : "Unnamed Service");
+                        return {
+                            id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                            name: sName,
+                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
+                            imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
+                            dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
+                            category: s.category || (mock ? mock.category : undefined),
+                            description: s.description || (mock ? mock.description : undefined),
+                            duration: s.duration || (mock ? mock.duration : undefined),
+                        };
+                    });
+                } else {
+                    loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
                 }
-            } catch(e) { console.error("Failed to parse services from localStorage for reports", e); }
+            } catch(e) { 
+                console.error("Failed to parse services from localStorage for reports", e); 
+                loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+            }
+        } else {
+            loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
         }
         setAllServices(loadedServices);
 
@@ -165,11 +187,11 @@ export default function ReportsPage() {
             ...inv,
             items: inv.items.map(item => {
                 const masterItem = allItems.find(mi => mi.id === item.id);
-                const costPrice = item.type === 'product' ? (masterItem as Product)?.costPrice : 0;
+                const costPrice = item.type === 'product' ? (masterItem as Product)?.costPrice : (item.costPrice ?? 0); // Ensure costPrice is taken from cartItem if available
                 return {
                     ...item,
                     category: item.category || masterItem?.category || 'Uncategorized',
-                    costPrice: item.costPrice ?? costPrice, 
+                    costPrice: costPrice, 
                 }
             })
         }));

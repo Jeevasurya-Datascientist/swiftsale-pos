@@ -49,18 +49,22 @@ export default function ProductsPage() {
             try {
                 const parsed = JSON.parse(storedProducts);
                 if (Array.isArray(parsed)) {
-                    loadedProducts = parsed.map((p: any) => ({
-                        id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
-                        name: p.name || "Unnamed Product",
-                        costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
-                        sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : 0,
-                        stock: typeof p.stock === 'number' ? p.stock : 0,
-                        barcode: p.barcode || "", // Barcode is optional
-                        imageUrl: p.imageUrl || defaultPlaceholder(p.name || 'Product'),
-                        dataAiHint: p.dataAiHint || (p.name ? p.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
-                        category: p.category || undefined,
-                        description: p.description || undefined,
-                    }));
+                    loadedProducts = parsed.map((p: any) => {
+                        const mock = mockProducts.find(mp => mp.id === p.id);
+                        const pName = p.name || (mock ? mock.name : "Unnamed Product");
+                        return {
+                            id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                            name: pName,
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0),
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            stock: typeof p.stock === 'number' ? p.stock : (mock && typeof mock.stock === 'number' ? mock.stock : 0),
+                            barcode: p.barcode || (mock ? mock.barcode : "") || "",
+                            imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
+                            dataAiHint: p.dataAiHint || (mock ? mock.dataAiHint : (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image')),
+                            category: p.category || (mock ? mock.category : undefined),
+                            description: p.description || (mock ? mock.description : undefined),
+                        };
+                    });
                 } else {
                     loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
                 }

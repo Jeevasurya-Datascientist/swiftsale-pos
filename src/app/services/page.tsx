@@ -48,17 +48,21 @@ export default function ServicesPage() {
         try {
           const parsed = JSON.parse(storedServices);
           if (Array.isArray(parsed)) {
-            loadedServices = parsed.map((s: any) => ({
-              id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
-              name: s.name || "Unnamed Service",
-              sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : 0,
-              serviceCode: s.serviceCode || undefined,
-              imageUrl: s.imageUrl || defaultPlaceholder(s.name || 'Service'),
-              dataAiHint: s.dataAiHint || (s.name ? s.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
-              category: s.category || undefined,
-              description: s.description || undefined,
-              duration: s.duration || undefined,
-            }));
+            loadedServices = parsed.map((s: any) => {
+                const mock = mockServices.find(ms => ms.id === s.id);
+                const sName = s.name || (mock ? mock.name : "Unnamed Service");
+                return {
+                    id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                    name: sName,
+                    sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                    serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
+                    imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
+                    dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
+                    category: s.category || (mock ? mock.category : undefined),
+                    description: s.description || (mock ? mock.description : undefined),
+                    duration: s.duration || (mock ? mock.duration : undefined),
+                };
+            });
           } else {
             loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
           }
