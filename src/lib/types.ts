@@ -33,6 +33,7 @@ export interface CartItem {
   dataAiHint?: string;
   type: 'product' | 'service'; // Differentiator
   category?: string; // Added for reporting
+  itemSpecificPhoneNumber?: string; // New optional field for service specific phone
 
   // Product-specific properties, optional in CartItem
   barcode?: string;
@@ -97,3 +98,4 @@ export interface ExistingCustomer {
   phoneNumber: string;
   id: string; // A unique ID for the customer, e.g., name-phone
 }
+

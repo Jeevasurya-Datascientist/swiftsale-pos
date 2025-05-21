@@ -220,6 +220,7 @@ export default function BillingPage() {
             imageUrl: foundItem.imageUrl,
             dataAiHint: foundItem.dataAiHint,
             category: foundItem.category,
+            itemSpecificPhoneNumber: '', // Initialize for services
             ...(type === 'product' && { barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock }),
             ...(type === 'service' && { serviceCode: (foundItem as Service).serviceCode, duration: (foundItem as Service).duration }),
           };
@@ -266,6 +267,14 @@ export default function BillingPage() {
     if (newQuantity > (cartItem.quantity || 0) ) { 
         playSound();
     }
+  };
+
+  const handleUpdateItemPhoneNumber = (itemId: string, phoneNumber: string) => {
+    setCartItems(prevCart =>
+      prevCart.map(item =>
+        item.id === itemId ? { ...item, itemSpecificPhoneNumber: phoneNumber } : item
+      )
+    );
   };
 
   const generateInvoiceNumber = () => {
@@ -351,7 +360,7 @@ export default function BillingPage() {
     }
   };
 
-  const handleFinalizeSale = () => { // Renamed from handleFinalizeSaleAndPrint
+  const handleFinalizeSale = () => { 
     if (!currentInvoice) return;
 
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
@@ -396,7 +405,7 @@ export default function BillingPage() {
       toast({ title: "Simulated WhatsApp Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
       toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
     }
-    // Does not print immediately, opens print format dialog instead
+    
     setIsPrintFormatDialogOpen(true);
   };
   
@@ -416,7 +425,7 @@ export default function BillingPage() {
         document.body.classList.remove('print-mode-a4');
         document.body.classList.remove('print-mode-thermal');
 
-        // Reset cart and close dialogs after printing is initiated
+        
         setCartItems([]);
         setCustomerName('');
         setCustomerPhoneNumber('');
@@ -431,7 +440,7 @@ export default function BillingPage() {
         setCurrentInvoice(null); 
         setIsInvoiceDialogOpen(false);
         setIsPrintFormatDialogOpen(false);
-    }, 100); // Small delay to allow class changes to apply
+    }, 100); 
   };
 
 
@@ -485,7 +494,8 @@ export default function BillingPage() {
           <CartDisplay 
             cartItems={cartItems} 
             onRemoveItem={handleRemoveItem} 
-            onUpdateQuantity={handleUpdateQuantity} 
+            onUpdateQuantity={handleUpdateQuantity}
+            onUpdateItemPhoneNumber={handleUpdateItemPhoneNumber} 
             currencySymbol={currencySymbol}
             gstRatePercentage={settingsGstRate}
           />

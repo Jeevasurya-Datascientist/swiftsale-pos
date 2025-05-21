@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import Image from 'next/image';
-import { Package, ConciergeBell, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Package, ConciergeBell, AlertTriangle, CheckCircle2, Phone } from 'lucide-react';
 
 interface InvoiceViewProps {
   invoice: Invoice;
@@ -97,6 +97,11 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
                 </div>
                 {item.type === 'product' && item.barcode && <div className="text-xs text-muted-foreground print-item-code">Code: {item.barcode}</div>}
                 {item.type === 'service' && item.serviceCode && <div className="text-xs text-muted-foreground print-item-code">Code: {item.serviceCode}</div>}
+                {item.type === 'service' && item.itemSpecificPhoneNumber && (
+                  <div className="text-xs text-muted-foreground print-item-code flex items-center gap-1">
+                    <Phone size={10} className="print-hide-icon"/> Contact: {item.itemSpecificPhoneNumber}
+                  </div>
+                )}
               </TableCell>
               <TableCell className="text-center print-table-cell">{item.quantity}</TableCell>
               <TableCell className="text-right print-table-cell">{currencySymbol}{item.price.toFixed(2)}</TableCell>
