@@ -45,6 +45,17 @@ export function CartDisplay({
     );
   }
 
+  const handleQuantityInputChange = (itemId: string, value: string) => {
+    const newQuantity = parseInt(value, 10);
+    if (!isNaN(newQuantity)) {
+      onUpdateQuantity(itemId, newQuantity);
+    } else if (value === "") {
+      // Allow empty input temporarily, could default to 1 on blur or handle as needed
+      // For now, let onUpdateQuantity handle it (might remove if quantity becomes < 1)
+      onUpdateQuantity(itemId, 0); // Or 1, depending on desired behavior for empty
+    }
+  };
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -105,12 +116,24 @@ export function CartDisplay({
                         variant="outline"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
                         disabled={item.quantity <= 1}
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="w-8 text-center">{item.quantity}</span>
+                      <Input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => handleQuantityInputChange(item.id, e.target.value)}
+                        onBlur={(e) => { // Ensure quantity is at least 1 on blur if field was emptied
+                            if (e.target.value === "" || parseInt(e.target.value, 10) < 1) {
+                                onUpdateQuantity(item.id, 1);
+                            }
+                        }}
+                        min="1"
+                        max={item.type === 'product' && typeof item.stock === 'number' ? item.stock : undefined}
+                        className="h-7 w-12 text-center px-1"
+                      />
                       <Button
                         variant="outline"
                         size="icon"

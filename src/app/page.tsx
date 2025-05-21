@@ -114,8 +114,8 @@ export default function BillingPage() {
         setServices(finalServices);
 
         const allItems: SearchableItem[] = [
-            ...finalProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product' })), 
-            ...finalServices.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service' }))  
+            ...finalProducts.map(p => ({ ...p, sellingPrice: p.sellingPrice, type: 'product' as 'product' })), 
+            ...finalServices.map(s => ({ ...s, sellingPrice: s.sellingPrice, type: 'service' as 'service' }))  
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
         setFilteredSearchableItems(allItems);
@@ -145,8 +145,8 @@ export default function BillingPage() {
         localStorage.setItem('appProducts', JSON.stringify(products));
         localStorage.setItem('appServices', JSON.stringify(services));
         const allItems: SearchableItem[] = [
-          ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
-          ...services.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service'}))
+          ...products.map(p => ({ ...p, sellingPrice: p.sellingPrice, type: 'product' as 'product'})),
+          ...services.map(s => ({ ...s, sellingPrice: s.sellingPrice, type: 'service' as 'service'}))
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
         if (searchTerm) {
@@ -228,7 +228,7 @@ export default function BillingPage() {
     }
 
     if (foundItem) {
-      const type: 'product' | 'service' = 'barcode' in foundItem ? 'product' : 'service';
+      const type: 'product' | 'service' = 'stock' in foundItem ? 'product' : 'service';
       if (type === 'product') {
         const product = foundItem as Product; 
         const existingCartItem = cartItems.find(ci => ci.id === product.id);
@@ -268,7 +268,7 @@ export default function BillingPage() {
           const cartItemToAdd: CartItem = {
             id: foundItem.id,
             name: foundItem.name,
-            price: foundItem.price, 
+            price: foundItem.sellingPrice, 
             quantity: 1,
             type: type,
             imageUrl: foundItem.imageUrl || defaultPlaceholder(foundItem.name),
@@ -304,30 +304,29 @@ export default function BillingPage() {
   const handleUpdateQuantity = (itemId: string, newQuantity: number) => {
     const cartItem = cartItems.find(ci => ci.id === itemId);
     if (!cartItem) return;
-
-    if (newQuantity <= 0) {
-        handleRemoveItem(itemId);
-        return;
+  
+    let quantityToSet = newQuantity;
+  
+    if (quantityToSet <= 0) {
+      handleRemoveItem(itemId);
+      return;
     }
-
+  
     const productDetails = products.find(p => p.id === itemId);
     if (cartItem.type === 'product' && productDetails) {
-      if (newQuantity > productDetails.stock) {
-        toast({ title: "Stock Limit Exceeded", description: `Only ${productDetails.stock} units of ${cartItem.name} available.`, variant: "destructive" });
-        setCartItems((prevCart) =>
-          prevCart.map((item) => (item.id === itemId ? { ...item, quantity: productDetails.stock! } : item))
-        );
-        checkAndNotifyLowStock(productDetails, productDetails.stock);
-        return;
+      if (quantityToSet > productDetails.stock) {
+        toast({ title: "Stock Limit Exceeded", description: `Only ${productDetails.stock} units of ${cartItem.name} available. Quantity set to max.`, variant: "destructive" });
+        quantityToSet = productDetails.stock;
       }
-      checkAndNotifyLowStock(productDetails, newQuantity);
+      checkAndNotifyLowStock(productDetails, quantityToSet);
     }
-
+  
     setCartItems((prevCart) =>
-      prevCart.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
+      prevCart.map((item) => (item.id === itemId ? { ...item, quantity: quantityToSet } : item))
     );
-    if (newQuantity > (cartItem.quantity || 0) ) {
-        playSound();
+  
+    if (newQuantity > (cartItem.quantity || 0) && (cartItem.type !== 'product' || (productDetails && quantityToSet <= productDetails.stock))) {
+        playSound(); // Play sound only if quantity increased and within stock limits
     }
   };
 
@@ -851,3 +850,4 @@ export default function BillingPage() {
     </div>
   );
 }
+
