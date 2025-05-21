@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import Image from 'next/image';
-import { Package, ConciergeBell, AlertTriangle, CheckCircle2, Phone } from 'lucide-react';
+import { Package, ConciergeBell, AlertTriangle, CheckCircle2, Phone, MessageSquareText } from 'lucide-react';
 
 interface InvoiceViewProps {
   invoice: Invoice;
@@ -102,6 +102,12 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
                     <Phone size={10} className="print-hide-icon"/> Contact: {item.itemSpecificPhoneNumber}
                   </div>
                 )}
+                {item.type === 'service' && item.itemSpecificNote && (
+                  <div className="text-xs text-muted-foreground print-item-note flex items-start gap-1 mt-0.5">
+                    <MessageSquareText size={10} className="print-hide-icon mt-0.5 flex-shrink-0"/>
+                    <span className="whitespace-pre-wrap">Note: {item.itemSpecificNote}</span>
+                  </div>
+                )}
               </TableCell>
               <TableCell className="text-center print-table-cell print-qty-cell">{item.quantity}</TableCell>
               <TableCell className="text-right print-table-cell print-price-cell">{currencySymbol}{item.price.toFixed(2)}</TableCell> 
@@ -172,8 +178,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             display: none !important;
           }
           
-          /* Style the dialog itself to not interfere */
-          .invoice-view-dialog-content { /* Class added to DialogContent in InvoicesPage */
+          .invoice-view-dialog-content { 
             position: static !important;
             width: auto !important;
             max-width: none !important;
@@ -185,24 +190,23 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             padding: 0 !important;
             margin: 0 !important;
             box-shadow: none !important;
-            background: transparent !important; /* Make dialog box transparent */
+            background: transparent !important; 
             overflow: visible !important;
-            left: unset !important; /* Override positioning */
+            left: unset !important; 
             top: unset !important;
-            grid-template-columns: 1fr !important; /* Override grid */
+            grid-template-columns: 1fr !important; 
           }
-          .invoice-view-dialog-content > button[aria-label="Close"] { /* Hide ShadCN's X close button */
+          .invoice-view-dialog-content > button[aria-label="Close"] { 
             display: none !important;
           }
-          .invoice-view-dialog-content > .print-hide { /* Ensure footer inside dialog is hidden */
+          .invoice-view-dialog-content > .print-hide { 
              display: none !important;
           }
 
 
-          /* Style for the root of InvoiceView content */
           .invoice-view-print-root {
-            position: static !important; /* Changed from absolute to static */
-            width: 100% !important; /* Let it take width from @page or body */
+            position: static !important; 
+            width: 100% !important; 
             height: auto !important;
             max-height: none !important;
             overflow: visible !important;
@@ -245,11 +249,10 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           /* Thermal Specific Styles (e.g., 58mm paper width) */
           body.print-mode-thermal .invoice-view-print-root {
             font-family: 'Courier New', Courier, monospace !important;
-            /* width: 52mm !important; Let @page define width */
           }
           body.print-mode-thermal @page {
-            size: 57mm auto; /* Adjust if using 80mm paper */
-            margin: 2mm 2mm 2mm 3mm; /* top, right, bottom, left */
+            size: 57mm auto; 
+            margin: 2mm 2mm 2mm 3mm; 
           }
           body.print-mode-thermal .print-header-section, 
           body.print-mode-thermal .print-thankyou-message { text-align: center !important; }
@@ -276,14 +279,14 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-thermal .print-col-qty { width: 10%; text-align: center !important; }
           body.print-mode-thermal .print-col-price { width: 15%; text-align: right !important; white-space: nowrap; }
           body.print-mode-thermal .print-col-total { width: 20%; text-align: right !important; white-space: nowrap; }
-          body.print-mode-thermal .print-item-code, body.print-mode-thermal .print-item-phone { font-size: 6pt !important; }
+          body.print-mode-thermal .print-item-code, body.print-mode-thermal .print-item-phone, body.print-mode-thermal .print-item-note { font-size: 6pt !important; }
           
           body.print-mode-thermal .print-summary-footer { margin-top: 2mm; }
           body.print-mode-thermal .print-summary-footer td { font-size: 7pt !important; padding: 0.5mm 0.2mm !important;}
           body.print-mode-thermal .print-summary-footer .font-bold { font-size: 8pt !important; }
-          body.print-mode-thermal .print-footer-colspan-adjust { display: none !important; }
-          body.print-mode-thermal .print-summary-label { text-align: left !important; padding-left: 0 !important; font-weight: bold; }
-          body.print-mode-thermal .print-summary-value { text-align: right !important; padding-right: 0 !important; }
+          body.print-mode-thermal .print-summary-footer .print-footer-colspan-adjust { display: none !important; } /* Key change for thermal totals */
+          body.print-mode-thermal .print-summary-footer .print-summary-label { text-align: left !important; padding-left: 0 !important; font-weight: bold; }
+          body.print-mode-thermal .print-summary-footer .print-summary-value { text-align: right !important; padding-right: 0 !important; }
 
 
           body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 3mm !important; }
@@ -294,3 +297,4 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
     </div>
   );
 }
+

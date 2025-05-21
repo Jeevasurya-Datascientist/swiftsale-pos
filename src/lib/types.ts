@@ -4,12 +4,12 @@ export interface BaseItem {
   name: string;
   description?: string;
   category?: string;
-  imageUrl: string; // Now mandatory
+  imageUrl: string; 
   dataAiHint?: string;
 }
 
 export interface Product extends BaseItem {
-  barcode?: string; // Now optional
+  barcode?: string; 
   stock: number;
   costPrice: number;
   sellingPrice: number;
@@ -21,22 +21,23 @@ export interface Service extends BaseItem {
   sellingPrice: number;
 }
 
-export type SearchableItem = (Product | Service) & { price: number };
+export type SearchableItem = (Product | Service) & { price: number; type: 'product' | 'service' }; // Added type explicitly
 
 export interface CartItem {
   id: string;
   name: string;
   price: number; 
   quantity: number;
-  imageUrl: string; // Now mandatory
+  imageUrl: string; 
   dataAiHint?: string;
   type: 'product' | 'service';
   category?: string;
   itemSpecificPhoneNumber?: string;
+  itemSpecificNote?: string; // New field for service notes
 
   costPrice?: number; 
 
-  barcode?: string; // Now optional
+  barcode?: string; 
   stock?: number;
 
   serviceCode?: string;

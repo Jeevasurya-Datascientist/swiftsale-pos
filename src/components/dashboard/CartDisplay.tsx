@@ -7,14 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
-import { X, Plus, Minus, Package, ConciergeBell } from 'lucide-react';
+import { X, Plus, Minus, Package, ConciergeBell, Phone, MessageSquareText } from 'lucide-react'; // Added icons
 import { Input } from '@/components/ui/input';
 
 interface CartDisplayProps {
   cartItems: CartItem[];
   onRemoveItem: (itemId: string) => void;
   onUpdateQuantity: (itemId: string, newQuantity: number) => void;
-  onUpdateItemPhoneNumber: (itemId: string, phoneNumber: string) => void;
+  onUpdateItemPhoneNumber: (itemId: string, phoneNumber: string) => void; // Keep for potential future direct edits
+  onUpdateItemNote: (itemId: string, note: string) => void; // Keep for potential future direct edits
   currencySymbol: string;
   gstRatePercentage: number;
 }
@@ -23,11 +24,12 @@ export function CartDisplay({
   cartItems,
   onRemoveItem,
   onUpdateQuantity,
-  onUpdateItemPhoneNumber,
+  onUpdateItemPhoneNumber, // Retained
+  onUpdateItemNote, // Retained
   currencySymbol,
   gstRatePercentage
 }: CartDisplayProps) {
-  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0); // item.price is sellingPrice
+  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0); 
   const gstRateDecimal = (gstRatePercentage || 0) / 100;
   const gstAmount = subTotal * gstRateDecimal;
   const totalAmount = subTotal + gstAmount;
@@ -50,9 +52,7 @@ export function CartDisplay({
     if (!isNaN(newQuantity)) {
       onUpdateQuantity(itemId, newQuantity);
     } else if (value === "") {
-      // Allow empty input temporarily, could default to 1 on blur or handle as needed
-      // For now, let onUpdateQuantity handle it (might remove if quantity becomes < 1)
-      onUpdateQuantity(itemId, 0); // Or 1, depending on desired behavior for empty
+      onUpdateQuantity(itemId, 0); 
     }
   };
 
@@ -97,16 +97,16 @@ export function CartDisplay({
                     </div>
                     {item.type === 'product' && item.barcode && <div className="text-xs text-muted-foreground">Code: {item.barcode}</div>}
                     {item.type === 'service' && item.serviceCode && <div className="text-xs text-muted-foreground">Code: {item.serviceCode}</div>}
-                    {item.type === 'service' && (
-                      <div className="mt-1.5">
-                        <Input
-                          type="tel"
-                          placeholder="Service Contact Ph (Opt.)"
-                          value={item.itemSpecificPhoneNumber || ''}
-                          onChange={(e) => onUpdateItemPhoneNumber(item.id, e.target.value)}
-                          className="h-8 text-xs w-full max-w-[180px]"
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                    
+                    {item.type === 'service' && item.itemSpecificPhoneNumber && (
+                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Phone size={10} /> {item.itemSpecificPhoneNumber}
+                      </div>
+                    )}
+                    {item.type === 'service' && item.itemSpecificNote && (
+                      <div className="text-xs text-muted-foreground mt-1 flex items-start gap-1">
+                        <MessageSquareText size={10} className="mt-0.5"/> 
+                        <span className="whitespace-pre-wrap">{item.itemSpecificNote}</span>
                       </div>
                     )}
                   </TableCell>
@@ -125,7 +125,7 @@ export function CartDisplay({
                         type="number"
                         value={item.quantity}
                         onChange={(e) => handleQuantityInputChange(item.id, e.target.value)}
-                        onBlur={(e) => { // Ensure quantity is at least 1 on blur if field was emptied
+                        onBlur={(e) => { 
                             if (e.target.value === "" || parseInt(e.target.value, 10) < 1) {
                                 onUpdateQuantity(item.id, 1);
                             }
@@ -145,8 +145,8 @@ export function CartDisplay({
                       </Button>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right align-top pt-2.5">{currencySymbol}{item.price.toFixed(2)}</TableCell> {/* item.price is sellingPrice */}
-                  <TableCell className="text-right align-top pt-2.5">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</TableCell> {/* item.price is sellingPrice */}
+                  <TableCell className="text-right align-top pt-2.5">{currencySymbol}{item.price.toFixed(2)}</TableCell>
+                  <TableCell className="text-right align-top pt-2.5">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</TableCell>
                   <TableCell className="text-center align-top pt-1.5">
                     <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.id)} aria-label="Remove item">
                       <X className="h-4 w-4 text-destructive" />
@@ -175,3 +175,4 @@ export function CartDisplay({
     </Card>
   );
 }
+

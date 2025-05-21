@@ -6,12 +6,13 @@ import type { Product, Service, CartItem, Invoice, SearchableItem, ExistingCusto
 import { mockProducts, mockServices, mockInvoices as initialMockInvoices } from '@/lib/mockData';
 import { ItemGrid } from '@/components/dashboard/ItemGrid';
 import { CartDisplay } from '@/components/dashboard/CartDisplay';
+import { ServiceDetailsDialog } from '@/components/dashboard/ServiceDetailsDialog'; // New Dialog
 import { SmartSuggestions } from '@/components/dashboard/SmartSuggestions';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'; // Removed DialogClose as it's not directly used
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"; // Removed AlertDialogTrigger
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,10 @@ export default function BillingPage() {
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [isPrintFormatDialogOpen, setIsPrintFormatDialogOpen] = useState(false);
+
+  const [isServiceDetailsDialogOpen, setIsServiceDetailsDialogOpen] = useState(false);
+  const [currentItemForServiceDialog, setCurrentItemForServiceDialog] = useState<SearchableItem | null>(null);
+
 
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Card' | 'Digital Wallet'>('Cash');
   const [customerName, setCustomerName] = useState('');
@@ -80,9 +85,9 @@ export default function BillingPage() {
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0),
-                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
-                            stock: typeof p.stock === 'number' ? p.stock : (mock && typeof mock.stock === 'number' ? mock.stock : 0),
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof mock?.costPrice === 'number' ? mock.costPrice : 0),
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (typeof mock?.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            stock: typeof p.stock === 'number' ? p.stock : (typeof mock?.stock === 'number' ? mock.stock : 0),
                             barcode: p.barcode || (mock ? mock.barcode : "") || "",
                             imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
                             dataAiHint: p.dataAiHint || (mock ? mock.dataAiHint : (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image')),
@@ -91,14 +96,14 @@ export default function BillingPage() {
                         };
                     });
                 } else {
-                   finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+                   finalProducts = mockProducts.map(p => ({...p, sellingPrice: p.sellingPrice || p.price as number, costPrice: p.costPrice || 0, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
                 }
             } catch (e) { 
               console.error("Failed to parse products from localStorage, using mock data.", e);
-              finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+              finalProducts = mockProducts.map(p => ({...p, sellingPrice: p.sellingPrice || p.price as number, costPrice: p.costPrice || 0, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
             }
         } else {
-            finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+            finalProducts = mockProducts.map(p => ({...p, sellingPrice: p.sellingPrice || p.price as number, costPrice: p.costPrice || 0, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
         }
         setProducts(finalProducts);
 
@@ -114,7 +119,7 @@ export default function BillingPage() {
                         return {
                             id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: sName,
-                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (typeof mock?.sellingPrice === 'number' ? mock.sellingPrice : 0)),
                             serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
                             imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
                             dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
@@ -124,14 +129,14 @@ export default function BillingPage() {
                         };
                     });
                 } else {
-                    finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+                    finalServices = mockServices.map(s => ({...s, sellingPrice: s.sellingPrice || s.price as number, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
                 }
             } catch (e) { 
               console.error("Failed to parse services from localStorage, using mock data.", e);
-              finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+              finalServices = mockServices.map(s => ({...s, sellingPrice: s.sellingPrice || s.price as number, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
             }
         } else {
-            finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+            finalServices = mockServices.map(s => ({...s, sellingPrice: s.sellingPrice || s.price as number, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
         }
         setServices(finalServices);
 
@@ -182,7 +187,7 @@ export default function BillingPage() {
             setFilteredSearchableItems(allItems);
         }
     }
-  }, [products, services, isSettingsLoaded, searchTerm]); // Added searchTerm here
+  }, [products, services, isSettingsLoaded, searchTerm]);
 
   useEffect(() => {
     if (searchTerm === '') {
@@ -242,81 +247,91 @@ export default function BillingPage() {
     }
   };
 
-  const handleAddItemToCart = (itemIdentifier: string, itemTypeFromSearch?: 'product' | 'service') => {
-    let foundItem: SearchableItem | undefined;
-    foundItem = filteredSearchableItems.find(item => item.id === itemIdentifier);
+  const handleAddItemToCart = (itemIdentifier: string) => {
+    let foundItem = filteredSearchableItems.find(item => item.id === itemIdentifier);
     if (!foundItem) {
         foundItem = searchableItems.find(item => item.id === itemIdentifier);
     }
-
+  
     if (foundItem) {
-      const type: 'product' | 'service' = 'stock' in foundItem ? 'product' : 'service';
-      if (type === 'product') {
-        const product = foundItem as Product; 
-        const existingCartItem = cartItems.find(ci => ci.id === product.id);
-        if (!existingCartItem && product.stock <= 0) {
-          toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" });
-          return;
-        }
-        if (existingCartItem && existingCartItem.quantity >= product.stock) {
-           toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
-           return;
-        }
-        const currentQuantityInCart = existingCartItem ? existingCartItem.quantity : 0;
-        const prospectiveQuantityInCart = currentQuantityInCart + 1;
-        if (prospectiveQuantityInCart <= product.stock) {
-          checkAndNotifyLowStock(product, prospectiveQuantityInCart);
-        }
+      if (foundItem.type === 'service') {
+        setCurrentItemForServiceDialog(foundItem);
+        setIsServiceDetailsDialogOpen(true);
+        return; // Stop here for services, let dialog handle adding to cart
       }
-
+  
+      // Product logic
+      const product = foundItem as Product;
+      const existingCartItem = cartItems.find(ci => ci.id === product.id);
+      if (!existingCartItem && product.stock <= 0) {
+        toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" });
+        return;
+      }
+      if (existingCartItem && existingCartItem.quantity >= product.stock) {
+         toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
+         return;
+      }
+      const currentQuantityInCart = existingCartItem ? existingCartItem.quantity : 0;
+      const prospectiveQuantityInCart = currentQuantityInCart + 1;
+      if (prospectiveQuantityInCart <= product.stock) {
+        checkAndNotifyLowStock(product, prospectiveQuantityInCart);
+      }
+  
       setCartItems((prevCart) => {
-        const existingItem = prevCart.find((item) => item.id === foundItem!.id);
+        const existingItem = prevCart.find((item) => item.id === product.id);
         if (existingItem) {
-          if (type === 'product') {
-            const product = foundItem as Product;
-            if (existingItem.quantity < product.stock) {
-              return prevCart.map((item) =>
-                item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-              );
-            } else {
-              return prevCart;
-            }
-          } else {
+          if (existingItem.quantity < product.stock) {
             return prevCart.map((item) =>
-              item.id === foundItem!.id ? { ...item, quantity: item.quantity + 1 } : item
+              item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
             );
           }
+          return prevCart; 
         } else {
           const cartItemToAdd: CartItem = {
-            id: foundItem.id,
-            name: foundItem.name,
-            price: foundItem.price, 
-            quantity: 1,
-            type: type,
-            imageUrl: foundItem.imageUrl || defaultPlaceholder(foundItem.name),
-            dataAiHint: foundItem.dataAiHint,
-            category: foundItem.category,
-            itemSpecificPhoneNumber: '', 
-            ...(type === 'product' && {
-              barcode: (foundItem as Product).barcode,
-              stock: (foundItem as Product).stock,
-              costPrice: (foundItem as Product).costPrice
-            }),
-            ...(type === 'service' && {
-              serviceCode: (foundItem as Service).serviceCode,
-              duration: (foundItem as Service).duration,
-              costPrice: 0 
-            }),
+            id: product.id, name: product.name, price: product.sellingPrice, quantity: 1, type: 'product',
+            imageUrl: product.imageUrl || defaultPlaceholder(product.name),
+            dataAiHint: product.dataAiHint, category: product.category,
+            barcode: product.barcode, stock: product.stock, costPrice: product.costPrice
           };
           return [...prevCart, cartItemToAdd];
         }
       });
       playSound();
-      toast({ title: "Item Added", description: `${foundItem.name} added to cart.` });
+      toast({ title: "Item Added", description: `${product.name} added to cart.` });
     } else {
-      toast({ title: "Item Not Found", description: "No product or service matched your search.", variant: "destructive" });
+      toast({ title: "Item Not Found", description: "No product matched your search.", variant: "destructive" });
     }
   };
+
+  const handleConfirmAddServiceToCart = (details: { phoneNumber?: string; note?: string }) => {
+    if (!currentItemForServiceDialog || currentItemForServiceDialog.type !== 'service') return;
+
+    const service = currentItemForServiceDialog as Service; // Cast to Service
+    
+    setCartItems((prevCart) => {
+        const existingItem = prevCart.find((item) => item.id === service.id);
+        if (existingItem) {
+          return prevCart.map((item) =>
+            item.id === service.id ? { ...item, quantity: item.quantity + 1 } : item
+          );
+        } else {
+            const cartItemToAdd: CartItem = {
+                id: service.id, name: service.name, price: service.sellingPrice, quantity: 1, type: 'service',
+                imageUrl: service.imageUrl || defaultPlaceholder(service.name),
+                dataAiHint: service.dataAiHint, category: service.category,
+                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, // Assuming services have no cost price for profit calc
+                itemSpecificPhoneNumber: details.phoneNumber || '',
+                itemSpecificNote: details.note || ''
+            };
+            return [...prevCart, cartItemToAdd];
+        }
+    });
+    playSound();
+    toast({ title: "Service Added", description: `${service.name} added to cart.` });
+    setIsServiceDetailsDialogOpen(false);
+    setCurrentItemForServiceDialog(null);
+  };
+
 
   const handleRemoveItem = (itemId: string) => {
     setCartItems((prevCart) => prevCart.filter((item) => item.id !== itemId));
@@ -351,11 +366,23 @@ export default function BillingPage() {
         playSound(); 
     }
   };
-
+  
   const handleUpdateItemPhoneNumber = (itemId: string, phoneNumber: string) => {
-    setCartItems(prevCart =>
+    // This function is now handled by ServiceDetailsDialog for initial entry.
+    // If live editing in cart is needed, it would be re-implemented.
+    // For now, we'll assume phone number is set via the dialog.
+     setCartItems(prevCart =>
       prevCart.map(item =>
         item.id === itemId ? { ...item, itemSpecificPhoneNumber: phoneNumber } : item
+      )
+    );
+  };
+  const handleUpdateItemNote = (itemId: string, note: string) => {
+    // Placeholder for potential live editing of notes in cart if needed later.
+    // For now, notes are set via the ServiceDetailsDialog.
+     setCartItems(prevCart =>
+      prevCart.map(item =>
+        item.id === itemId ? { ...item, itemSpecificNote: note } : item
       )
     );
   };
@@ -590,7 +617,8 @@ export default function BillingPage() {
             cartItems={cartItems}
             onRemoveItem={handleRemoveItem}
             onUpdateQuantity={handleUpdateQuantity}
-            onUpdateItemPhoneNumber={handleUpdateItemPhoneNumber}
+            onUpdateItemPhoneNumber={handleUpdateItemPhoneNumber} // Retain for potential direct cart edits if needed later
+            onUpdateItemNote={handleUpdateItemNote} // Retain for potential direct cart edits
             currencySymbol={currencySymbol}
             gstRatePercentage={settingsGstRate}
           />
@@ -750,6 +778,18 @@ export default function BillingPage() {
           </Card>
         </div>
       </div>
+      
+      {isServiceDetailsDialogOpen && currentItemForServiceDialog && (
+        <ServiceDetailsDialog
+          isOpen={isServiceDetailsDialogOpen}
+          serviceName={currentItemForServiceDialog.name}
+          onClose={() => {
+            setIsServiceDetailsDialogOpen(false);
+            setCurrentItemForServiceDialog(null);
+          }}
+          onConfirm={handleConfirmAddServiceToCart}
+        />
+      )}
 
       {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(open) => {
@@ -822,8 +862,6 @@ export default function BillingPage() {
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
             if (!open) {
                 setIsPrintFormatDialogOpen(false);
-                // Do not clear currentInvoice here if InvoiceView is still meant to use it for printing
-                // Clearing invoice and cart should happen AFTER print completes in performPrint
             }
          }}>
             <AlertDialogContent>
@@ -841,7 +879,6 @@ export default function BillingPage() {
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
                      <AlertDialogCancel onClick={() => {
-                        // Reset state as if sale was cancelled after finalization but before printing
                         setIsPrintFormatDialogOpen(false);
                         setCurrentInvoice(null); 
                         setIsInvoiceDialogOpen(false);
