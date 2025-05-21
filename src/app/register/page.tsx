@@ -39,6 +39,12 @@ export default function RegisterPage() {
     // In a real app, you'd call your auth service here
     localStorage.setItem('isAuthenticated', 'true'); 
     localStorage.setItem('userEmail', data.email); 
+
+    // Clear previous user's transactional data
+    localStorage.removeItem('appInvoices');
+    localStorage.removeItem('appProducts');
+    localStorage.removeItem('appServices');
+    
     toast({
       title: 'Registration Successful',
       description: 'Account created! Redirecting to your dashboard...',
