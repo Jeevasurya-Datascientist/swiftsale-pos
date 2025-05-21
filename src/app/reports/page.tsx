@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem } from '@/lib/types'; 
-// Removed import from '@/lib/mockData';
 import { useSettings } from '@/context/SettingsContext';
 import {
   filterInvoicesByDate,
@@ -117,8 +116,8 @@ export default function ReportsPage() {
                 if(Array.isArray(parsed)){
                     loadedProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
-                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0);
-                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0)); // Check sellingPrice, then price
+                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0); // Check old price field too
                         const stock = typeof p.stock === 'number' ? p.stock : 0;
                         const barcode = p.barcode || "";
                         const imageUrl = p.imageUrl || defaultPlaceholder(pName);
@@ -156,7 +155,7 @@ export default function ReportsPage() {
                 if(Array.isArray(parsed)){
                      loadedServices = parsed.map((s: any) => {
                         const sName = s.name || "Unnamed Service";
-                        const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : 0);
+                        const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : 0); // Check old price field
                         const serviceCode = s.serviceCode || undefined;
                         const imageUrl = s.imageUrl || defaultPlaceholder(sName);
                         const dataAiHint = s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image');
@@ -186,7 +185,23 @@ export default function ReportsPage() {
         setAllServices(loadedServices);
 
         const storedInvoices = localStorage.getItem('appInvoices');
-        const loadedAppInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : [];
+        let loadedAppInvoices: Invoice[] = [];
+        if (storedInvoices) {
+            try {
+                const parsed = JSON.parse(storedInvoices);
+                if (Array.isArray(parsed)) {
+                    loadedAppInvoices = parsed;
+                } else {
+                    console.warn("Stored appInvoices for reports is not an array. Initializing as empty.");
+                    // loadedAppInvoices remains []
+                }
+            } catch (error) {
+                console.error("Failed to parse appInvoices for reports from localStorage. Initializing as empty.", error);
+                // loadedAppInvoices remains []
+            }
+        }
+        // Else, if storedInvoices is null, loadedAppInvoices is already []
+
 
         const allItems: SearchableItem[] = [
             ...loadedProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
@@ -455,3 +470,5 @@ export default function ReportsPage() {
     </ScrollArea>
   );
 }
+
+    

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Invoice, Product } from '@/lib/types';
+import type { Invoice, Product, ReportTimeFilter } from '@/lib/types'; // Added ReportTimeFilter
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import { EditInvoiceDialog } from '@/components/invoices/EditInvoiceDialog';
 import {
@@ -31,7 +31,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import type { ReportTimeFilter } from '@/lib/types';
+// import type { ReportTimeFilter } from '@/lib/types'; // Already imported above
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -56,7 +56,22 @@ export default function InvoicesPage() {
   const loadInvoices = useCallback(() => {
     if (isSettingsLoaded) {
         let storedInvoices = localStorage.getItem('appInvoices');
-        const loadedInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : [];
+        let loadedInvoices: Invoice[] = [];
+        if (storedInvoices) {
+            try {
+                const parsed = JSON.parse(storedInvoices);
+                if (Array.isArray(parsed)) {
+                    loadedInvoices = parsed;
+                } else {
+                    console.warn("Stored appInvoices is not an array. Initializing as empty for InvoicesPage.");
+                    // loadedInvoices remains []
+                }
+            } catch (error) {
+                console.error("Failed to parse appInvoices from localStorage for InvoicesPage. Initializing as empty.", error);
+                // loadedInvoices remains []
+            }
+        }
+        // Else, if storedInvoices is null, loadedInvoices is already []
         
         let currentFilteredInvoices = loadedInvoices;
         if (timeFilter !== 'allTime') {
@@ -113,6 +128,7 @@ export default function InvoicesPage() {
     return () => {
         delete (window as any).invoicePageContext;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- This effect is specifically for window context
   }, [setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen]);
 
 
@@ -130,7 +146,17 @@ export default function InvoicesPage() {
     const originalInvoice = invoices.find(inv => inv.id === updatedInvoice.id);
     if (originalInvoice && originalInvoice.status === 'Due' && updatedInvoice.status === 'Paid') {
         const storedProducts = localStorage.getItem('appProducts');
-        let currentProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : [];
+        let currentProducts: Product[] = [];
+        if (storedProducts) {
+            try {
+                const parsed = JSON.parse(storedProducts);
+                if (Array.isArray(parsed)) {
+                    currentProducts = parsed;
+                }
+            } catch (e) {
+                // Ignore error, proceed with empty currentProducts
+            }
+        }
         
         updatedInvoice.items.forEach(cartItem => {
             if (cartItem.type === 'product') {
@@ -146,7 +172,18 @@ export default function InvoicesPage() {
         toast({title: "Stock Updated", description: "Product stock levels adjusted for newly paid invoice."})
     }
 
-    const allStoredInvoices = JSON.parse(localStorage.getItem('appInvoices') || '[]') as Invoice[];
+    const allStoredInvoicesString = localStorage.getItem('appInvoices');
+    let allStoredInvoices: Invoice[] = [];
+    if (allStoredInvoicesString) {
+        try {
+            const parsed = JSON.parse(allStoredInvoicesString);
+            if (Array.isArray(parsed)) {
+                allStoredInvoices = parsed;
+            }
+        } catch (e) {
+             // Ignore error, proceed with empty allStoredInvoices
+        }
+    }
     const updatedAllInvoices = allStoredInvoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
     localStorage.setItem('appInvoices', JSON.stringify(updatedAllInvoices));
     
@@ -453,6 +490,5 @@ const handleEditOpen = (invoice: Invoice | null) => {
         }
     }
 };
-
 
     
