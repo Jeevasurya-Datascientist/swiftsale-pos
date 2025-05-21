@@ -28,9 +28,10 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Package, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useSettings } from '@/context/SettingsContext';
+import { cn } from '@/lib/utils';
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
@@ -38,36 +39,55 @@ export default function ProductsPage() {
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
 
-  // Load products from localStorage or use mockProducts
   useEffect(() => {
     const storedProducts = localStorage.getItem('appProducts');
     if (storedProducts) {
       try {
-        setProducts(JSON.parse(storedProducts));
+        const parsedProducts = JSON.parse(storedProducts);
+        setProducts(Array.isArray(parsedProducts) ? parsedProducts : mockProducts);
       } catch (e) {
-        setProducts(mockProducts); // fallback to mock if parsing fails
+        setProducts(mockProducts); 
       }
     } else {
-      setProducts(mockProducts); // initialize with mock if nothing in localStorage
+      setProducts(mockProducts); 
     }
   }, []);
 
-  // Save products to localStorage whenever they change
   useEffect(() => {
-    if (isSettingsLoaded) { // Ensure settings (and thus the app) are loaded before saving
+    if (products.length > 0 && isSettingsLoaded) { 
         localStorage.setItem('appProducts', JSON.stringify(products));
     }
   }, [products, isSettingsLoaded]);
+
+  useEffect(() => {
+    if (!isSettingsLoaded || products.length === 0) return;
+
+    const hash = window.location.hash;
+    if (hash) {
+      const productId = hash.substring(1); // Remove #
+      const element = document.getElementById(`product-card-${productId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Add a temporary highlight
+        element.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'transition-all', 'duration-1000', 'ease-out');
+        setTimeout(() => {
+          element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+          // Optionally, remove the hash from URL without reloading
+          if (window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }, 2500); // Highlight duration
+      }
+    }
+  }, [isSettingsLoaded, products]);
 
 
   const handleFormSubmit = (data: Omit<Product, 'id' | 'dataAiHint'>, existingProduct?: Product) => {
     const productDataAiHint = data.name.toLowerCase().split(' ').slice(0,2).join(' ');
     if (existingProduct) {
-      // Edit existing product
       setProducts(products.map(p => p.id === existingProduct.id ? { ...existingProduct, ...data, dataAiHint: productDataAiHint } : p));
       toast({ title: "Product Updated", description: `${data.name} has been updated.` });
     } else {
-      // Add new product
       const newProduct: Product = {
         id: `prod-${Date.now()}`,
         ...data,

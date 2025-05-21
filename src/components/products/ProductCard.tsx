@@ -12,12 +12,21 @@ interface ProductCardProps {
   product: Product;
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
-  currencySymbol: string; // Now explicitly required
+  currencySymbol: string; 
 }
 
 export function ProductCard({ product, onEdit, onDelete, currencySymbol }: ProductCardProps) {
+  const getStockBadgeVariant = () => {
+    if (product.stock === 0) return "destructive";
+    if (product.stock < 15) return "warning";
+    return "outline";
+  };
+
   return (
-    <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
+    <Card 
+      id={`product-card-${product.id}`}
+      className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300"
+    >
       <CardHeader className="p-4">
         <div className="aspect-[3/2] relative w-full mb-2">
           <Image
@@ -36,7 +45,7 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
           <Badge variant="secondary" className="text-sm">
             {currencySymbol}{product.price.toFixed(2)}
           </Badge>
-          <Badge variant={product.stock > 0 ? 'outline' : 'destructive'}>
+          <Badge variant={getStockBadgeVariant()}>
             Stock: {product.stock}
           </Badge>
         </div>
