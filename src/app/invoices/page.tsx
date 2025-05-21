@@ -32,8 +32,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import type { ReportTimeFilter } from '@/lib/types'; // Corrected import
-import type { DateRange } from 'react-day-picker'; // Corrected import for DateRange
+import type { ReportTimeFilter } from '@/lib/types';
+import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
@@ -56,7 +56,11 @@ export default function InvoicesPage() {
 
   const loadInvoices = useCallback(() => {
     if (isSettingsLoaded) {
-        const storedInvoices = localStorage.getItem('appInvoices');
+        let storedInvoices = localStorage.getItem('appInvoices');
+        if (!storedInvoices) { // Fallback to mock if nothing in localStorage
+            localStorage.setItem('appInvoices', JSON.stringify(fallbackMockInvoices));
+            storedInvoices = JSON.stringify(fallbackMockInvoices);
+        }
         const loadedInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : fallbackMockInvoices;
         
         let currentFilteredInvoices = loadedInvoices;
@@ -67,8 +71,8 @@ export default function InvoicesPage() {
 
             switch (timeFilter) {
                 case 'today':
-                    startDate = new Date(now.setHours(0, 0, 0, 0));
-                    endDate = new Date(new Date(now).setHours(23, 59, 59, 999)); // ensure 'now' is not mutated
+                    startDate = new Date(new Date(now).setHours(0, 0, 0, 0)); // ensure 'now' is not mutated for start
+                    endDate = new Date(new Date(now).setHours(23, 59, 59, 999)); 
                     break;
                 case 'last7days':
                     startDate = new Date(new Date().setDate(now.getDate() - 6));
@@ -77,7 +81,7 @@ export default function InvoicesPage() {
                     break;
                 case 'last30days':
                     startDate = new Date(new Date().setDate(now.getDate() - 29));
-                     startDate.setHours(0,0,0,0);
+                    startDate.setHours(0,0,0,0);
                     endDate = new Date(new Date(now).setHours(23, 59, 59, 999));
                     break;
                 case 'thisMonth':
@@ -106,6 +110,15 @@ export default function InvoicesPage() {
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
+
+  useEffect(() => {
+    (window as any).invoicePageContext = {
+        setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen
+    };
+    return () => {
+        delete (window as any).invoicePageContext;
+    }
+  }, [setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen]);
 
 
   const handleViewDetails = (invoice: Invoice) => {
@@ -159,8 +172,9 @@ export default function InvoicesPage() {
     const originalIsViewOpen = isViewOpen;
     const dialogAlreadyOpenForThisInvoice = isViewOpen && selectedInvoice?.id === invoiceToPrint.id;
 
-    setSelectedInvoice(invoiceToPrint); // Set for InvoiceView to use
-    if(!dialogAlreadyOpenForThisInvoice) setIsViewOpen(true); // Open view dialog if not already open for this invoice
+    setSelectedInvoice(invoiceToPrint); 
+    if(!dialogAlreadyOpenForThisInvoice) setIsViewOpen(true); 
+
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -173,13 +187,12 @@ export default function InvoicesPage() {
     setTimeout(() => { 
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
-        setIsPrintOptionsOpen(false); // Always close print options dialog
+        setIsPrintOptionsOpen(false); 
         
         if(!dialogAlreadyOpenForThisInvoice) {
-            setIsViewOpen(false); // Close view dialog if we opened it just for printing
+            setIsViewOpen(false); 
             setSelectedInvoice(null);
         } else if (originalIsViewOpen && originalSelectedInvoice?.id !== invoiceToPrint.id) {
-            // If view dialog was open for a different invoice, restore it
             setSelectedInvoice(originalSelectedInvoice);
             setIsViewOpen(true);
         }
@@ -189,8 +202,8 @@ export default function InvoicesPage() {
 
   const handleShareInvoiceRow = (invoiceToShare: Invoice) => {
     if (invoiceToShare?.customerPhoneNumber) {
-        let phoneNumber = invoiceToShare.customerPhoneNumber.replace(/\D/g, ''); // Remove non-digits
-        if (phoneNumber.length === 10 && !phoneNumber.startsWith('91')) { // Basic check for Indian numbers
+        let phoneNumber = invoiceToShare.customerPhoneNumber.replace(/\D/g, ''); 
+        if (phoneNumber.length === 10 && !phoneNumber.startsWith('91')) { 
             phoneNumber = `91${phoneNumber}`;
         }
 
@@ -211,15 +224,6 @@ export default function InvoicesPage() {
     invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (invoice.status && invoice.status.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-
-  useEffect(() => {
-    (window as any).invoicePageContext = {
-        setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen
-    };
-    return () => {
-        delete (window as any).invoicePageContext;
-    }
-  }, [setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen]);
 
 
   if (!isSettingsLoaded) {
@@ -291,7 +295,7 @@ export default function InvoicesPage() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                         type="text"
-                        placeholder="Search invoices..."
+                        placeholder="Search invoices by #, customer, status..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-9 h-9"
@@ -359,7 +363,7 @@ export default function InvoicesPage() {
             setIsViewOpen(open);
             if (!open) setSelectedInvoice(null);
         }}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl invoice-view-dialog-content">
             <DialogHeader>
               <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber} ({selectedInvoice.status})</DialogTitle>
             </DialogHeader>
