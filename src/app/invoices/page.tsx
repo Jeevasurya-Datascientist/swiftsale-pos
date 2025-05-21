@@ -71,7 +71,7 @@ export default function InvoicesPage() {
 
             switch (timeFilter) {
                 case 'today':
-                    startDate = new Date(new Date(now).setHours(0, 0, 0, 0)); // ensure 'now' is not mutated for start
+                    startDate = new Date(new Date(now).setHours(0, 0, 0, 0)); 
                     endDate = new Date(new Date(now).setHours(23, 59, 59, 999)); 
                     break;
                 case 'last7days':
@@ -308,7 +308,7 @@ export default function InvoicesPage() {
             <Table>
                 <TableHeader>
                 <TableRow>
-                    <TableHead className="w-[150px] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Invoice #</TableHead>
+                    <TableHead className="w-[200px] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Invoice #</TableHead>
                     <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</TableHead>
                     <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Customer</TableHead>
                     <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</TableHead>
@@ -317,13 +317,21 @@ export default function InvoicesPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {filteredInvoicesBySearch.map((invoice) => (
+                {filteredInvoicesBySearch.map((invoice) => {
+                    const firstServiceNote = invoice.items.find(item => item.type === 'service' && item.itemSpecificNote)?.itemSpecificNote;
+                    return (
                     <TableRow key={invoice.id} className="hover:bg-muted/50 transition-colors">
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{invoice.invoiceNumber}</TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                        <div>{invoice.invoiceNumber}</div>
+                        {firstServiceNote && (
+                            <div className="text-xs text-muted-foreground mt-1 truncate" title={firstServiceNote}>
+                                Note: {firstServiceNote.length > 25 ? `${firstServiceNote.substring(0, 22)}...` : firstServiceNote}
+                            </div>
+                        )}
+                    </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{format(new Date(invoice.date), 'dd-MM-yyyy')}</TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         <div className="font-medium text-foreground">{invoice.customerName}</div>
-                        {invoice.customerPhoneNumber && <div className="text-xs">{invoice.customerPhoneNumber}</div>}
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{currencySymbol}{invoice.totalAmount.toFixed(2)}</TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap">
@@ -343,7 +351,7 @@ export default function InvoicesPage() {
                         </Button>
                     </TableCell>
                     </TableRow>
-                ))}
+                )})}
                 </TableBody>
             </Table>
             ) : (
@@ -450,3 +458,6 @@ const handleEditOpen = (invoice: Invoice | null) => {
         }
     }
 };
+
+
+    
