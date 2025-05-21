@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Product } from '@/lib/types';
-// Removed: import { mockProducts } from '@/lib/mockData';
+// Removed import from '@/lib/mockData';
 import { ProductCard } from '@/components/products/ProductCard';
 import { AddProductForm } from '@/components/products/AddProductForm';
 import { Button } from '@/components/ui/button';
@@ -51,7 +51,7 @@ export default function ProductsPage() {
                 if (Array.isArray(parsed)) {
                     loadedProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
-                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : 0;
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0);
                         const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
                         const stock = typeof p.stock === 'number' ? p.stock : 0;
                         const barcode = p.barcode || "";
@@ -89,11 +89,8 @@ export default function ProductsPage() {
 
 
   useEffect(() => {
-    if (isSettingsLoaded && typeof window !== 'undefined') { // Save products only if settings (and implicitly app) are loaded
-        // This ensures we don't accidentally wipe localStorage on an initial render if products array is briefly empty
-        // before being populated from localStorage itself in the first useEffect.
-        // Only save back to localStorage if products array has been definitely set (e.g. after load or modification)
-        if (products.length > 0 || localStorage.getItem('appProducts')) { // Add condition to save empty array only if 'appProducts' existed
+    if (isSettingsLoaded && typeof window !== 'undefined') { 
+        if (products.length > 0 || localStorage.getItem('appProducts')) { 
              localStorage.setItem('appProducts', JSON.stringify(products));
         }
     }

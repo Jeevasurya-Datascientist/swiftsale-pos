@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem } from '@/lib/types'; 
-// Removed: import { mockProducts, mockServices } from '@/lib/mockData';
+// Removed import from '@/lib/mockData';
 import { useSettings } from '@/context/SettingsContext';
 import {
   filterInvoicesByDate,
@@ -117,7 +117,7 @@ export default function ReportsPage() {
                 if(Array.isArray(parsed)){
                     loadedProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
-                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : 0;
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0);
                         const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
                         const stock = typeof p.stock === 'number' ? p.stock : 0;
                         const barcode = p.barcode || "";

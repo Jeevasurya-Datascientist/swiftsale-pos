@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Service } from '@/lib/types';
-// Removed: import { mockServices } from '@/lib/mockData'; 
+// Removed import from '@/lib/mockData'; 
 import { ServiceCard } from '@/components/services/ServiceCard';
 import { AddServiceForm } from '@/components/services/AddServiceForm';
 import { Button } from '@/components/ui/button';

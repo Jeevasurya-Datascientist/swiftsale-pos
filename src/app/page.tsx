@@ -3,7 +3,7 @@
 
 import { useState, useEffect, ChangeEvent, useRef } from 'react';
 import type { Product, Service, CartItem, Invoice, SearchableItem, ExistingCustomer } from '@/lib/types';
-// Removed: import { mockProducts, mockServices, mockInvoices as initialMockInvoices } from '@/lib/mockData';
+// Removed import from '@/lib/mockData';
 import { ItemGrid } from '@/components/dashboard/ItemGrid';
 import { CartDisplay } from '@/components/dashboard/CartDisplay';
 import { ServiceDetailsDialog } from '@/components/dashboard/ServiceDetailsDialog'; // New Dialog
@@ -81,7 +81,7 @@ export default function BillingPage() {
                 if(Array.isArray(parsed)) {
                     finalProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
-                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : 0;
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0);
                         const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
@@ -276,7 +276,9 @@ export default function BillingPage() {
             id: product.id, name: product.name, price: product.sellingPrice, quantity: 1, type: 'product',
             imageUrl: product.imageUrl || defaultPlaceholder(product.name),
             dataAiHint: product.dataAiHint, category: product.category,
-            barcode: product.barcode, stock: product.stock, costPrice: product.costPrice
+            barcode: product.barcode, stock: product.stock, costPrice: product.costPrice,
+            itemSpecificPhoneNumber: '', 
+            itemSpecificNote: '' 
           };
           return [...prevCart, cartItemToAdd];
         }
