@@ -16,7 +16,7 @@ import * as z from 'zod';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: z.string().min(8, { message: "Password must be at least 8 characters." }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -32,6 +32,8 @@ export default function LoginPage() {
   const handleLogin: SubmitHandler<LoginFormValues> = (data) => {
     console.log('Login attempt with:', data);
     // In a real app, you'd call your auth service here
+    // For this simulation, we assume if they reach login and submit valid format, it's okay.
+    // A more robust simulation would check against some locally stored registration data.
     localStorage.setItem('isAuthenticated', 'true'); 
     localStorage.setItem('userEmail', data.email); 
     toast({
@@ -69,7 +71,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
+                placeholder="Enter your password (min. 8 characters)"
                 {...register("password")}
                 className="h-12 text-base pr-10" 
               />
