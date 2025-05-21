@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
-import { useNotifications } from '@/context/NotificationContext'; // Import useNotifications
+import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function BillingPage() {
@@ -48,12 +48,12 @@ export default function BillingPage() {
 
   const { toast } = useToast();
   const { currencySymbol, gstRate: settingsGstRate, isSettingsLoaded, shopName: currentShopName } = useSettings();
-  const { addNotification } = useNotifications(); // Get addNotification function
+  const { addNotification } = useNotifications();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      audioRef.current = new Audio('/sounds/add-to-cart.mp3'); 
+      audioRef.current = new Audio('/sounds/add-to-cart.mp3');
     }
   }, []);
 
@@ -67,14 +67,17 @@ export default function BillingPage() {
   useEffect(() => {
     if (isSettingsLoaded) {
         const storedProducts = localStorage.getItem('appProducts');
-        const finalProducts = storedProducts ? JSON.parse(storedProducts) : mockProducts;
+        const finalProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : mockProducts;
         setProducts(finalProducts);
 
         const storedServices = localStorage.getItem('appServices');
-        const finalServices = storedServices ? JSON.parse(storedServices) : mockServices;
+        const finalServices: Service[] = storedServices ? JSON.parse(storedServices) : mockServices;
         setServices(finalServices);
-        
-        const allItems = [...finalProducts, ...finalServices].sort((a, b) => a.name.localeCompare(b.name));
+
+        const allItems: SearchableItem[] = [
+            ...finalProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product' })), // Use sellingPrice for SearchableItem's price
+            ...finalServices.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service' }))  // Use sellingPrice for SearchableItem's price
+        ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
         setFilteredSearchableItems(allItems);
 
@@ -86,10 +89,10 @@ export default function BillingPage() {
             if (inv.customerName) {
                 const custId = `${inv.customerName.toLowerCase().replace(/\s/g, '_')}-${(inv.customerPhoneNumber || '').replace(/\D/g, '')}`;
                 if (!uniqueCusts[custId]) {
-                    uniqueCusts[custId] = { 
+                    uniqueCusts[custId] = {
                         id: custId,
-                        name: inv.customerName, 
-                        phoneNumber: inv.customerPhoneNumber || '' 
+                        name: inv.customerName,
+                        phoneNumber: inv.customerPhoneNumber || ''
                     };
                 }
             }
@@ -99,10 +102,13 @@ export default function BillingPage() {
   }, [isSettingsLoaded]);
 
    useEffect(() => {
-    if (isSettingsLoaded && (products.length > 0 || services.length > 0)) { 
+    if (isSettingsLoaded && (products.length > 0 || services.length > 0)) {
         localStorage.setItem('appProducts', JSON.stringify(products));
         localStorage.setItem('appServices', JSON.stringify(services));
-        const allItems = [...products, ...services].sort((a, b) => a.name.localeCompare(b.name));
+        const allItems: SearchableItem[] = [
+          ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
+          ...services.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service'}))
+        ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
         if (searchTerm) {
             setFilteredSearchableItems(
@@ -115,7 +121,7 @@ export default function BillingPage() {
             setFilteredSearchableItems(allItems);
         }
     }
-  }, [products, services, isSettingsLoaded, searchTerm]); 
+  }, [products, services, isSettingsLoaded, searchTerm]);
 
   useEffect(() => {
     if (searchTerm === '') {
@@ -130,8 +136,8 @@ export default function BillingPage() {
     }
   }, [searchTerm, searchableItems]);
 
-  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const currentGstRate = (settingsGstRate || 0) / 100; // Convert percentage from settings to decimal
+  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0); // item.price is sellingPrice
+  const currentGstRate = (settingsGstRate || 0) / 100;
   const gstAmount = subTotal * currentGstRate;
   const totalAmount = subTotal + gstAmount;
 
@@ -166,11 +172,11 @@ export default function BillingPage() {
         variant: "default",
         duration: 5000,
       });
-      addNotification({ // Add to header notifications
+      addNotification({
         type: 'lowStock',
         title: 'Low Stock Alert',
         description: message,
-        link: `/products#${product.id}` // Example link
+        link: `/products#${product.id}`
       });
     }
   };
@@ -185,7 +191,7 @@ export default function BillingPage() {
     if (foundItem) {
       const type: 'product' | 'service' = 'barcode' in foundItem ? 'product' : 'service';
       if (type === 'product') {
-        const product = foundItem as Product;
+        const product = foundItem as Product; // Full product data needed for stock and costPrice
         const existingCartItem = cartItems.find(ci => ci.id === product.id);
         if (!existingCartItem && product.stock <= 0) {
           toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" });
@@ -214,24 +220,32 @@ export default function BillingPage() {
             } else {
               return prevCart;
             }
-          } else { 
+          } else {
             return prevCart.map((item) =>
               item.id === foundItem!.id ? { ...item, quantity: item.quantity + 1 } : item
             );
           }
-        } else { 
+        } else {
           const cartItemToAdd: CartItem = {
             id: foundItem.id,
             name: foundItem.name,
-            price: foundItem.price,
+            price: foundItem.price, // This is sellingPrice from SearchableItem
             quantity: 1,
             type: type,
             imageUrl: foundItem.imageUrl,
             dataAiHint: foundItem.dataAiHint,
             category: foundItem.category,
-            itemSpecificPhoneNumber: '', 
-            ...(type === 'product' && { barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock }),
-            ...(type === 'service' && { serviceCode: (foundItem as Service).serviceCode, duration: (foundItem as Service).duration }),
+            itemSpecificPhoneNumber: '',
+            ...(type === 'product' && {
+              barcode: (foundItem as Product).barcode,
+              stock: (foundItem as Product).stock,
+              costPrice: (foundItem as Product).costPrice
+            }),
+            ...(type === 'service' && {
+              serviceCode: (foundItem as Service).serviceCode,
+              duration: (foundItem as Service).duration,
+              costPrice: 0 // Default cost for service
+            }),
           };
           return [...prevCart, cartItemToAdd];
         }
@@ -256,7 +270,7 @@ export default function BillingPage() {
         handleRemoveItem(itemId);
         return;
     }
-    
+
     const productDetails = products.find(p => p.id === itemId);
     if (cartItem.type === 'product' && productDetails) {
       if (newQuantity > productDetails.stock) {
@@ -264,16 +278,16 @@ export default function BillingPage() {
         setCartItems((prevCart) =>
           prevCart.map((item) => (item.id === itemId ? { ...item, quantity: productDetails.stock! } : item))
         );
-        checkAndNotifyLowStock(productDetails, productDetails.stock); // Check stock with corrected quantity
+        checkAndNotifyLowStock(productDetails, productDetails.stock);
         return;
       }
-      checkAndNotifyLowStock(productDetails, newQuantity); // Check stock with new quantity
+      checkAndNotifyLowStock(productDetails, newQuantity);
     }
 
     setCartItems((prevCart) =>
       prevCart.map((item) => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
     );
-    if (newQuantity > (cartItem.quantity || 0) ) { 
+    if (newQuantity > (cartItem.quantity || 0) ) {
         playSound();
     }
   };
@@ -290,7 +304,7 @@ export default function BillingPage() {
     const date = new Date();
     return `INV-${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
   };
-  
+
   const handleGenerateInvoice = () => {
     if (cartItems.length === 0) {
       toast({ title: "Empty Cart", description: "Cannot generate invoice for an empty cart.", variant: "destructive" });
@@ -330,13 +344,13 @@ export default function BillingPage() {
         return;
       }
     }
-    
+
     const numericAmountReceived = typeof amountReceived === 'string' || amountReceived === '' ? parseFloat(amountReceived as string) : amountReceived as number;
     if (typeof numericAmountReceived !== 'number' || isNaN(numericAmountReceived) || numericAmountReceived < 0) {
         toast({ title: "Invalid Amount", description: "Please enter a valid Amount Received.", variant: "destructive" });
         return;
     }
-    
+
     const invoiceStatus: 'Paid' | 'Due' = numericAmountReceived >= totalAmount ? 'Paid' : 'Due';
 
     const newInvoice: Invoice = {
@@ -346,7 +360,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate: currentGstRate, 
+      gstRate: currentGstRate,
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -357,19 +371,19 @@ export default function BillingPage() {
       shopName: currentShopName,
     };
     setCurrentInvoice(newInvoice);
-    setIsInvoiceDialogOpen(true); 
+    setIsInvoiceDialogOpen(true);
 
     if (invoiceStatus === 'Due') {
-        toast({ 
-            title: "Invoice Generated (Payment Due)", 
-            description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}). Invoice status: 'Due'.`, 
+        toast({
+            title: "Invoice Generated (Payment Due)",
+            description: `Amount received (${currencySymbol}${numericAmountReceived.toFixed(2)}) is less than total (${currencySymbol}${totalAmount.toFixed(2)}). Invoice status: 'Due'.`,
             variant: "default",
-            duration: 7000 
+            duration: 7000
         });
     }
   };
 
-  const handleFinalizeSale = () => { 
+  const handleFinalizeSale = () => {
     if (!currentInvoice) return;
 
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
@@ -391,9 +405,9 @@ export default function BillingPage() {
           }
           return p;
         });
-        setProducts(updatedProducts); 
+        setProducts(updatedProducts);
     }
-    
+
     const storedAppInvoices = localStorage.getItem('appInvoices');
     let allAppInvoices: Invoice[] = storedAppInvoices ? JSON.parse(storedAppInvoices) : [];
     allAppInvoices = [currentInvoice, ...allAppInvoices];
@@ -403,21 +417,33 @@ export default function BillingPage() {
     if(!existingCustomers.find(c => c.id === custId)){
         setExistingCustomers(prev => [...prev, {id: custId, name: currentInvoice.customerName, phoneNumber: currentInvoice.customerPhoneNumber || ''}].sort((a,b) => a.name.localeCompare(b.name)));
     }
-    
-    toast({ 
-        title: currentInvoice.status === 'Paid' ? "Sale Finalized!" : "Invoice Saved (Payment Due)", 
+
+    toast({
+        title: currentInvoice.status === 'Paid' ? "Sale Finalized!" : "Invoice Saved (Payment Due)",
         description: `${paymentSuccessMessage} ${currentInvoice.status === 'Paid' ? 'Stock updated.' : 'Stock not updated.'}`
     });
-    
+
     if (currentInvoice.customerPhoneNumber) {
-      const summaryMessage = `Thank you, ${currentInvoice.customerName}! Your invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || "Our Store"} (Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}, Status: ${currentInvoice.status}) has been generated.`;
-      toast({ title: "Simulated WhatsApp Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
-      toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${summaryMessage.substring(0,100)}...`});
+        let baseMessage = `Hello ${currentInvoice.customerName || 'Customer'}, invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || "Our Store"}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}.`;
+        if (currentInvoice.status === 'Due') {
+            baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.`;
+        } else if (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) {
+            baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`;
+        } else {
+            baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`;
+        }
+        baseMessage += ` Thank you for your purchase!`;
+
+        const whatsappUrl = `https://api.whatsapp.com/send?phone=${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}&text=${encodeURIComponent(baseMessage)}`;
+        toast({ title: "Simulated WhatsApp Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Would open: ${whatsappUrl.substring(0,100)}...`});
+
+        const smsMessage = `Invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || 'Our Store'}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}. Thanks!`;
+        toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${smsMessage.substring(0,100)}...`});
     }
-    
+
     setIsPrintFormatDialogOpen(true);
   };
-  
+
   const performPrint = (mode: 'a4' | 'thermal') => {
     if (!currentInvoice) return;
 
@@ -434,7 +460,7 @@ export default function BillingPage() {
         document.body.classList.remove('print-mode-a4');
         document.body.classList.remove('print-mode-thermal');
 
-        
+
         setCartItems([]);
         setCustomerName('');
         setCustomerPhoneNumber('');
@@ -444,17 +470,17 @@ export default function BillingPage() {
         setUpiId('');
         setAmountReceived('');
         setBalanceAmount(0);
-        setSearchTerm(''); 
-        
-        setCurrentInvoice(null); 
+        setSearchTerm('');
+
+        setCurrentInvoice(null);
         setIsInvoiceDialogOpen(false);
         setIsPrintFormatDialogOpen(false);
-    }, 100); 
+    }, 100);
   };
 
 
   const cartItemNames = cartItems.map(item => item.name);
-  
+
   if (!isSettingsLoaded) {
     return (
       <div className="container mx-auto py-4 flex justify-center items-center h-screen">
@@ -490,7 +516,7 @@ export default function BillingPage() {
                   className="pl-10 pr-4 h-12 text-base w-full"
                 />
               </div>
-              <ItemGrid 
+              <ItemGrid
                 items={filteredSearchableItems}
                 cartItems={cartItems}
                 onItemSelect={handleAddItemToCart}
@@ -499,12 +525,12 @@ export default function BillingPage() {
               />
             </CardContent>
           </Card>
-          
-          <CartDisplay 
-            cartItems={cartItems} 
-            onRemoveItem={handleRemoveItem} 
+
+          <CartDisplay
+            cartItems={cartItems}
+            onRemoveItem={handleRemoveItem}
             onUpdateQuantity={handleUpdateQuantity}
-            onUpdateItemPhoneNumber={handleUpdateItemPhoneNumber} 
+            onUpdateItemPhoneNumber={handleUpdateItemPhoneNumber}
             currencySymbol={currencySymbol}
             gstRatePercentage={settingsGstRate}
           />
@@ -512,7 +538,7 @@ export default function BillingPage() {
 
         <div className="space-y-6">
           <SmartSuggestions cartItemNames={cartItemNames} />
-          
+
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><CreditCard className="h-6 w-6 text-primary"/> Finalize Sale</CardTitle>
@@ -557,11 +583,11 @@ export default function BillingPage() {
                     <Label htmlFor="customerName" className="flex items-center">
                       <User className="h-4 w-4 mr-2 text-muted-foreground" /> Customer Name <span className="text-destructive ml-1">*</span>
                     </Label>
-                    <Input 
-                      id="customerName" 
-                      placeholder="e.g., John Doe" 
+                    <Input
+                      id="customerName"
+                      placeholder="e.g., John Doe"
                       value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)} 
+                      onChange={(e) => setCustomerName(e.target.value)}
                       required
                     />
                   </div>
@@ -569,12 +595,12 @@ export default function BillingPage() {
                     <Label htmlFor="customerPhoneNumber" className="flex items-center">
                      <Phone className="h-4 w-4 mr-2 text-muted-foreground" /> Customer Phone <span className="text-destructive ml-1">*</span>
                     </Label>
-                    <Input 
-                      id="customerPhoneNumber" 
+                    <Input
+                      id="customerPhoneNumber"
                       type="tel"
-                      placeholder="e.g., 9876543210" 
+                      placeholder="e.g., 9876543210"
                       value={customerPhoneNumber}
-                      onChange={(e) => setCustomerPhoneNumber(e.target.value)} 
+                      onChange={(e) => setCustomerPhoneNumber(e.target.value)}
                       required
                     />
                   </div>
@@ -624,15 +650,15 @@ export default function BillingPage() {
                        <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertCircle size={14}/> UPI payment is simulated. No real transaction will occur.</p>
                     </div>
                   )}
-                  
+
                   <div>
                     <Label htmlFor="amountReceived" className="flex items-center">
                       <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" /> Amount Received <span className="text-destructive ml-1">*</span>
                     </Label>
-                    <Input 
-                      id="amountReceived" 
+                    <Input
+                      id="amountReceived"
                       type="number"
-                      placeholder="0.00" 
+                      placeholder="0.00"
                       value={amountReceived}
                       onChange={handleAmountReceivedChange}
                       step="0.01"
@@ -669,7 +695,7 @@ export default function BillingPage() {
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(open) => {
             if(!open) {
               setIsInvoiceDialogOpen(false);
-              setCurrentInvoice(null); 
+              setCurrentInvoice(null);
             }
         }}>
           <DialogContent className="max-w-2xl">
@@ -684,8 +710,18 @@ export default function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
-                        const message = `Hello ${currentInvoice.customerName || 'Customer'}, here is your invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || "Our Store"}. Status: ${currentInvoice.status}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. ${currentInvoice.status === 'Due' && currentInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.` : (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
-                        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
+                        let baseMessage = `Hello ${currentInvoice.customerName || 'Customer'}, invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || "Our Store"}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}.`;
+                        if (currentInvoice.status === 'Due') {
+                           baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.`;
+                        } else if (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) {
+                           baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`;
+                        } else {
+                           baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`;
+                        }
+                        baseMessage += ` Thank you for your purchase!`;
+                        const whatsappUrl = `https://api.whatsapp.com/send?phone=${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}&text=${encodeURIComponent(baseMessage)}`;
+                        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. URL: ${whatsappUrl.substring(0,100)}...` });
+                        window.open(whatsappUrl, '_blank');
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
                       }
@@ -699,7 +735,7 @@ export default function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
-                         const message = `Invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || 'Our Store'}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}. Thanks!`;
+                         const message = `Invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || 'Our Store'}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}. Thanks!`;
                         toast({ title: "SMS Send Simulated", description: `SMS with invoice details would be sent to ${currentInvoice.customerPhoneNumber}. Msg: ${message.substring(0,100)}...` });
                       } else {
                         toast({ title: "SMS Send Failed", description: "Customer phone number not available for SMS.", variant: "destructive" });
@@ -726,13 +762,18 @@ export default function BillingPage() {
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
             if (!open) {
                 setIsPrintFormatDialogOpen(false);
-                // Also close main invoice dialog and reset cart if print options are simply dismissed
-                setCurrentInvoice(null); 
+                setCurrentInvoice(null);
                 setIsInvoiceDialogOpen(false);
                 setCartItems([]);
                 setCustomerName('');
                 setCustomerPhoneNumber('');
-                 // ... other resets ...
+                setCardNumber('');
+                setCardExpiry('');
+                setCardCvv('');
+                setUpiId('');
+                setAmountReceived('');
+                setBalanceAmount(0);
+                setSearchTerm('');
             }
          }}>
             <AlertDialogContent>
@@ -742,7 +783,6 @@ export default function BillingPage() {
                     Choose the format for printing your invoice. The invoice preview below will be printed.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                {/* InvoiceView is already visible in the main dialog, no need to render again here */}
                 <AlertDialogFooter className="gap-2">
                     <Button variant="outline" onClick={() => performPrint('a4')}>
                         <Printer className="w-4 h-4 mr-2" /> Print A4
@@ -752,13 +792,18 @@ export default function BillingPage() {
                     </Button>
                      <AlertDialogCancel onClick={() => {
                         setIsPrintFormatDialogOpen(false);
-                        // If cancelled, still ensure main dialog closes and cart resets
-                        setCurrentInvoice(null); 
+                        setCurrentInvoice(null);
                         setIsInvoiceDialogOpen(false);
                         setCartItems([]);
                         setCustomerName('');
                         setCustomerPhoneNumber('');
-                        // ... other resets ...
+                        setCardNumber('');
+                        setCardExpiry('');
+                        setCardCvv('');
+                        setUpiId('');
+                        setAmountReceived('');
+                        setBalanceAmount(0);
+                        setSearchTerm('');
                      }}>Cancel Printing</AlertDialogCancel>
                 </AlertDialogFooter>
             </AlertDialogContent>

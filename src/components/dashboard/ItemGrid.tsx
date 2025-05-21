@@ -20,19 +20,19 @@ interface ItemTileProps {
 function ItemTile({ item, cartItem, onItemSelect, onUpdateQuantity, currencySymbol }: ItemTileProps) {
   const isInCart = !!cartItem;
   const quantityInCart = cartItem?.quantity || 0;
-  const itemType = 'barcode' in item ? 'product' : 'service';
+  const itemType = 'barcode' in item && item.barcode !== undefined ? 'product' : 'service'; // Check for barcode to determine product
 
   const handleMainClick = () => {
     onItemSelect(item.id, itemType);
   };
 
   return (
-    <Card 
+    <Card
       className={cn(
         "flex flex-col h-full shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden",
         isInCart ? "border-green-500 ring-2 ring-green-500 bg-green-500/10" : "border-border"
       )}
-      onClick={!isInCart ? handleMainClick : undefined} // Only add to cart if not already there via main click
+      onClick={!isInCart ? handleMainClick : undefined}
     >
       <CardHeader className="p-3 relative">
         <div className="aspect-square w-full relative mb-2">
@@ -45,14 +45,14 @@ function ItemTile({ item, cartItem, onItemSelect, onUpdateQuantity, currencySymb
           />
         </div>
         <CardTitle className="text-sm font-semibold leading-tight truncate h-10" title={item.name}>{item.name}</CardTitle>
-        {itemType === 'product' ? 
-            <Package size={14} className="absolute top-2 right-2 text-muted-foreground" title="Product"/> : 
+        {itemType === 'product' ?
+            <Package size={14} className="absolute top-2 right-2 text-muted-foreground" title="Product"/> :
             <ConciergeBell size={14} className="absolute top-2 right-2 text-muted-foreground" title="Service"/>
         }
       </CardHeader>
       <CardContent className="p-3 pt-0 flex-grow">
-        <p className="text-lg font-bold text-primary">{currencySymbol}{item.price.toFixed(2)}</p>
-        {item.type === 'product' && 'stock' in item && (
+        <p className="text-lg font-bold text-primary">{currencySymbol}{item.price.toFixed(2)}</p> {/* item.price is sellingPrice */}
+        {itemType === 'product' && 'stock' in item && typeof item.stock === 'number' && (
           <p className={cn("text-xs", item.stock > 0 ? "text-muted-foreground" : "text-destructive")}>
             Stock: {item.stock}
           </p>
@@ -75,7 +75,7 @@ function ItemTile({ item, cartItem, onItemSelect, onUpdateQuantity, currencySymb
               size="icon"
               className="h-8 w-8 bg-background hover:bg-muted"
               onClick={(e) => { e.stopPropagation(); onUpdateQuantity(item.id, quantityInCart + 1); }}
-              disabled={item.type === 'product' && 'stock' in item && quantityInCart >= item.stock}
+              disabled={itemType === 'product' && 'stock' in item && typeof item.stock === 'number' && quantityInCart >= item.stock}
             >
               <Plus className="h-4 w-4" />
             </Button>

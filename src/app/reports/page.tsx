@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Invoice, ReportTimeFilter, ReportDateRange, SearchableItem, Product, Service } from '@/lib/types';
+import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem } from '@/lib/types'; // Added SearchableItem
 import { mockInvoices as initialMockInvoices, mockProducts, mockServices } from '@/lib/mockData';
 import { useSettings } from '@/context/SettingsContext';
 import {
@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, BarChart3, LineChart, PieChart, ShoppingBag, Users, Download } from 'lucide-react';
+import { CalendarIcon, BarChart3, LineChart, PieChart, ShoppingBag, Users, Download, MessageCircleQuestion } from 'lucide-react'; // Added MessageCircleQuestion
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -31,33 +31,34 @@ import CategorySalesChart from '@/components/reports/CategorySalesChart';
 import PaymentMethodsChart from '@/components/reports/PaymentMethodsChart';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Helper to convert array of objects to CSV and trigger download
 const downloadCSV = (data: any[], filename: string, headers: string[]) => {
   if (data.length === 0) {
     alert("No data available to export.");
     return;
   }
-  
+
   const csvRows = [];
-  // Add headers
   csvRows.push(headers.join(','));
 
-  // Add data rows
   for (const row of data) {
     const values = headers.map(header => {
       let value;
-      // Explicit mapping for known headers to avoid case/space issues
+      const keySimple = header.toLowerCase().replace(/\s+/g, '');
+      const keyCamelCase = header.replace(/\s+(.)/g, (_match, group1) => group1.toUpperCase()).replace(/\s+/g, '');
+      const keyFirstLowerCamelCase = keyCamelCase.charAt(0).toLowerCase() + keyCamelCase.slice(1);
+
       if (header === 'Invoice Number') value = row.invoiceNumber;
-      else if (header === 'Date') value = row.date; // Assuming row.date is pre-formatted string
+      else if (header === 'Date') value = typeof row.date === 'string' ? format(new Date(row.date), 'yyyy-MM-dd HH:mm') : row.date;
       else if (header === 'Customer Name') value = row.customerName;
       else if (header === 'Phone Number') value = row.customerPhoneNumber;
-      else if (header === 'Total Amount') value = row.totalAmount;
+      else if (header === 'Total Amount') value = typeof row.totalAmount === 'number' ? row.totalAmount.toFixed(2) : row.totalAmount;
       else if (header === 'Payment Method') value = row.paymentMethod;
       else if (header === 'Status') value = row.status;
-      else if (header === 'Items (Name & Qty)') value = row.itemsSummary;
+      else if (header === 'Items (Name & Qty)') value = Array.isArray(row.items) ? row.items.map((item: any) => `${item.name} (Qty: ${item.quantity})`).join('; ') : row.itemsSummary;
       else if (header === 'ID') value = row.id;
       else if (header === 'Name') value = row.name;
-      else if (header === 'Price') value = row.price;
+      else if (header === 'Cost Price') value = typeof row.costPrice === 'number' ? row.costPrice.toFixed(2) : row.costPrice;
+      else if (header === 'Selling Price') value = typeof row.sellingPrice === 'number' ? row.sellingPrice.toFixed(2) : row.sellingPrice;
       else if (header === 'Barcode') value = row.barcode;
       else if (header === 'Stock') value = row.stock;
       else if (header === 'Category') value = row.category;
@@ -65,17 +66,13 @@ const downloadCSV = (data: any[], filename: string, headers: string[]) => {
       else if (header === 'Service Code') value = row.serviceCode;
       else if (header === 'Duration') value = row.duration;
       else {
-          // Fallback for any other headers
-          const keySimple = header.toLowerCase().replace(/\s+/g, '');
-          const keyCamelCase = header.replace(/\s+(.)/g, (_match, group1) => group1.toUpperCase()).replace(/\s+/g, '');
-          const keyFirstLowerCamelCase = keyCamelCase.charAt(0).toLowerCase() + keyCamelCase.slice(1);
           value = row[header] ?? row[keySimple] ?? row[keyCamelCase] ?? row[keyFirstLowerCamelCase];
       }
 
       if (value === undefined || value === null) {
-        value = ''; // Ensure empty string for undefined/null
+        value = '';
       } else if (typeof value === 'string' && value.includes(',')) {
-        value = `"${value}"`; // Enclose in quotes if it contains a comma
+        value = `"${value}"`;
       }
       return value;
     });
@@ -104,7 +101,7 @@ export default function ReportsPage() {
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [timeFilter, setTimeFilter] = useState<ReportTimeFilter>('last7days');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
-  
+
   const { currencySymbol, isSettingsLoaded } = useSettings();
   const { toast } = useToast();
 
@@ -117,19 +114,23 @@ export default function ReportsPage() {
         const storedServices = localStorage.getItem('appServices');
         const loadedServices: Service[] = storedServices ? JSON.parse(storedServices) : mockServices;
         setAllServices(loadedServices);
-        
+
         const storedInvoices = localStorage.getItem('appInvoices');
         const loadedAppInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : initialMockInvoices;
 
-        // Enrich all invoices with category from loaded products/services for consistent reporting
-        const allItems: SearchableItem[] = [...loadedProducts, ...loadedServices];
+        const allItems: SearchableItem[] = [
+            ...loadedProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
+            ...loadedServices.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service'}))
+        ];
         const enrichedInvoices = loadedAppInvoices.map(inv => ({
             ...inv,
             items: inv.items.map(item => {
                 const masterItem = allItems.find(mi => mi.id === item.id);
+                const costPrice = item.type === 'product' ? (masterItem as Product)?.costPrice : 0;
                 return {
                     ...item,
-                    category: item.category || masterItem?.category || 'Uncategorized'
+                    category: item.category || masterItem?.category || 'Uncategorized',
+                    costPrice: item.costPrice ?? costPrice, // Ensure costPrice is on invoice item
                 }
             })
         }));
@@ -139,9 +140,9 @@ export default function ReportsPage() {
 
 
   useEffect(() => {
-    const range: ReportDateRange | undefined = 
-      timeFilter === 'custom' && customDateRange 
-      ? { from: customDateRange.from, to: customDateRange.to } 
+    const range: ReportDateRange | undefined =
+      timeFilter === 'custom' && customDateRange
+      ? { from: customDateRange.from, to: customDateRange.to }
       : undefined;
     const newFilteredInvoices = filterInvoicesByDate(allInvoices, timeFilter, range);
     setFilteredInvoices(newFilteredInvoices);
@@ -159,7 +160,7 @@ export default function ReportsPage() {
       if(invoice.customerName){
         const key = `${invoice.customerName}-${invoice.customerPhoneNumber || ''}`;
         if (!uniqueCustomers[key]) {
-          uniqueCustomers[key] = { 
+          uniqueCustomers[key] = {
             customerName: invoice.customerName,
             customerPhoneNumber: invoice.customerPhoneNumber || 'N/A'
           };
@@ -182,13 +183,13 @@ export default function ReportsPage() {
     }
     const invoiceData = filteredInvoices.map(inv => ({
       invoiceNumber: inv.invoiceNumber,
-      date: format(new Date(inv.date), 'yyyy-MM-dd HH:mm'),
+      date: inv.date, // Pass as string for CSV helper to format
       customerName: inv.customerName,
       customerPhoneNumber: inv.customerPhoneNumber || 'N/A',
-      totalAmount: inv.totalAmount.toFixed(2),
+      totalAmount: inv.totalAmount,
       paymentMethod: inv.paymentMethod,
       status: inv.status || 'N/A',
-      itemsSummary: inv.items.map(item => `${item.name} (Qty: ${item.quantity})`).join('; ')
+      items: inv.items // Pass items array for CSV helper to summarize
     }));
     downloadCSV(invoiceData, 'invoices_export', ['Invoice Number', 'Date', 'Customer Name', 'Phone Number', 'Total Amount', 'Payment Method', 'Status', 'Items (Name & Qty)']);
     toast({ title: "Invoices Exported", description: "Filtered invoice data downloaded as CSV." });
@@ -202,13 +203,14 @@ export default function ReportsPage() {
     const productData = allProducts.map(p => ({
       id: p.id,
       name: p.name,
-      price: p.price.toFixed(2),
+      costPrice: p.costPrice,
+      sellingPrice: p.sellingPrice,
       barcode: p.barcode,
       stock: p.stock,
       category: p.category || 'N/A',
       description: p.description || 'N/A'
     }));
-    downloadCSV(productData, 'products_export', ['ID', 'Name', 'Price', 'Barcode', 'Stock', 'Category', 'Description']);
+    downloadCSV(productData, 'products_export', ['ID', 'Name', 'Cost Price', 'Selling Price', 'Barcode', 'Stock', 'Category', 'Description']);
     toast({ title: "Products Exported", description: "Product data downloaded as CSV." });
   };
 
@@ -220,13 +222,13 @@ export default function ReportsPage() {
     const serviceData = allServices.map(s => ({
       id: s.id,
       name: s.name,
-      price: s.price.toFixed(2),
+      sellingPrice: s.sellingPrice,
       serviceCode: s.serviceCode || 'N/A',
       category: s.category || 'N/A',
       description: s.description || 'N/A',
       duration: s.duration || 'N/A'
     }));
-    downloadCSV(serviceData, 'services_export', ['ID', 'Name', 'Price', 'Service Code', 'Category', 'Description', 'Duration']);
+    downloadCSV(serviceData, 'services_export', ['ID', 'Name', 'Selling Price', 'Service Code', 'Category', 'Description', 'Duration']);
     toast({ title: "Services Exported", description: "Service data downloaded as CSV." });
   };
 
@@ -239,7 +241,7 @@ export default function ReportsPage() {
       </div>
     );
   }
-  
+
   return (
     <ScrollArea className="h-full">
     <div className="container mx-auto py-4 space-y-6 pb-8">
@@ -250,7 +252,6 @@ export default function ReportsPage() {
         <p className="text-muted-foreground">Analyze your sales performance and trends.</p>
       </header>
 
-      {/* Filters Section */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Filters & Exports</CardTitle>
@@ -318,10 +319,8 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
 
-      {/* Sales Summary Cards */}
       <SalesSummaryCards summary={salesSummary} currencySymbol={currencySymbol} />
 
-      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="shadow-md">
           <CardHeader>
@@ -365,6 +364,21 @@ export default function ReportsPage() {
                 <PaymentMethodsChart data={paymentMethodData} />
             ) : <p className="text-muted-foreground text-center py-8">No payment data for selected period.</p>}
           </CardContent>
+        </Card>
+
+        <Card className="shadow-md lg:col-span-2">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <MessageCircleQuestion className="h-6 w-6 text-purple-600" />
+                    AI Profit Insights (Chat)
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-muted-foreground text-center py-8">
+                    Future integration for AI-powered chat insights about your profits and sales data will appear here.
+                    You could ask questions like "Which category was most profitable last month?" or "Suggest ways to increase profit on X product."
+                </p>
+            </CardContent>
         </Card>
       </div>
     </div>

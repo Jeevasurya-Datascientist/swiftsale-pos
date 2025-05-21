@@ -17,7 +17,7 @@ export const filterInvoicesByDate = (
       endDate = endOfDay(now);
       break;
     case 'last7days':
-      startDate = startOfDay(subDays(now, 6)); 
+      startDate = startOfDay(subDays(now, 6));
       endDate = endOfDay(now);
       break;
     case 'last30days':
@@ -33,7 +33,7 @@ export const filterInvoicesByDate = (
         startDate = startOfDay(customRange.from);
         endDate = customRange.to ? endOfDay(customRange.to) : endOfDay(customRange.from);
       } else {
-        return invoices; // No valid custom range, effectively "all time" or handle as error
+        return invoices;
       }
       break;
     case 'allTime':
@@ -54,7 +54,17 @@ export const calculateSalesSummary = (invoices: Invoice[]) => {
   const totalSales = invoices.length;
   const averageSaleValue = totalSales > 0 ? totalRevenue / totalSales : 0;
   const totalItemsSold = invoices.reduce((sum, inv) => sum + inv.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0);
-  return { totalRevenue, totalSales, averageSaleValue, totalItemsSold };
+
+  const totalProfit = invoices.reduce((sum, inv) => {
+    const invoiceProfit = inv.items.reduce((itemProfitSum, item) => {
+      const cost = item.costPrice || 0; // Assume cost is 0 if not defined (e.g., for services)
+      const profitPerItem = (item.price - cost) * item.quantity; // item.price is sellingPrice
+      return itemProfitSum + profitPerItem;
+    }, 0);
+    return sum + invoiceProfit;
+  }, 0);
+
+  return { totalRevenue, totalSales, averageSaleValue, totalItemsSold, totalProfit };
 };
 
 export const getSalesOverTimeData = (invoices: Invoice[], filter: ReportTimeFilter, customRange?: ReportDateRange): TimeSeriesDataPoint[] => {
@@ -66,14 +76,12 @@ export const getSalesOverTimeData = (invoices: Invoice[], filter: ReportTimeFilt
   });
 
   const sortedDates = Object.keys(salesByDate).sort();
-  
+
   let dateFormatStr = 'MMM dd';
   if (filter === 'today') {
-    dateFormatStr = 'HH:mm'; // Show hours for today - this would require more granular data not typically in invoices
-                               // For simplicity, if 'today' is selected, and data is daily, it will show one point.
-                               // Or we can adapt to show the single day. For now, using 'MMM dd'
+    dateFormatStr = 'MMM dd'; // Simplified for daily summary even if 'today'
   } else if (filter === 'last7days') {
-    dateFormatStr = 'EEE, MMM dd'; // Day of week for shorter periods
+    dateFormatStr = 'EEE, MMM dd';
   } else if (filter === 'custom' && customRange?.from && customRange.to) {
     const days = differenceInDays(customRange.to, customRange.from);
     if (days <= 7) dateFormatStr = 'EEE, MMM dd';
@@ -103,7 +111,7 @@ export const getTopSellingItemsData = (invoices: Invoice[], limit: number = 5): 
   return Object.values(itemCounts)
     .sort((a, b) => b.value - a.value)
     .slice(0, limit)
-    .map(item => ({ name: `${item.name} (${item.type})`, value: item.value }));
+    .map(item => ({ name: `${item.name} (${item.type.charAt(0).toUpperCase() + item.type.slice(1)})`, value: item.value }));
 };
 
 
@@ -115,14 +123,13 @@ export const getSalesByCategoryData = (invoices: Invoice[]): KeyValueDataPoint[]
     'hsl(var(--chart-3))',
     'hsl(var(--chart-4))',
     'hsl(var(--chart-5))',
-    // Add more if needed
   ];
   let colorIndex = 0;
 
   invoices.forEach(invoice => {
     invoice.items.forEach(item => {
       const category = item.category || 'Uncategorized';
-      categorySales[category] = (categorySales[category] || 0) + (item.price * item.quantity);
+      categorySales[category] = (categorySales[category] || 0) + (item.price * item.quantity); // item.price is sellingPrice
     });
   });
 
@@ -140,12 +147,11 @@ export const getPaymentMethodDistributionData = (invoices: Invoice[]): KeyValueD
     'hsl(var(--chart-2))',
     'hsl(var(--chart-3))',
     'hsl(var(--chart-4))',
-    // Add more if needed
   ];
   let colorIndex = 0;
 
   invoices.forEach(invoice => {
-    paymentDistribution[invoice.paymentMethod] = (paymentDistribution[invoice.paymentMethod] || 0) + 1; // Count of transactions
+    paymentDistribution[invoice.paymentMethod] = (paymentDistribution[invoice.paymentMethod] || 0) + 1;
   });
 
   return Object.entries(paymentDistribution).map(([name, value]) => ({

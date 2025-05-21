@@ -1,45 +1,44 @@
 
-export interface BaseBillable {
+export interface BaseItem {
   id: string;
   name: string;
-  price: number;
   description?: string;
   category?: string;
   imageUrl?: string;
   dataAiHint?: string;
 }
 
-export interface Product extends BaseBillable {
+export interface Product extends BaseItem {
   barcode: string;
   stock: number;
+  costPrice: number; // Price shop owner pays
+  sellingPrice: number; // Price customer pays
 }
 
-export interface Service extends BaseBillable {
-  serviceCode?: string; // Barcode equivalent for services, optional
-  duration?: string; // e.g., "1 hour", "30 mins"
-  // Services typically don't have 'stock'
+export interface Service extends BaseItem {
+  serviceCode?: string;
+  duration?: string;
+  sellingPrice: number; // Price customer pays (cost assumed 0 for now for services)
 }
 
-// Item that can be searched and added to the cart
-export type SearchableItem = Product | Service;
+export type SearchableItem = (Product | Service) & { price: number }; // price here refers to sellingPrice for display in grid
 
-// Item as it appears in the cart
 export interface CartItem {
-  id: string; // Unique ID from Product or Service
+  id: string;
   name: string;
-  price: number;
+  price: number; // This is the sellingPrice
   quantity: number;
   imageUrl?: string;
   dataAiHint?: string;
-  type: 'product' | 'service'; // Differentiator
-  category?: string; // Added for reporting
-  itemSpecificPhoneNumber?: string; // New optional field for service specific phone
+  type: 'product' | 'service';
+  category?: string;
+  itemSpecificPhoneNumber?: string;
 
-  // Product-specific properties, optional in CartItem
+  costPrice?: number; // Only for products, for profit calculation
+
   barcode?: string;
-  stock?: number; // Original stock for validation, only for products
+  stock?: number;
 
-  // Service-specific properties, optional in CartItem
   serviceCode?: string;
   duration?: string;
 }
@@ -50,17 +49,17 @@ export interface Invoice {
   invoiceNumber: string;
   customerName: string;
   customerPhoneNumber?: string;
-  items: CartItem[]; 
+  items: CartItem[];
   subTotal: number;
-  gstRate: number; 
+  gstRate: number;
   gstAmount: number;
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string; // ISO string
-  amountReceived: number; 
-  balanceAmount: number; 
-  status: 'Paid' | 'Due'; 
-  shopName?: string; 
+  amountReceived: number;
+  balanceAmount: number;
+  status: 'Paid' | 'Due';
+  shopName?: string;
 }
 
 export interface AppSettings {
@@ -69,34 +68,34 @@ export interface AppSettings {
   shopAddress: string;
   currencySymbol: string;
   userName: string;
-  gstRate: number; 
+  gstRate: number;
 }
 
-// For charts
 export interface TimeSeriesDataPoint {
-  date: string; 
+  date: string;
   value: number;
-  [key: string]: any; 
+  [key: string]: any;
 }
 
 export interface KeyValueDataPoint {
   name: string;
   value: number;
-  fill?: string; 
+  fill?: string;
   [key: string]: any;
 }
 
 export type ReportTimeFilter = "today" | "last7days" | "last30days" | "thisMonth" | "allTime" | "custom";
 
-export type DateRange = {
+export type ReportDateRange = { // Changed from DateRange to avoid conflict with react-day-picker's DateRange
     from: Date | undefined;
     to: Date | undefined;
 };
 
+
 export interface ExistingCustomer {
   name: string;
   phoneNumber: string;
-  id: string; 
+  id: string;
 }
 
 export interface NotificationItem {
@@ -106,5 +105,5 @@ export interface NotificationItem {
   description: string;
   timestamp: string; // ISO string
   read: boolean;
-  link?: string; // Optional link for navigation (e.g., to product page)
+  link?: string;
 }

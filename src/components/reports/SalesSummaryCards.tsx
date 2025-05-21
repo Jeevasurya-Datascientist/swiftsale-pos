@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, ShoppingCart, BarChartBig, Users } from "lucide-react"; // Users instead of Percent for average
+import { DollarSign, ShoppingCart, BarChartBig, Users, TrendingUp } from "lucide-react";
 
 interface SalesSummaryCardsProps {
   summary: {
@@ -10,16 +10,18 @@ interface SalesSummaryCardsProps {
     totalSales: number;
     averageSaleValue: number;
     totalItemsSold: number;
+    totalProfit: number; // Added totalProfit
   };
   currencySymbol: string;
 }
 
 export default function SalesSummaryCards({ summary, currencySymbol }: SalesSummaryCardsProps) {
   const summaryItems = [
-    { title: "Total Revenue", value: `${currencySymbol}${summary.totalRevenue.toFixed(2)}`, icon: DollarSign, description: "Total income from sales" },
-    { title: "Total Sales", value: summary.totalSales.toLocaleString(), icon: ShoppingCart, description: "Total number of invoices" },
-    { title: "Average Sale Value", value: `${currencySymbol}${summary.averageSaleValue.toFixed(2)}`, icon: BarChartBig, description: "Average revenue per sale" },
-    { title: "Total Items Sold", value: summary.totalItemsSold.toLocaleString(), icon: Users, description: "Total quantity of items sold" },
+    { title: "Total Revenue", value: `${currencySymbol}${summary.totalRevenue.toFixed(2)}`, icon: DollarSign, description: "Total income from sales (selling price)" },
+    { title: "Total Profit", value: `${currencySymbol}${summary.totalProfit.toFixed(2)}`, icon: TrendingUp, description: "Total profit from sales" },
+    { title: "Total Sales Count", value: summary.totalSales.toLocaleString(), icon: ShoppingCart, description: "Total number of invoices" },
+    { title: "Avg. Sale Value", value: `${currencySymbol}${summary.averageSaleValue.toFixed(2)}`, icon: BarChartBig, description: "Average revenue per sale" },
+    // { title: "Total Items Sold", value: summary.totalItemsSold.toLocaleString(), icon: Users, description: "Total quantity of items sold" }, // Can be re-added if needed
   ];
 
   return (

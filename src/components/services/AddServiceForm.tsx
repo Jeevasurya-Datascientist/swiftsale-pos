@@ -22,7 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const serviceFormSchema = z.object({
   name: z.string().min(2, "Service name must be at least 2 characters.").max(100),
-  price: z.coerce.number().positive("Price must be a positive number."),
+  sellingPrice: z.coerce.number().positive("Price must be a positive number."),
   serviceCode: z.string().max(50).optional(),
   category: z.string().optional(),
   description: z.string().max(500, "Description too long.").optional(),
@@ -43,7 +43,7 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
     resolver: zodResolver(serviceFormSchema),
     defaultValues: existingService ? {
       name: existingService.name,
-      price: existingService.price,
+      sellingPrice: existingService.sellingPrice,
       serviceCode: existingService.serviceCode || '',
       category: existingService.category || '',
       description: existingService.description || '',
@@ -51,7 +51,7 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
       imageUrl: existingService.imageUrl || '',
     } : {
       name: "",
-      price: 0,
+      sellingPrice: 0,
       serviceCode: "",
       category: "",
       description: "",
@@ -66,7 +66,7 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
 
   return (
     <Form {...form}>
-      <ScrollArea className="max-h-[calc(100vh-12rem)] p-1 pr-3"> {/* Adjusted max height */}
+      <ScrollArea className="max-h-[calc(100vh-12rem)] p-1 pr-3">
         <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 p-2">
           <FormField
             control={form.control}
@@ -83,10 +83,10 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
           />
           <FormField
             control={form.control}
-            name="price"
+            name="sellingPrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Price</FormLabel>
+                <FormLabel>Selling Price</FormLabel>
                 <FormControl>
                   <Input type="number" placeholder="0.00" {...field} step="0.01" />
                 </FormControl>

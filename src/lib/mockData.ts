@@ -5,7 +5,8 @@ export const mockProducts: Product[] = [
   {
     id: 'prod001',
     name: 'Fresh Milk 1L',
-    price: 50, // INR
+    costPrice: 40, // INR
+    sellingPrice: 50, // INR
     barcode: 'SWSP001',
     stock: 50,
     imageUrl: 'https://placehold.co/300x200.png',
@@ -16,7 +17,8 @@ export const mockProducts: Product[] = [
   {
     id: 'prod002',
     name: 'Whole Wheat Bread',
-    price: 40, // INR
+    costPrice: 30, // INR
+    sellingPrice: 40, // INR
     barcode: 'SWSP002',
     stock: 30,
     imageUrl: 'https://placehold.co/300x200.png',
@@ -27,7 +29,8 @@ export const mockProducts: Product[] = [
   {
     id: 'prod003',
     name: 'Organic Eggs (Dozen)',
-    price: 120, // INR
+    costPrice: 100, // INR
+    sellingPrice: 120, // INR
     barcode: 'SWSP003',
     stock: 25,
     imageUrl: 'https://placehold.co/300x200.png',
@@ -38,7 +41,8 @@ export const mockProducts: Product[] = [
   {
     id: 'prod004',
     name: 'Classic Blue T-Shirt',
-    price: 500, // INR
+    costPrice: 350, // INR
+    sellingPrice: 500, // INR
     barcode: 'SWSP004',
     stock: 40,
     imageUrl: 'https://placehold.co/300x200.png',
@@ -49,7 +53,8 @@ export const mockProducts: Product[] = [
   {
     id: 'prod005',
     name: 'Slim Fit Jeans',
-    price: 1500, // INR
+    costPrice: 1200, // INR
+    sellingPrice: 1500, // INR
     barcode: 'SWSP005',
     stock: 20,
     imageUrl: 'https://placehold.co/300x200.png',
@@ -60,7 +65,8 @@ export const mockProducts: Product[] = [
   {
     id: 'prod010',
     name: 'Cola Drink (Can)',
-    price: 35, // INR
+    costPrice: 25, // INR
+    sellingPrice: 35, // INR
     barcode: 'SWSP010',
     stock: 100,
     imageUrl: 'https://placehold.co/300x200.png',
@@ -74,7 +80,7 @@ export const mockServices: Service[] = [
   {
     id: 'serv001',
     name: 'Basic Haircut',
-    price: 200, // INR
+    sellingPrice: 200, // INR
     serviceCode: 'SERVHC01',
     category: 'Salon',
     description: 'Standard haircut for men or women.',
@@ -85,7 +91,7 @@ export const mockServices: Service[] = [
   {
     id: 'serv002',
     name: 'Software Consultation',
-    price: 2500, // INR
+    sellingPrice: 2500, // INR
     serviceCode: 'SERVCONS01',
     category: 'IT Services',
     description: 'One hour software consultation.',
@@ -96,7 +102,7 @@ export const mockServices: Service[] = [
   {
     id: 'serv003',
     name: 'Express Car Wash',
-    price: 400, // INR
+    sellingPrice: 400, // INR
     serviceCode: 'SERVCW01',
     category: 'Automotive',
     description: 'Quick exterior car wash.',
@@ -118,15 +124,31 @@ mockServices.forEach(s => {
 });
 
 const productToCartItem = (product: Product, quantity: number): CartItem => ({
-  ...product,
+  id: product.id,
+  name: product.name,
+  price: product.sellingPrice, // Use sellingPrice for cart item price
   quantity,
   type: 'product',
+  imageUrl: product.imageUrl,
+  dataAiHint: product.dataAiHint,
+  category: product.category,
+  barcode: product.barcode,
+  stock: product.stock,
+  costPrice: product.costPrice, // Carry over costPrice for profit calculation
 });
 
 const serviceToCartItem = (service: Service, quantity: number): CartItem => ({
-  ...service,
+  id: service.id,
+  name: service.name,
+  price: service.sellingPrice, // Use sellingPrice for cart item price
   quantity,
   type: 'service',
+  imageUrl: service.imageUrl,
+  dataAiHint: service.dataAiHint,
+  category: service.category,
+  serviceCode: service.serviceCode,
+  duration: service.duration,
+  costPrice: 0, // Assume cost price is 0 for services for profit calculation
 });
 
 const defaultGstRate = 0.05; // 5%
@@ -137,16 +159,16 @@ export const mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-20240701-001',
     customerName: 'John Doe',
     items: [
-      productToCartItem(mockProducts[0], 2), 
-      productToCartItem(mockProducts[1], 1), 
+      productToCartItem(mockProducts[0], 2),
+      productToCartItem(mockProducts[1], 1),
     ],
-    subTotal: (mockProducts[0].price * 2) + mockProducts[1].price,
+    subTotal: (mockProducts[0].sellingPrice * 2) + mockProducts[1].sellingPrice,
     gstRate: defaultGstRate,
-    gstAmount: ((mockProducts[0].price * 2) + mockProducts[1].price) * defaultGstRate,
-    totalAmount: (((mockProducts[0].price * 2) + mockProducts[1].price) * (1 + defaultGstRate)),
+    gstAmount: ((mockProducts[0].sellingPrice * 2) + mockProducts[1].sellingPrice) * defaultGstRate,
+    totalAmount: (((mockProducts[0].sellingPrice * 2) + mockProducts[1].sellingPrice) * (1 + defaultGstRate)),
     paymentMethod: 'Cash',
-    date: new Date(Date.now() - 86400000 * 5).toISOString(), 
-    amountReceived: (((mockProducts[0].price * 2) + mockProducts[1].price) * (1 + defaultGstRate)),
+    date: new Date(Date.now() - 86400000 * 5).toISOString(),
+    amountReceived: (((mockProducts[0].sellingPrice * 2) + mockProducts[1].sellingPrice) * (1 + defaultGstRate)),
     balanceAmount: 0,
     status: 'Paid',
     shopName: 'SwiftSale POS',
@@ -157,17 +179,17 @@ export const mockInvoices: Invoice[] = [
     customerName: 'Jane Smith',
     customerPhoneNumber: '9876543210',
     items: [
-      productToCartItem(mockProducts[3], 1), 
-      serviceToCartItem(mockServices[0], 1), 
-      productToCartItem(mockProducts[5], 4), 
+      productToCartItem(mockProducts[3], 1),
+      serviceToCartItem(mockServices[0], 1),
+      productToCartItem(mockProducts[5], 4),
     ],
-    subTotal: mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4),
+    subTotal: mockProducts[3].sellingPrice + mockServices[0].sellingPrice + (mockProducts[5].sellingPrice * 4),
     gstRate: defaultGstRate,
-    gstAmount: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * defaultGstRate,
-    totalAmount: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * (1 + defaultGstRate),
+    gstAmount: (mockProducts[3].sellingPrice + mockServices[0].sellingPrice + (mockProducts[5].sellingPrice * 4)) * defaultGstRate,
+    totalAmount: (mockProducts[3].sellingPrice + mockServices[0].sellingPrice + (mockProducts[5].sellingPrice * 4)) * (1 + defaultGstRate),
     paymentMethod: 'Card',
-    date: new Date(Date.now() - 86400000 * 2).toISOString(), 
-    amountReceived: (mockProducts[3].price + mockServices[0].price + (mockProducts[5].price * 4)) * (1 + defaultGstRate),
+    date: new Date(Date.now() - 86400000 * 2).toISOString(),
+    amountReceived: (mockProducts[3].sellingPrice + mockServices[0].sellingPrice + (mockProducts[5].sellingPrice * 4)) * (1 + defaultGstRate),
     balanceAmount: 0,
     status: 'Paid',
     shopName: 'SwiftSale POS',
@@ -177,17 +199,17 @@ export const mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-20240704-001',
     customerName: 'Alice Brown',
     items: [
-      productToCartItem(mockProducts[2], 2), 
-      productToCartItem(mockProducts[4], 1), 
-      serviceToCartItem(mockServices[2], 1), 
+      productToCartItem(mockProducts[2], 2),
+      productToCartItem(mockProducts[4], 1),
+      serviceToCartItem(mockServices[2], 1),
     ],
-    subTotal: (mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price,
+    subTotal: (mockProducts[2].sellingPrice * 2) + mockProducts[4].sellingPrice + mockServices[2].sellingPrice,
     gstRate: defaultGstRate,
-    gstAmount: ((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * defaultGstRate,
-    totalAmount: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * (1 + defaultGstRate)),
+    gstAmount: ((mockProducts[2].sellingPrice * 2) + mockProducts[4].sellingPrice + mockServices[2].sellingPrice) * defaultGstRate,
+    totalAmount: (((mockProducts[2].sellingPrice * 2) + mockProducts[4].sellingPrice + mockServices[2].sellingPrice) * (1 + defaultGstRate)),
     paymentMethod: 'UPI',
-    date: new Date(Date.now() - 86400000 * 1).toISOString(), 
-    amountReceived: (((mockProducts[2].price * 2) + mockProducts[4].price + mockServices[2].price) * (1 + defaultGstRate)) - 100, // Underpaid
+    date: new Date(Date.now() - 86400000 * 1).toISOString(),
+    amountReceived: (((mockProducts[2].sellingPrice * 2) + mockProducts[4].sellingPrice + mockServices[2].sellingPrice) * (1 + defaultGstRate)) - 100, // Underpaid
     balanceAmount: -100,
     status: 'Due',
     shopName: 'SwiftSale POS',
@@ -197,35 +219,35 @@ export const mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-20240615-001',
     customerName: 'Bob Green',
     items: [
-      serviceToCartItem(mockServices[1], 1), 
-      productToCartItem(mockProducts[0], 5), 
+      serviceToCartItem(mockServices[1], 1),
+      productToCartItem(mockProducts[0], 5),
     ],
-    subTotal: mockServices[1].price + (mockProducts[0].price * 5),
+    subTotal: mockServices[1].sellingPrice + (mockProducts[0].sellingPrice * 5),
     gstRate: defaultGstRate,
-    gstAmount: (mockServices[1].price + (mockProducts[0].price * 5)) * defaultGstRate,
-    totalAmount: (mockServices[1].price + (mockProducts[0].price * 5)) * (1 + defaultGstRate),
+    gstAmount: (mockServices[1].sellingPrice + (mockProducts[0].sellingPrice * 5)) * defaultGstRate,
+    totalAmount: (mockServices[1].sellingPrice + (mockProducts[0].sellingPrice * 5)) * (1 + defaultGstRate),
     paymentMethod: 'Digital Wallet',
-    date: new Date(Date.now() - 86400000 * 20).toISOString(), 
-    amountReceived: (mockServices[1].price + (mockProducts[0].price * 5)) * (1 + defaultGstRate),
+    date: new Date(Date.now() - 86400000 * 20).toISOString(),
+    amountReceived: (mockServices[1].sellingPrice + (mockProducts[0].sellingPrice * 5)) * (1 + defaultGstRate),
     balanceAmount: 0,
     status: 'Paid',
     shopName: 'SwiftSale POS',
   },
   {
     id: 'inv005',
-    invoiceNumber: 'INV-20240705-001', 
+    invoiceNumber: 'INV-20240705-001',
     customerName: 'Eve Davis',
     customerPhoneNumber: '9988776655',
     items: [
-      productToCartItem(mockProducts[5], 10), 
+      productToCartItem(mockProducts[5], 10),
     ],
-    subTotal: mockProducts[5].price * 10,
+    subTotal: mockProducts[5].sellingPrice * 10,
     gstRate: defaultGstRate,
-    gstAmount: (mockProducts[5].price * 10) * defaultGstRate,
-    totalAmount: (mockProducts[5].price * 10) * (1 + defaultGstRate),
+    gstAmount: (mockProducts[5].sellingPrice * 10) * defaultGstRate,
+    totalAmount: (mockProducts[5].sellingPrice * 10) * (1 + defaultGstRate),
     paymentMethod: 'Cash',
-    date: new Date().toISOString(), 
-    amountReceived: (mockProducts[5].price * 10) * (1 + defaultGstRate) + 50, 
+    date: new Date().toISOString(),
+    amountReceived: (mockProducts[5].sellingPrice * 10) * (1 + defaultGstRate) + 50,
     balanceAmount: 50,
     status: 'Paid',
     shopName: 'SwiftSale POS',
@@ -237,6 +259,12 @@ mockInvoices.forEach(invoice => {
     if (!item.category) {
       const masterItem = [...mockProducts, ...mockServices].find(mi => mi.id === item.id);
       item.category = masterItem?.category || 'Uncategorized';
+    }
+    if (item.type === 'product' && !item.costPrice) {
+        const productData = mockProducts.find(p => p.id === item.id);
+        if (productData) item.costPrice = productData.costPrice;
+    } else if (item.type === 'service' && !item.costPrice) {
+        item.costPrice = 0; // Default for services
     }
   });
 });

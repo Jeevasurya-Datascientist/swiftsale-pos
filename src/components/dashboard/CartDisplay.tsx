@@ -8,26 +8,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
 import { X, Plus, Minus, Package, ConciergeBell } from 'lucide-react';
-import { Input } from '@/components/ui/input'; // Added Input import
+import { Input } from '@/components/ui/input';
 
 interface CartDisplayProps {
   cartItems: CartItem[];
   onRemoveItem: (itemId: string) => void;
   onUpdateQuantity: (itemId: string, newQuantity: number) => void;
-  onUpdateItemPhoneNumber: (itemId: string, phoneNumber: string) => void; // New prop
+  onUpdateItemPhoneNumber: (itemId: string, phoneNumber: string) => void;
   currencySymbol: string;
-  gstRatePercentage: number; // GST rate as a percentage (e.g., 5 for 5%)
+  gstRatePercentage: number;
 }
 
-export function CartDisplay({ 
-  cartItems, 
-  onRemoveItem, 
-  onUpdateQuantity, 
-  onUpdateItemPhoneNumber, // Destructure new prop
-  currencySymbol, 
-  gstRatePercentage 
+export function CartDisplay({
+  cartItems,
+  onRemoveItem,
+  onUpdateQuantity,
+  onUpdateItemPhoneNumber,
+  currencySymbol,
+  gstRatePercentage
 }: CartDisplayProps) {
-  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0); // item.price is sellingPrice
   const gstRateDecimal = (gstRatePercentage || 0) / 100;
   const gstAmount = subTotal * gstRateDecimal;
   const totalAmount = subTotal + gstAmount;
@@ -76,11 +76,11 @@ export function CartDisplay({
                       data-ai-hint={item.dataAiHint || item.name.split(" ").slice(0,2).join(" ")}
                     />
                   </TableCell>
-                  <TableCell className="font-medium align-top"> {/* align-top for better layout with input */}
+                  <TableCell className="font-medium align-top">
                     <div className="flex items-center gap-1">
                         {item.name}
-                        {item.type === 'product' ? 
-                            <Package size={14} className="text-muted-foreground" title="Product"/> : 
+                        {item.type === 'product' ?
+                            <Package size={14} className="text-muted-foreground" title="Product"/> :
                             <ConciergeBell size={14} className="text-muted-foreground" title="Service"/>
                         }
                     </div>
@@ -93,14 +93,14 @@ export function CartDisplay({
                           placeholder="Service Contact Ph (Opt.)"
                           value={item.itemSpecificPhoneNumber || ''}
                           onChange={(e) => onUpdateItemPhoneNumber(item.id, e.target.value)}
-                          className="h-8 text-xs w-full max-w-[180px]" // Constrain width
-                          onClick={(e) => e.stopPropagation()} // Prevent row click if any
+                          className="h-8 text-xs w-full max-w-[180px]"
+                          onClick={(e) => e.stopPropagation()}
                         />
                       </div>
                     )}
                   </TableCell>
                   <TableCell className="text-center align-top">
-                    <div className="flex items-center justify-center gap-1 pt-1"> {/* Added padding-top for alignment */}
+                    <div className="flex items-center justify-center gap-1 pt-1">
                       <Button
                         variant="outline"
                         size="icon"
@@ -122,8 +122,8 @@ export function CartDisplay({
                       </Button>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right align-top pt-2.5">{currencySymbol}{item.price.toFixed(2)}</TableCell>
-                  <TableCell className="text-right align-top pt-2.5">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</TableCell>
+                  <TableCell className="text-right align-top pt-2.5">{currencySymbol}{item.price.toFixed(2)}</TableCell> {/* item.price is sellingPrice */}
+                  <TableCell className="text-right align-top pt-2.5">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</TableCell> {/* item.price is sellingPrice */}
                   <TableCell className="text-center align-top pt-1.5">
                     <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.id)} aria-label="Remove item">
                       <X className="h-4 w-4 text-destructive" />
@@ -152,4 +152,3 @@ export function CartDisplay({
     </Card>
   );
 }
-

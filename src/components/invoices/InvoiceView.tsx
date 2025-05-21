@@ -17,25 +17,25 @@ interface InvoiceViewProps {
 export function InvoiceView({ invoice }: InvoiceViewProps) {
   const { shopName: contextShopName, shopLogoUrl, shopAddress, currencySymbol, isSettingsLoaded } = useSettings();
 
-  if (!isSettingsLoaded && !invoice.shopName) { 
+  if (!isSettingsLoaded && !invoice.shopName) {
       return <div className="p-2 space-y-4 text-center">Loading invoice details...</div>;
   }
 
   const displayShopName = invoice.shopName || contextShopName;
-  const displayAmountReceived = invoice.amountReceived; 
-  const displayBalanceAmount = invoice.balanceAmount; 
+  const displayAmountReceived = invoice.amountReceived;
+  const displayBalanceAmount = invoice.balanceAmount;
   const displayGstRatePercentage = (invoice.gstRate * 100).toFixed(invoice.gstRate * 100 % 1 === 0 ? 0 : 2);
 
 
   return (
     <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto print-container">
       <div className="text-center mb-6">
-        {shopLogoUrl && ( 
-          <Image 
-            src={shopLogoUrl} 
-            alt={`${displayShopName} Logo`} 
-            width={80} 
-            height={80} 
+        {shopLogoUrl && (
+          <Image
+            src={shopLogoUrl}
+            alt={`${displayShopName} Logo`}
+            width={80}
+            height={80}
             className="rounded-sm object-contain mx-auto mb-2 print-logo"
             data-ai-hint="shop logo"
             onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -55,12 +55,12 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         <div className="text-right">
           <h3 className="font-semibold mb-1 print-section-title">From:</h3>
           <p className="font-bold print-shop-details">{displayShopName}</p>
-          {shopAddress.split(',').map((line, index) => ( 
+          {shopAddress.split(',').map((line, index) => (
             <p key={index} className="print-shop-details">{line.trim()}</p>
           ))}
         </div>
       </div>
-      
+
       <Separator className="print-separator" />
 
       <h3 className="font-semibold mt-4 mb-2 print-section-title">Items:</h3>
@@ -75,23 +75,23 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {invoice.items.map((item: CartItem) => ( 
+          {invoice.items.map((item: CartItem) => (
             <TableRow key={item.id}>
               <TableCell className="print-hide-image">
-                <Image 
-                  src={item.imageUrl || `https://placehold.co/40x40.png`} 
-                  alt={item.name} 
-                  width={40} 
-                  height={40} 
+                <Image
+                  src={item.imageUrl || `https://placehold.co/40x40.png`}
+                  alt={item.name}
+                  width={40}
+                  height={40}
                   className="rounded-sm object-cover"
-                  data-ai-hint={item.dataAiHint || item.name.split(" ").slice(0,2).join(" ")} 
+                  data-ai-hint={item.dataAiHint || item.name.split(" ").slice(0,2).join(" ")}
                 />
               </TableCell>
               <TableCell className="print-table-cell">
                 <div className="flex items-center gap-1">
                     {item.name}
-                    {item.type === 'product' ? 
-                        <Package size={14} className="text-muted-foreground print-hide-icon" title="Product"/> : 
+                    {item.type === 'product' ?
+                        <Package size={14} className="text-muted-foreground print-hide-icon" title="Product"/> :
                         <ConciergeBell size={14} className="text-muted-foreground print-hide-icon" title="Service"/>
                     }
                 </div>
@@ -104,8 +104,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
                 )}
               </TableCell>
               <TableCell className="text-center print-table-cell">{item.quantity}</TableCell>
-              <TableCell className="text-right print-table-cell">{currencySymbol}{item.price.toFixed(2)}</TableCell>
-              <TableCell className="text-right print-table-cell">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</TableCell>
+              <TableCell className="text-right print-table-cell">{currencySymbol}{item.price.toFixed(2)}</TableCell> {/* item.price is sellingPrice */}
+              <TableCell className="text-right print-table-cell">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</TableCell> {/* item.price is sellingPrice */}
             </TableRow>
           ))}
         </TableBody>
@@ -177,8 +177,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             position: absolute;
             left: 0;
             top: 0;
-            width: 100%; 
-            max-height: none; 
+            width: 100%;
+            max-height: none;
             overflow: visible !important; /* Ensure full content is printed */
             padding: 0 !important;
             margin: 0 !important;
@@ -188,12 +188,12 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           .print-hide, .print-hide-icon, .print-hide-image, .print-hide-image-footer {
             display: none !important;
           }
-          .print-show-colspan2-itemsonly { 
+          .print-show-colspan2-itemsonly {
              display: table-cell !important;
-             width: auto !important; 
+             width: auto !important;
           }
           .print-table-footer .print-hide-image-footer ~ .print-show-colspan2-itemsonly:not(:nth-child(1)) {
-            display: none !important; 
+            display: none !important;
           }
           .print-logo { max-height: 40px !important; width: auto !important; margin-bottom: 5px !important; }
           .print-shop-name { font-size: 14pt !important; font-weight: bold !important; margin-bottom: 2px !important; }
@@ -210,9 +210,9 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           .print-status-badge { font-size: 8pt !important; padding: 1px 3px !important; }
           .print-thankyou { margin-top: 5px !important; text-align: center !important; font-style: italic !important; }
           .print-destructive { color: #000 !important; }
-          .print-grid { grid-template-columns: 1fr !important; text-align: left !important; } 
+          .print-grid { grid-template-columns: 1fr !important; text-align: left !important; }
           .print-grid > div { text-align: left !important; }
-          .print-grid > div:nth-child(2) { text-align: left !important; margin-top: 5px; } 
+          .print-grid > div:nth-child(2) { text-align: left !important; margin-top: 5px; }
 
           /* A4 Specific Styles */
           body.print-mode-a4 .print-container {
@@ -226,9 +226,9 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
            body.print-mode-a4 .print-logo { max-height: 60px !important; }
            body.print-mode-a4 .print-shop-name { font-size: 18pt !important; }
            body.print-mode-a4 .print-section-title { font-size: 12pt !important; }
-           body.print-mode-a4 .print-invoice-details, 
-           body.print-mode-a4 .print-customer-details, 
-           body.print-mode-a4 .print-shop-details, 
+           body.print-mode-a4 .print-invoice-details,
+           body.print-mode-a4 .print-customer-details,
+           body.print-mode-a4 .print-shop-details,
            body.print-mode-a4 .print-item-code { font-size: 10pt !important; }
            body.print-mode-a4 .print-table-head { font-size: 11pt !important; padding: 4px !important; }
            body.print-mode-a4 .print-table-cell { font-size: 10pt !important; padding: 4px !important; }
@@ -269,11 +269,11 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           /* Fallback/Default Print (if no mode class, assume thermal-like as per previous setup) */
           body:not(.print-mode-a4):not(.print-mode-thermal) .print-container {
             font-family: 'Courier New', Courier, monospace !important;
-            width: 51mm !important; 
+            width: 51mm !important;
             padding: 0 !important;
           }
           body:not(.print-mode-a4):not(.print-mode-thermal) @page {
-            size: 57mm auto; 
+            size: 57mm auto;
             margin: 3mm;
           }
            body:not(.print-mode-a4):not(.print-mode-thermal) .print-hide-image,
@@ -285,4 +285,3 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
     </div>
   );
 }
-

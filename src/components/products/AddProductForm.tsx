@@ -22,12 +22,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const productFormSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters.").max(100),
-  price: z.coerce.number().positive("Price must be a positive number."),
+  costPrice: z.coerce.number().min(0, "Cost price must be a non-negative number."),
+  sellingPrice: z.coerce.number().positive("Selling price must be a positive number."),
   stock: z.coerce.number().int().min(0, "Stock cannot be negative."),
   barcode: z.string().min(3, "Barcode must be at least 3 characters.").max(50),
   category: z.string().optional(),
   description: z.string().max(500, "Description too long.").optional(),
   imageUrl: z.string().url("Must be a valid URL for image.").optional().or(z.literal('')),
+}).refine(data => data.sellingPrice >= data.costPrice, {
+  message: "Selling price should typically be greater than or equal to cost price.",
+  path: ["sellingPrice"], // Point error to sellingPrice field
 });
 
 type ProductFormValues = Omit<Product, 'id' | 'dataAiHint'>;
@@ -43,7 +47,8 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
     resolver: zodResolver(productFormSchema),
     defaultValues: existingProduct ? {
       name: existingProduct.name,
-      price: existingProduct.price,
+      costPrice: existingProduct.costPrice,
+      sellingPrice: existingProduct.sellingPrice,
       stock: existingProduct.stock,
       barcode: existingProduct.barcode,
       category: existingProduct.category || '',
@@ -51,7 +56,8 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
       imageUrl: existingProduct.imageUrl || '',
     } : {
       name: "",
-      price: 0,
+      costPrice: 0,
+      sellingPrice: 0,
       stock: 0,
       barcode: "",
       category: "",
@@ -66,8 +72,8 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
 
   return (
     <Form {...form}>
-      <ScrollArea className="max-h-[calc(100vh-12rem)] p-1 pr-3"> {/* Adjusted max height and added padding */}
-        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 p-2"> {/* Reduced space-y, added padding */}
+      <ScrollArea className="max-h-[calc(100vh-12rem)] p-1 pr-3">
+        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 p-2">
           <FormField
             control={form.control}
             name="name"
@@ -84,10 +90,10 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="price"
+              name="costPrice"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Price</FormLabel>
+                  <FormLabel>Cost Price</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="0.00" {...field} step="0.01" />
                   </FormControl>
@@ -96,6 +102,20 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
               )}
             />
             <FormField
+              control={form.control}
+              name="sellingPrice"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Selling Price</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="0.00" {...field} step="0.01" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+           <FormField
               control={form.control}
               name="stock"
               render={({ field }) => (
@@ -108,7 +128,6 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
                 </FormItem>
               )}
             />
-          </div>
           <FormField
             control={form.control}
             name="barcode"

@@ -36,7 +36,7 @@ export function ServiceCard({ service, onEdit, onDelete, currencySymbol }: Servi
       <CardContent className="p-4 flex-grow">
         <div className="flex justify-between items-center mb-2">
           <Badge variant="secondary" className="text-sm">
-            {currencySymbol}{service.price.toFixed(2)}
+            Price: {currencySymbol}{service.sellingPrice.toFixed(2)}
           </Badge>
           {service.duration && (
             <Badge variant="outline" className="flex items-center gap-1">
