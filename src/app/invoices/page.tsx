@@ -106,7 +106,7 @@ export default function InvoicesPage() {
   
   useEffect(() => {
     loadInvoices();
-  }, [isSettingsLoaded, timeFilter, customDateRange]);
+  }, [isSettingsLoaded, timeFilter, customDateRange, loadInvoices]); // Added loadInvoices to dependency array
 
 
   const handleViewDetails = (invoice: Invoice) => {
@@ -203,6 +203,17 @@ export default function InvoicesPage() {
     invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (invoice.status && invoice.status.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Expose context for handleEditOpen. This is a workaround. Better state management (e.g. Zustand, Redux) would be preferred for complex state sharing.
+  useEffect(() => {
+    (window as any).invoicePageContext = {
+        setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen
+    };
+    return () => {
+        delete (window as any).invoicePageContext;
+    }
+  }, [setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen]);
+
 
   if (!isSettingsLoaded) {
     return (
@@ -426,14 +437,3 @@ const handleEditOpen = (invoice: Invoice | null) => {
         if (setIsEditOpen) setIsEditOpen(true);
     }
 };
-
-// Expose context for handleEditOpen. This is a workaround. Better state management (e.g. Zustand, Redux) would be preferred for complex state sharing.
-useEffect(() => {
-    (window as any).invoicePageContext = {
-        setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen
-    };
-    return () => {
-        delete (window as any).invoicePageContext;
-    }
-}, [setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen]);
-
