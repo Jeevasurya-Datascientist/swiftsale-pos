@@ -15,8 +15,19 @@ import {
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
-import { FileText, Search, Printer } from 'lucide-react';
+import { FileText, Search, Printer, MessageSquare, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +38,7 @@ export default function InvoicesPage() {
   const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPrintOptionsOpen, setIsPrintOptionsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { currencySymbol, isSettingsLoaded } = useSettings();
   const { toast } = useToast();
@@ -55,13 +67,7 @@ export default function InvoicesPage() {
     setIsEditOpen(true);
   };
 
-  const handlePrintInvoice = () => {
-    window.print();
-    toast({ title: "Printing Invoice", description: "Your invoice should be printing." });
-  };
-
   const handleSaveEditedInvoice = (updatedInvoice: Invoice) => {
-    // Update products stock if status changed from Due to Paid
     const originalInvoice = invoices.find(inv => inv.id === updatedInvoice.id);
     if (originalInvoice && originalInvoice.status === 'Due' && updatedInvoice.status === 'Paid') {
         const storedProducts = localStorage.getItem('appProducts');
@@ -82,13 +88,43 @@ export default function InvoicesPage() {
     }
 
     const updatedInvoices = invoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
+    updatedInvoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     localStorage.setItem('appInvoices', JSON.stringify(updatedInvoices));
     setInvoices(updatedInvoices);
     setIsEditOpen(false);
     setInvoiceToEdit(null);
+    if (isViewOpen && selectedInvoice?.id === updatedInvoice.id) {
+        setSelectedInvoice(updatedInvoice); // Update the viewed invoice if it was the one edited
+    }
     toast({ title: "Invoice Updated", description: `Invoice ${updatedInvoice.invoiceNumber} has been successfully updated.` });
   };
 
+  const handleOpenPrintOptions = () => {
+    if (selectedInvoice) {
+        setIsPrintOptionsOpen(true);
+    }
+  };
+
+  const performActualPrint = (mode: 'a4' | 'thermal') => {
+    if (!selectedInvoice) return;
+
+    if (mode === 'a4') {
+        document.body.classList.add('print-mode-a4');
+        document.body.classList.remove('print-mode-thermal');
+    } else {
+        document.body.classList.add('print-mode-thermal');
+        document.body.classList.remove('print-mode-a4');
+    }
+
+    setTimeout(() => { // Timeout to allow styles to apply
+        window.print();
+        document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
+        setIsPrintOptionsOpen(false);
+        // Optionally close the main view dialog after printing
+        // setIsViewOpen(false); 
+        // setSelectedInvoice(null);
+    }, 100);
+  };
 
   const filteredInvoices = invoices.filter(invoice => 
     invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -159,16 +195,62 @@ export default function InvoicesPage() {
               <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber} ({selectedInvoice.status})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={selectedInvoice} />
-            <DialogFooter className="print-hide">
-                <Button type="button" onClick={handlePrintInvoice}>
-                  <Printer className="w-4 h-4 mr-2" /> Print
+            <DialogFooter className="print-hide flex-col sm:flex-row sm:justify-between gap-2 pt-4">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                    if (selectedInvoice?.customerPhoneNumber) {
+                        const message = `Hello ${selectedInvoice.customerName || 'Customer'}, here is your invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.shopName || "Our Store"}. Status: ${selectedInvoice.status}. Total: ${currencySymbol}${selectedInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${selectedInvoice.amountReceived.toFixed(2)}. ${selectedInvoice.status === 'Due' && selectedInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(selectedInvoice.totalAmount - selectedInvoice.amountReceived).toFixed(2)}.` : (selectedInvoice.balanceAmount && selectedInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${selectedInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
+                        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${selectedInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
+                    } else {
+                        toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
+                    }
+                    }}
+                    disabled={!selectedInvoice?.customerPhoneNumber}
+                >
+                    <MessageSquare className="w-4 h-4 mr-2"/> Share via WhatsApp
+                </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button type="button" onClick={handleOpenPrintOptions}>
+                  <Printer className="w-4 h-4 mr-2" /> Print / Download Options
                 </Button>
                 <DialogClose asChild>
                     <Button type="button" variant="secondary">Close</Button>
                 </DialogClose>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {selectedInvoice && isPrintOptionsOpen && (
+         <AlertDialog open={isPrintOptionsOpen} onOpenChange={(open) => {
+            if (!open) {
+                setIsPrintOptionsOpen(false);
+                // Optionally close the main invoice dialog as well if print options are dismissed
+                // setIsViewOpen(false); 
+                // setSelectedInvoice(null);
+            }
+         }}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Select Print Format</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Choose the format for printing your invoice. "Print A4" can also be used to "Save as PDF" via your browser's print dialog.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+                    <Button variant="outline" onClick={() => performActualPrint('a4')} className="w-full sm:w-auto">
+                        <Download className="w-4 h-4 mr-2" /> Print A4 / Save PDF
+                    </Button>
+                    <Button variant="outline" onClick={() => performActualPrint('thermal')} className="w-full sm:w-auto">
+                        <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
+                    </Button>
+                     <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel</AlertDialogCancel>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {invoiceToEdit && (
