@@ -86,10 +86,8 @@ export interface KeyValueDataPoint {
   [key: string]: any;
 }
 
-// Changed from "type ReportTimeFilter" to "export type ReportTimeFilter" for use in invoices page
 export type ReportTimeFilter = "today" | "last7days" | "last30days" | "thisMonth" | "allTime" | "custom";
 
-// Changed from "interface ReportDateRange" to "export type DateRange" for use in invoices page (matching react-day-picker)
 export type DateRange = {
     from: Date | undefined;
     to: Date | undefined;
@@ -101,3 +99,12 @@ export interface ExistingCustomer {
   id: string; 
 }
 
+export interface NotificationItem {
+  id: string;
+  type: 'lowStock' | 'info' | 'success' | 'error';
+  title: string;
+  description: string;
+  timestamp: string; // ISO string
+  read: boolean;
+  link?: string; // Optional link for navigation (e.g., to product page)
+}

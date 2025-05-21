@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
+import { useNotifications } from '@/context/NotificationContext'; // Import useNotifications
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function BillingPage() {
@@ -47,6 +48,7 @@ export default function BillingPage() {
 
   const { toast } = useToast();
   const { currencySymbol, gstRate: settingsGstRate, isSettingsLoaded, shopName: currentShopName } = useSettings();
+  const { addNotification } = useNotifications(); // Get addNotification function
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -157,11 +159,18 @@ export default function BillingPage() {
   const checkAndNotifyLowStock = (product: Product, quantityInCart: number) => {
     const effectiveRemainingStock = product.stock - quantityInCart;
     if (effectiveRemainingStock < 15 && effectiveRemainingStock >= 0) {
+      const message = `${product.name} is low on stock. ${effectiveRemainingStock} units will remain if this quantity is sold.`;
       toast({
         title: "Low Stock Warning",
-        description: `${product.name} is low on stock. ${effectiveRemainingStock} units will remain if this quantity is sold.`,
+        description: message,
         variant: "default",
         duration: 5000,
+      });
+      addNotification({ // Add to header notifications
+        type: 'lowStock',
+        title: 'Low Stock Alert',
+        description: message,
+        link: `/products#${product.id}` // Example link
       });
     }
   };
@@ -220,7 +229,7 @@ export default function BillingPage() {
             imageUrl: foundItem.imageUrl,
             dataAiHint: foundItem.dataAiHint,
             category: foundItem.category,
-            itemSpecificPhoneNumber: '', // Initialize for services
+            itemSpecificPhoneNumber: '', 
             ...(type === 'product' && { barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock }),
             ...(type === 'service' && { serviceCode: (foundItem as Service).serviceCode, duration: (foundItem as Service).duration }),
           };
@@ -255,10 +264,10 @@ export default function BillingPage() {
         setCartItems((prevCart) =>
           prevCart.map((item) => (item.id === itemId ? { ...item, quantity: productDetails.stock! } : item))
         );
-        checkAndNotifyLowStock(productDetails, productDetails.stock);
+        checkAndNotifyLowStock(productDetails, productDetails.stock); // Check stock with corrected quantity
         return;
       }
-      checkAndNotifyLowStock(productDetails, newQuantity);
+      checkAndNotifyLowStock(productDetails, newQuantity); // Check stock with new quantity
     }
 
     setCartItems((prevCart) =>
@@ -758,4 +767,3 @@ export default function BillingPage() {
     </div>
   );
 }
-

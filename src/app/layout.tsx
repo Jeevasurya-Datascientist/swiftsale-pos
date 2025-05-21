@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { SettingsProvider } from '@/context/SettingsContext';
-import { LayoutRenderer } from '@/components/layout/LayoutRenderer'; // New component to handle path-based rendering
+import { NotificationProvider } from '@/context/NotificationContext'; // Import NotificationProvider
+import { LayoutRenderer } from '@/components/layout/LayoutRenderer'; 
 
 export const metadata: Metadata = {
   title: 'SwiftSale POS',
@@ -19,7 +20,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${GeistSans.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <SettingsProvider>
-          <LayoutRenderer>{children}</LayoutRenderer>
+          <NotificationProvider> {/* Wrap with NotificationProvider */}
+            <LayoutRenderer>{children}</LayoutRenderer>
+          </NotificationProvider>
         </SettingsProvider>
       </body>
     </html>

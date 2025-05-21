@@ -3,6 +3,7 @@
 import type React from 'react';
 import Image from 'next/image';
 import { useSettings } from '@/context/SettingsContext';
+import { useNotifications } from '@/context/NotificationContext'; // Import useNotifications
 import {
   SidebarProvider,
   Sidebar,
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { SidebarNav } from './SidebarNav';
 import { Button } from '@/components/ui/button';
-import { Bell, LogOut, Settings, UserCircle } from 'lucide-react';
+import { Bell, LogOut, Settings, UserCircle, AlertCircle, ShoppingCart, CheckCircle2, ExternalLink } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -23,10 +24,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup
 } from "@/components/ui/dropdown-menu";
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation'; 
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatDistanceToNow } from 'date-fns';
+
 
 const CustomSidebarHeader = () => {
   const { shopName, shopLogoUrl, isSettingsLoaded } = useSettings();
@@ -126,6 +132,28 @@ const CustomSidebarFooter = () => {
 
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { notifications, markAsRead, clearNotifications, unreadCount } = useNotifications();
+  const router = useRouter();
+
+  const handleNotificationClick = (notification: typeof notifications[0]) => {
+    if (!notification.read) {
+      markAsRead(notification.id);
+    }
+    if (notification.link) {
+      router.push(notification.link);
+    }
+  };
+  
+  const getIconForNotification = (type: typeof notifications[0]['type']) => {
+    switch(type) {
+      case 'lowStock': return <AlertCircle className="w-5 h-5 text-orange-500" />;
+      case 'success': return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+      case 'info': return <ShoppingCart className="w-5 h-5 text-blue-500" />; // Example
+      case 'error': return <AlertCircle className="w-5 h-5 text-red-500" />;
+      default: return <Bell className="w-5 h-5 text-muted-foreground" />;
+    }
+  };
+
   return (
     <SidebarProvider defaultOpen>
       <Sidebar>
@@ -141,18 +169,53 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4 ml-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="relative">
                   <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </Badge>
+                  )}
                   <span className="sr-only">Notifications</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 sm:w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-80 sm:w-96">
+                <DropdownMenuLabel className="flex justify-between items-center">
+                  Notifications
+                  {notifications.length > 0 && (
+                    <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={clearNotifications}>Clear All</Button>
+                  )}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="flex flex-col items-start p-3">
-                  <p className="font-medium">No new notifications</p>
-                  <p className="text-xs text-muted-foreground">Your notification feed is currently empty.</p>
-                </DropdownMenuItem>
+                {notifications.length > 0 ? (
+                  <ScrollArea className="h-[300px]">
+                    <DropdownMenuGroup>
+                      {notifications.map((notif) => (
+                        <DropdownMenuItem
+                          key={notif.id}
+                          onClick={() => handleNotificationClick(notif)}
+                          className={`flex items-start gap-3 p-3 cursor-pointer ${notif.read ? 'opacity-70' : 'font-medium'}`}
+                        >
+                          <div className="flex-shrink-0 mt-0.5">{getIconForNotification(notif.type)}</div>
+                          <div className="flex-grow">
+                            <p className="text-sm leading-tight">{notif.title}</p>
+                            <p className="text-xs text-muted-foreground leading-tight">{notif.description}</p>
+                            <p className="text-xs text-muted-foreground/70 mt-0.5">
+                              {formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true })}
+                            </p>
+                          </div>
+                           {notif.link && <ExternalLink className="w-4 h-4 text-muted-foreground self-center ml-auto" />}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </ScrollArea>
+                ) : (
+                  <DropdownMenuItem className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
+                    <Bell className="w-8 h-8 mb-2" />
+                    <p className="font-medium">No new notifications</p>
+                    <p className="text-xs">Your notification feed is currently empty.</p>
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <SidebarTrigger className="hidden md:flex"/> {/* Show on desktop */}
