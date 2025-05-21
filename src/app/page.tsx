@@ -11,8 +11,8 @@ import { SmartSuggestions } from '@/components/dashboard/SmartSuggestions';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'; // Removed DialogClose as it's not directly used
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"; // Removed AlertDialogTrigger
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -80,30 +80,33 @@ export default function BillingPage() {
                 const parsed = JSON.parse(storedProducts);
                 if(Array.isArray(parsed)) {
                     finalProducts = parsed.map((p: any) => {
-                        const mock = mockProducts.find(mp => mp.id === p.id);
-                        const pName = p.name || (mock ? mock.name : "Unnamed Product");
+                        const mockP = mockProducts.find(mp => mp.id === p.id);
+                        const pName = p.name || (mockP ? mockP.name : "Unnamed Product");
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (mockP && typeof mockP.costPrice === 'number' ? mockP.costPrice : 0);
+                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mockP && typeof mockP.sellingPrice === 'number' ? mockP.sellingPrice : (mockP && typeof mockP.price === 'number' ? mockP.price : 0)));
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof mock?.costPrice === 'number' ? mock.costPrice : 0),
-                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (typeof mock?.sellingPrice === 'number' ? mock.sellingPrice : 0)),
-                            stock: typeof p.stock === 'number' ? p.stock : (typeof mock?.stock === 'number' ? mock.stock : 0),
-                            barcode: p.barcode || (mock ? mock.barcode : "") || "",
-                            imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
-                            dataAiHint: p.dataAiHint || (mock ? mock.dataAiHint : (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image')),
-                            category: p.category || (mock ? mock.category : undefined),
-                            description: p.description || (mock ? mock.description : undefined),
+                            costPrice: costPrice,
+                            sellingPrice: sellingPrice,
+                            stock: typeof p.stock === 'number' ? p.stock : (mockP && typeof mockP.stock === 'number' ? mockP.stock : 0),
+                            barcode: p.barcode || (mockP ? mockP.barcode : "") || "",
+                            imageUrl: p.imageUrl || (mockP ? mockP.imageUrl : defaultPlaceholder(pName)),
+                            dataAiHint: p.dataAiHint || (mockP ? mockP.dataAiHint : (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image')),
+                            category: p.category || (mockP ? mockP.category : undefined),
+                            description: p.description || (mockP ? mockP.description : undefined),
                         };
                     });
                 } else {
-                   finalProducts = mockProducts.map(p => ({...p, sellingPrice: p.sellingPrice || p.price as number, costPrice: p.costPrice || 0, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+                   finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name), costPrice: p.costPrice || 0, sellingPrice: p.sellingPrice || p.price || 0}));
                 }
             } catch (e) { 
               console.error("Failed to parse products from localStorage, using mock data.", e);
-              finalProducts = mockProducts.map(p => ({...p, sellingPrice: p.sellingPrice || p.price as number, costPrice: p.costPrice || 0, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+              finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name), costPrice: p.costPrice || 0, sellingPrice: p.sellingPrice || p.price || 0}));
             }
         } else {
-            finalProducts = mockProducts.map(p => ({...p, sellingPrice: p.sellingPrice || p.price as number, costPrice: p.costPrice || 0, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+            finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name), costPrice: p.costPrice || 0, sellingPrice: p.sellingPrice || p.price || 0}));
+            localStorage.setItem('appProducts', JSON.stringify(finalProducts));
         }
         setProducts(finalProducts);
 
@@ -114,42 +117,39 @@ export default function BillingPage() {
                 const parsed = JSON.parse(storedServices);
                 if(Array.isArray(parsed)) {
                     finalServices = parsed.map((s: any) => {
-                        const mock = mockServices.find(ms => ms.id === s.id);
-                        const sName = s.name || (mock ? mock.name : "Unnamed Service");
+                        const mockS = mockServices.find(ms => ms.id === s.id);
+                        const sName = s.name || (mockS ? mockS.name : "Unnamed Service");
+                        const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mockS && typeof mockS.sellingPrice === 'number' ? mockS.sellingPrice : (mockS && typeof mockS.price === 'number' ? mockS.price : 0)));
                         return {
                             id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: sName,
-                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (typeof mock?.sellingPrice === 'number' ? mock.sellingPrice : 0)),
-                            serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
-                            imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
-                            dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
-                            category: s.category || (mock ? mock.category : undefined),
-                            description: s.description || (mock ? mock.description : undefined),
-                            duration: s.duration || (mock ? mock.duration : undefined),
+                            sellingPrice: sellingPrice,
+                            serviceCode: s.serviceCode || (mockS ? mockS.serviceCode : undefined),
+                            imageUrl: s.imageUrl || (mockS ? mockS.imageUrl : defaultPlaceholder(sName)),
+                            dataAiHint: s.dataAiHint || (mockS ? mockS.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
+                            category: s.category || (mockS ? mockS.category : undefined),
+                            description: s.description || (mockS ? mockS.description : undefined),
+                            duration: s.duration || (mockS ? mockS.duration : undefined),
                         };
                     });
                 } else {
-                    finalServices = mockServices.map(s => ({...s, sellingPrice: s.sellingPrice || s.price as number, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+                    finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name), sellingPrice: s.sellingPrice || s.price || 0}));
                 }
             } catch (e) { 
               console.error("Failed to parse services from localStorage, using mock data.", e);
-              finalServices = mockServices.map(s => ({...s, sellingPrice: s.sellingPrice || s.price as number, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+              finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name), sellingPrice: s.sellingPrice || s.price || 0}));
             }
         } else {
-            finalServices = mockServices.map(s => ({...s, sellingPrice: s.sellingPrice || s.price as number, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+            finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name), sellingPrice: s.sellingPrice || s.price || 0}));
+            localStorage.setItem('appServices', JSON.stringify(finalServices));
         }
         setServices(finalServices);
 
-        const allItems: SearchableItem[] = [
-            ...finalProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product' })), 
-            ...finalServices.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service' }))  
-        ].sort((a, b) => a.name.localeCompare(b.name));
-        setSearchableItems(allItems);
-        setFilteredSearchableItems(allItems);
-
-
-        const storedInvoices = localStorage.getItem('appInvoices');
-        const allInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : initialMockInvoices;
+        const allInvoiceData = localStorage.getItem('appInvoices');
+        const allInvoices: Invoice[] = allInvoiceData ? JSON.parse(allInvoiceData) : initialMockInvoices;
+        if (!allInvoiceData && initialMockInvoices.length > 0) {
+            localStorage.setItem('appInvoices', JSON.stringify(initialMockInvoices));
+        }
         const uniqueCusts: Record<string, ExistingCustomer> = {};
         allInvoices.forEach(inv => {
             if (inv.customerName) {
@@ -165,16 +165,18 @@ export default function BillingPage() {
         });
         setExistingCustomers(Object.values(uniqueCusts).sort((a,b) => a.name.localeCompare(b.name)));
     }
-  }, [isSettingsLoaded]);
+  }, [isSettingsLoaded]); 
 
    useEffect(() => {
     if (isSettingsLoaded && (products.length > 0 || services.length > 0) && typeof window !== 'undefined') {
         localStorage.setItem('appProducts', JSON.stringify(products));
         localStorage.setItem('appServices', JSON.stringify(services));
+        
         const allItems: SearchableItem[] = [
           ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
           ...services.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service'}))
         ].sort((a, b) => a.name.localeCompare(b.name));
+
         setSearchableItems(allItems);
         if (searchTerm) {
             setFilteredSearchableItems(
@@ -257,10 +259,9 @@ export default function BillingPage() {
       if (foundItem.type === 'service') {
         setCurrentItemForServiceDialog(foundItem);
         setIsServiceDetailsDialogOpen(true);
-        return; // Stop here for services, let dialog handle adding to cart
+        return; 
       }
   
-      // Product logic
       const product = foundItem as Product;
       const existingCartItem = cartItems.find(ci => ci.id === product.id);
       if (!existingCartItem && product.stock <= 0) {
@@ -306,7 +307,7 @@ export default function BillingPage() {
   const handleConfirmAddServiceToCart = (details: { phoneNumber?: string; note?: string }) => {
     if (!currentItemForServiceDialog || currentItemForServiceDialog.type !== 'service') return;
 
-    const service = currentItemForServiceDialog as Service; // Cast to Service
+    const service = currentItemForServiceDialog as Service;
     
     setCartItems((prevCart) => {
         const existingItem = prevCart.find((item) => item.id === service.id);
@@ -319,7 +320,7 @@ export default function BillingPage() {
                 id: service.id, name: service.name, price: service.sellingPrice, quantity: 1, type: 'service',
                 imageUrl: service.imageUrl || defaultPlaceholder(service.name),
                 dataAiHint: service.dataAiHint, category: service.category,
-                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, // Assuming services have no cost price for profit calc
+                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, 
                 itemSpecificPhoneNumber: details.phoneNumber || '',
                 itemSpecificNote: details.note || ''
             };
@@ -368,9 +369,6 @@ export default function BillingPage() {
   };
   
   const handleUpdateItemPhoneNumber = (itemId: string, phoneNumber: string) => {
-    // This function is now handled by ServiceDetailsDialog for initial entry.
-    // If live editing in cart is needed, it would be re-implemented.
-    // For now, we'll assume phone number is set via the dialog.
      setCartItems(prevCart =>
       prevCart.map(item =>
         item.id === itemId ? { ...item, itemSpecificPhoneNumber: phoneNumber } : item
@@ -378,8 +376,6 @@ export default function BillingPage() {
     );
   };
   const handleUpdateItemNote = (itemId: string, note: string) => {
-    // Placeholder for potential live editing of notes in cart if needed later.
-    // For now, notes are set via the ServiceDetailsDialog.
      setCartItems(prevCart =>
       prevCart.map(item =>
         item.id === itemId ? { ...item, itemSpecificNote: note } : item
@@ -617,8 +613,8 @@ export default function BillingPage() {
             cartItems={cartItems}
             onRemoveItem={handleRemoveItem}
             onUpdateQuantity={handleUpdateQuantity}
-            onUpdateItemPhoneNumber={handleUpdateItemPhoneNumber} // Retain for potential direct cart edits if needed later
-            onUpdateItemNote={handleUpdateItemNote} // Retain for potential direct cart edits
+            onUpdateItemPhoneNumber={handleUpdateItemPhoneNumber}
+            onUpdateItemNote={handleUpdateItemNote}
             currencySymbol={currencySymbol}
             gstRatePercentage={settingsGstRate}
           />
@@ -901,3 +897,5 @@ export default function BillingPage() {
   );
 }
 
+
+    
