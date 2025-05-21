@@ -4,7 +4,6 @@
 import { useState, useEffect } from 'react';
 import type { Invoice, Product } from '@/lib/types';
 import { mockInvoices as fallbackMockInvoices } from '@/lib/mockData'; 
-import { InvoiceListItem } from '@/components/invoices/InvoiceListItem';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import { EditInvoiceDialog } from '@/components/invoices/EditInvoiceDialog';
 import {
@@ -24,13 +23,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
-import { FileText, Search, Printer, MessageSquare, Download } from 'lucide-react';
+import { FileText, Search, Printer, MessageSquare, Download, Eye, Share2, Calendar as CalendarIconLucide } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import type { DateRange, ReportTimeFilter } from '@/lib/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -43,18 +49,64 @@ export default function InvoicesPage() {
   const { currencySymbol, isSettingsLoaded } = useSettings();
   const { toast } = useToast();
 
+  const [timeFilter, setTimeFilter] = useState<ReportTimeFilter>('allTime');
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
+  const [isDateFilterPopoverOpen, setIsDateFilterPopoverOpen] = useState(false);
+
+
   const loadInvoices = () => {
     if (isSettingsLoaded) {
         const storedInvoices = localStorage.getItem('appInvoices');
         const loadedInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : fallbackMockInvoices;
-        loadedInvoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setInvoices(loadedInvoices);
+        
+        // Apply date filtering
+        let currentFilteredInvoices = loadedInvoices;
+        if (timeFilter !== 'allTime') {
+            const now = new Date();
+            let startDate: Date | null = null;
+            let endDate: Date | null = null;
+
+            switch (timeFilter) {
+                case 'today':
+                    startDate = new Date(now.setHours(0, 0, 0, 0));
+                    endDate = new Date(now.setHours(23, 59, 59, 999));
+                    break;
+                case 'last7days':
+                    startDate = new Date(new Date().setDate(now.getDate() - 6));
+                    startDate.setHours(0,0,0,0);
+                    endDate = new Date(now.setHours(23, 59, 59, 999));
+                    break;
+                case 'last30days':
+                    startDate = new Date(new Date().setDate(now.getDate() - 29));
+                     startDate.setHours(0,0,0,0);
+                    endDate = new Date(now.setHours(23, 59, 59, 999));
+                    break;
+                case 'thisMonth':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                    break;
+                case 'custom':
+                    if (customDateRange?.from) {
+                        startDate = new Date(customDateRange.from.setHours(0,0,0,0));
+                        endDate = customDateRange.to ? new Date(customDateRange.to.setHours(23,59,59,999)) : new Date(customDateRange.from.setHours(23,59,59,999));
+                    }
+                    break;
+            }
+            if (startDate && endDate) {
+                currentFilteredInvoices = currentFilteredInvoices.filter(inv => {
+                    const invDate = new Date(inv.date);
+                    return invDate >= startDate! && invDate <= endDate!;
+                });
+            }
+        }
+        currentFilteredInvoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setInvoices(currentFilteredInvoices);
     }
   };
-
+  
   useEffect(() => {
     loadInvoices();
-  }, [isSettingsLoaded]);
+  }, [isSettingsLoaded, timeFilter, customDateRange]);
 
 
   const handleViewDetails = (invoice: Invoice) => {
@@ -87,26 +139,30 @@ export default function InvoicesPage() {
         toast({title: "Stock Updated", description: "Product stock levels adjusted for newly paid invoice."})
     }
 
-    const updatedInvoices = invoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
-    updatedInvoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    localStorage.setItem('appInvoices', JSON.stringify(updatedInvoices));
-    setInvoices(updatedInvoices);
+    const allStoredInvoices = JSON.parse(localStorage.getItem('appInvoices') || '[]') as Invoice[];
+    const updatedAllInvoices = allStoredInvoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
+    localStorage.setItem('appInvoices', JSON.stringify(updatedAllInvoices));
+    
+    // Reload invoices to reflect changes and re-apply filters
+    loadInvoices(); 
+
     setIsEditOpen(false);
     setInvoiceToEdit(null);
     if (isViewOpen && selectedInvoice?.id === updatedInvoice.id) {
-        setSelectedInvoice(updatedInvoice); // Update the viewed invoice if it was the one edited
+        setSelectedInvoice(updatedInvoice); 
     }
     toast({ title: "Invoice Updated", description: `Invoice ${updatedInvoice.invoiceNumber} has been successfully updated.` });
   };
 
-  const handleOpenPrintOptions = () => {
-    if (selectedInvoice) {
-        setIsPrintOptionsOpen(true);
-    }
-  };
+  const performActualPrint = (mode: 'a4' | 'thermal', invoiceToPrint: Invoice | null) => {
+    if (!invoiceToPrint) return;
 
-  const performActualPrint = (mode: 'a4' | 'thermal') => {
-    if (!selectedInvoice) return;
+    // Temporarily set selectedInvoice for InvoiceView if printing from row action
+    const originalSelectedInvoice = selectedInvoice;
+    const originalIsViewOpen = isViewOpen;
+
+    setSelectedInvoice(invoiceToPrint);
+    setIsViewOpen(true); // Ensure dialog is open for print styles
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -116,17 +172,33 @@ export default function InvoicesPage() {
         document.body.classList.remove('print-mode-a4');
     }
 
-    setTimeout(() => { // Timeout to allow styles to apply
+    setTimeout(() => { 
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
         setIsPrintOptionsOpen(false);
-        // Optionally close the main view dialog after printing
-        // setIsViewOpen(false); 
-        // setSelectedInvoice(null);
-    }, 100);
+        
+        // Restore original dialog state if it was opened for printing a row item
+        if (originalSelectedInvoice !== invoiceToPrint || !originalIsViewOpen) {
+             setSelectedInvoice(originalSelectedInvoice);
+             setIsViewOpen(originalIsViewOpen);
+        } else if (!originalIsViewOpen && isViewOpen) { // If dialog was opened just for printing, close it
+            setIsViewOpen(false);
+            setSelectedInvoice(null);
+        }
+
+    }, 250); // Increased timeout slightly
   };
 
-  const filteredInvoices = invoices.filter(invoice => 
+  const handleShareInvoiceRow = (invoiceToShare: Invoice) => {
+    if (invoiceToShare?.customerPhoneNumber) {
+        const message = `Hello ${invoiceToShare.customerName || 'Customer'}, here is your invoice ${invoiceToShare.invoiceNumber} from ${invoiceToShare.shopName || "Our Store"}. Status: ${invoiceToShare.status}. Total: ${currencySymbol}${invoiceToShare.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${invoiceToShare.amountReceived.toFixed(2)}. ${invoiceToShare.status === 'Due' && invoiceToShare.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(invoiceToShare.totalAmount - invoiceToShare.amountReceived).toFixed(2)}.` : (invoiceToShare.balanceAmount && invoiceToShare.balanceAmount > 0 ? `Change: ${currencySymbol}${invoiceToShare.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
+        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${invoiceToShare.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
+    } else {
+        toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
+    }
+  };
+
+  const filteredInvoicesBySearch = invoices.filter(invoice => 
     invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (invoice.status && invoice.status.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -134,7 +206,7 @@ export default function InvoicesPage() {
 
   if (!isSettingsLoaded) {
     return (
-      <div className="container mx-auto py-4 flex justify-center items-center h-screen">
+      <div className="container mx-auto py-8 px-4 flex justify-center items-center h-screen">
         <FileText className="h-12 w-12 animate-pulse text-primary" />
          <p className="ml-4 text-xl">Loading invoices...</p>
       </div>
@@ -142,48 +214,127 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="container mx-auto py-4">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold text-primary flex items-center gap-2">
-          <FileText className="h-10 w-10" /> Invoice History
+    <div className="container mx-auto py-8 px-4">
+      <header className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h1 className="text-3xl font-bold text-primary flex items-center">
+          Invoices
         </h1>
-        <p className="text-muted-foreground">Review all your past transactions and invoices.</p>
+        <Popover open={isDateFilterPopoverOpen} onOpenChange={setIsDateFilterPopoverOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="outline">
+                    <CalendarIconLucide className="mr-2 h-4 w-4" /> Filter by Date
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+                <div className="p-4 space-y-3">
+                    <Select value={timeFilter} onValueChange={(value) => {
+                        setTimeFilter(value as ReportTimeFilter);
+                        if (value !== 'custom') setCustomDateRange(undefined);
+                        if (value !== 'custom') setIsDateFilterPopoverOpen(false); // Close if not custom
+                    }}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select time range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="allTime">All Time</SelectItem>
+                            <SelectItem value="today">Today</SelectItem>
+                            <SelectItem value="last7days">Last 7 Days</SelectItem>
+                            <SelectItem value="last30days">Last 30 Days</SelectItem>
+                            <SelectItem value="thisMonth">This Month</SelectItem>
+                            <SelectItem value="custom">Custom Range</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {timeFilter === 'custom' && (
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={customDateRange?.from}
+                            selected={customDateRange}
+                            onSelect={(range) => {
+                                setCustomDateRange(range);
+                                if (range?.from && range?.to) setIsDateFilterPopoverOpen(false); // Close if full range selected
+                                else if (range?.from && !range.to) {} // Do nothing, wait for 'to' date
+                                else if (!range?.from) setIsDateFilterPopoverOpen(true); // Keep open if 'from' is cleared
+                            }}
+                            numberOfMonths={1}
+                            className="[&_button]:h-8 [&_button]:w-8 [&_caption_label]:text-sm"
+                        />
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
       </header>
 
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input 
-            type="text"
-            placeholder="Search invoices by number, customer, or status (Paid/Due)..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full md:w-1/2 lg:w-1/3"
-          />
-        </div>
-      </div>
-
-      {filteredInvoices.length > 0 ? (
-        <div className="space-y-4">
-          {filteredInvoices.map((invoice) => (
-            <InvoiceListItem 
-              key={invoice.id} 
-              invoice={invoice} 
-              onViewDetails={handleViewDetails} 
-              onEditDetails={handleEditInvoice}
-              currencySymbol={currencySymbol}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <FileText className="h-24 w-24 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-2xl font-semibold mb-2">No Invoices Found</h2>
-          <p className="text-muted-foreground">
-            {searchTerm ? "Try adjusting your search criteria. " : "Your generated invoices will appear here."}
-          </p>
-        </div>
-      )}
+      <Card className="shadow-lg">
+        <CardHeader className="border-b px-6 py-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+                <CardTitle className="text-xl">All Invoices</CardTitle>
+                <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        type="text"
+                        placeholder="Search invoices..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 h-9"
+                    />
+                </div>
+            </div>
+        </CardHeader>
+        <CardContent className="p-0">
+            {filteredInvoicesBySearch.length > 0 ? (
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead className="w-[150px] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Invoice #</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Customer</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</TableHead>
+                </TableRow>
+                </TableHeader>
+                <TableBody>
+                {filteredInvoicesBySearch.map((invoice) => (
+                    <TableRow key={invoice.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{invoice.invoiceNumber}</TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{format(new Date(invoice.date), 'dd-MM-yyyy')}</TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                        <div className="font-medium text-foreground">{invoice.customerName}</div>
+                        {invoice.customerPhoneNumber && <div className="text-xs">{invoice.customerPhoneNumber}</div>}
+                    </TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{currencySymbol}{invoice.totalAmount.toFixed(2)}</TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant={invoice.status === 'Paid' ? 'default' : 'secondary'}>
+                        {invoice.status}
+                        </Badge>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-center space-x-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleViewDetails(invoice)} title="View Details">
+                            <Eye className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => performActualPrint('a4', invoice)} title="Download PDF / Print A4">
+                            <Download className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleShareInvoiceRow(invoice)} title="Share">
+                            <Share2 className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                        </Button>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+            ) : (
+            <div className="text-center py-12 px-6">
+                <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-3" />
+                <h2 className="text-xl font-semibold mb-1">No Invoices Found</h2>
+                <p className="text-muted-foreground text-sm">
+                {searchTerm ? "Try adjusting your search criteria. " : (timeFilter !== 'allTime' || customDateRange) ? "No invoices match the selected date filter. " : "Your generated invoices will appear here."}
+                </p>
+            </div>
+            )}
+        </CardContent>
+      </Card>
 
       {selectedInvoice && (
         <Dialog open={isViewOpen} onOpenChange={(open) => {
@@ -196,23 +347,25 @@ export default function InvoicesPage() {
             </DialogHeader>
             <InvoiceView invoice={selectedInvoice} />
             <DialogFooter className="print-hide flex-col sm:flex-row sm:justify-between gap-2 pt-4">
+              <div className='flex gap-2'>
                 <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                    if (selectedInvoice?.customerPhoneNumber) {
-                        const message = `Hello ${selectedInvoice.customerName || 'Customer'}, here is your invoice ${selectedInvoice.invoiceNumber} from ${selectedInvoice.shopName || "Our Store"}. Status: ${selectedInvoice.status}. Total: ${currencySymbol}${selectedInvoice.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${selectedInvoice.amountReceived.toFixed(2)}. ${selectedInvoice.status === 'Due' && selectedInvoice.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(selectedInvoice.totalAmount - selectedInvoice.amountReceived).toFixed(2)}.` : (selectedInvoice.balanceAmount && selectedInvoice.balanceAmount > 0 ? `Change: ${currencySymbol}${selectedInvoice.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
-                        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${selectedInvoice.customerPhoneNumber}. Message: ${message.substring(0,100)}...` });
-                    } else {
-                        toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
-                    }
-                    }}
+                    onClick={() => handleShareInvoiceRow(selectedInvoice)}
                     disabled={!selectedInvoice?.customerPhoneNumber}
                 >
                     <MessageSquare className="w-4 h-4 mr-2"/> Share via WhatsApp
                 </Button>
+                 <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { handleEditOpen(selectedInvoice); }}
+                >
+                    Edit Invoice
+                </Button>
+              </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button type="button" onClick={handleOpenPrintOptions}>
+                <Button type="button" onClick={() => setIsPrintOptionsOpen(true)}>
                   <Printer className="w-4 h-4 mr-2" /> Print / Download Options
                 </Button>
                 <DialogClose asChild>
@@ -228,9 +381,6 @@ export default function InvoicesPage() {
          <AlertDialog open={isPrintOptionsOpen} onOpenChange={(open) => {
             if (!open) {
                 setIsPrintOptionsOpen(false);
-                // Optionally close the main invoice dialog as well if print options are dismissed
-                // setIsViewOpen(false); 
-                // setSelectedInvoice(null);
             }
          }}>
             <AlertDialogContent>
@@ -241,10 +391,10 @@ export default function InvoicesPage() {
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
-                    <Button variant="outline" onClick={() => performActualPrint('a4')} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => performActualPrint('a4', selectedInvoice)} className="w-full sm:w-auto">
                         <Download className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>
-                    <Button variant="outline" onClick={() => performActualPrint('thermal')} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => performActualPrint('thermal', selectedInvoice)} className="w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
                      <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel</AlertDialogCancel>
@@ -265,3 +415,25 @@ export default function InvoicesPage() {
     </div>
   );
 }
+
+// Helper to open edit dialog from view dialog
+const handleEditOpen = (invoice: Invoice | null) => {
+    if (invoice) {
+        const { setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen } = (window as any).invoicePageContext || {};
+        if (setIsViewOpen) setIsViewOpen(false);
+        if (setSelectedInvoice) setSelectedInvoice(null);
+        if (setInvoiceToEdit) setInvoiceToEdit(invoice);
+        if (setIsEditOpen) setIsEditOpen(true);
+    }
+};
+
+// Expose context for handleEditOpen. This is a workaround. Better state management (e.g. Zustand, Redux) would be preferred for complex state sharing.
+useEffect(() => {
+    (window as any).invoicePageContext = {
+        setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen
+    };
+    return () => {
+        delete (window as any).invoicePageContext;
+    }
+}, [setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen]);
+

@@ -50,17 +50,17 @@ export interface Invoice {
   invoiceNumber: string;
   customerName: string;
   customerPhoneNumber?: string;
-  items: CartItem[]; // Updated to use the new CartItem type
+  items: CartItem[]; 
   subTotal: number;
-  gstRate: number; // e.g., 0.05 for 5% (or 5 for 5% if stored as percentage points)
+  gstRate: number; 
   gstAmount: number;
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string; // ISO string
-  amountReceived: number; // Amount paid by customer (now mandatory)
-  balanceAmount: number; // Change given back or amount due
-  status: 'Paid' | 'Due'; // Status of the invoice
-  shopName?: string; // Optional, if we want to record it at time of invoice creation
+  amountReceived: number; 
+  balanceAmount: number; 
+  status: 'Paid' | 'Due'; 
+  shopName?: string; 
 }
 
 export interface AppSettings {
@@ -69,33 +69,35 @@ export interface AppSettings {
   shopAddress: string;
   currencySymbol: string;
   userName: string;
-  gstRate: number; // GST Rate as a percentage, e.g., 5 for 5%
+  gstRate: number; 
 }
 
 // For charts
 export interface TimeSeriesDataPoint {
-  date: string; // e.g., "YYYY-MM-DD" or "Mon", "Tue"
+  date: string; 
   value: number;
-  [key: string]: any; // For additional properties like different series
+  [key: string]: any; 
 }
 
 export interface KeyValueDataPoint {
   name: string;
   value: number;
-  fill?: string; // For pie chart colors
+  fill?: string; 
   [key: string]: any;
 }
 
+// Changed from "type ReportTimeFilter" to "export type ReportTimeFilter" for use in invoices page
 export type ReportTimeFilter = "today" | "last7days" | "last30days" | "thisMonth" | "allTime" | "custom";
 
-export interface ReportDateRange {
+// Changed from "interface ReportDateRange" to "export type DateRange" for use in invoices page (matching react-day-picker)
+export type DateRange = {
     from: Date | undefined;
     to: Date | undefined;
-}
+};
 
 export interface ExistingCustomer {
   name: string;
   phoneNumber: string;
-  id: string; // A unique ID for the customer, e.g., name-phone
+  id: string; 
 }
 

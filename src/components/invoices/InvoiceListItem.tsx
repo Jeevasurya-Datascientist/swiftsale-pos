@@ -11,10 +11,12 @@ import { Button } from '../ui/button';
 interface InvoiceListItemProps {
   invoice: Invoice;
   onViewDetails: (invoice: Invoice) => void;
-  onEditDetails: (invoice: Invoice) => void; // New prop for editing
+  onEditDetails: (invoice: Invoice) => void; 
   currencySymbol: string;
 }
 
+// This component is no longer used by InvoicesPage.tsx as it has been replaced with a table.
+// It can be deleted if not used elsewhere.
 export function InvoiceListItem({ invoice, onViewDetails, onEditDetails, currencySymbol }: InvoiceListItemProps) {
   return (
     <Card className="hover:shadow-md transition-shadow duration-200">
@@ -65,3 +67,4 @@ export function InvoiceListItem({ invoice, onViewDetails, onEditDetails, currenc
     </Card>
   );
 }
+
