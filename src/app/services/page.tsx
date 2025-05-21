@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Service } from '@/lib/types';
-import { mockServices } from '@/lib/mockData'; 
+// Removed: import { mockServices } from '@/lib/mockData'; 
 import { ServiceCard } from '@/components/services/ServiceCard';
 import { AddServiceForm } from '@/components/services/AddServiceForm';
 import { Button } from '@/components/ui/button';
@@ -49,30 +49,36 @@ export default function ServicesPage() {
           const parsed = JSON.parse(storedServices);
           if (Array.isArray(parsed)) {
             loadedServices = parsed.map((s: any) => {
-                const mock = mockServices.find(ms => ms.id === s.id);
-                const sName = s.name || (mock ? mock.name : "Unnamed Service");
-                const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : (mock && typeof mock.price === 'number' ? mock.price : 0)));
+                const sName = s.name || "Unnamed Service";
+                const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : 0);
+                const serviceCode = s.serviceCode || undefined;
+                const imageUrl = s.imageUrl || defaultPlaceholder(sName);
+                const dataAiHint = s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image');
+                const category = s.category || undefined;
+                const description = s.description || undefined;
+                const duration = s.duration || undefined;
+                
                 return {
                     id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                     name: sName,
                     sellingPrice: sellingPrice,
-                    serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
-                    imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
-                    dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
-                    category: s.category || (mock ? mock.category : undefined),
-                    description: s.description || (mock ? mock.description : undefined),
-                    duration: s.duration || (mock ? mock.duration : undefined),
+                    serviceCode: serviceCode,
+                    imageUrl: imageUrl,
+                    dataAiHint: dataAiHint,
+                    category: category,
+                    description: description,
+                    duration: duration,
                 };
             });
           } else {
-             loadedServices = []; // Start with empty if stored data is not an array
+             loadedServices = []; 
           }
         } catch (e) {
           console.error("Failed to parse services from localStorage, starting with empty list.", e);
-          loadedServices = []; // Start with empty if parsing fails
+          loadedServices = []; 
         }
       } else {
-         loadedServices = []; // Start with empty if nothing in localStorage
+         loadedServices = []; 
       }
     }
     setServices(loadedServices);
@@ -80,12 +86,9 @@ export default function ServicesPage() {
 
 
   useEffect(() => {
-    if (services.length > 0 && isSettingsLoaded && typeof window !== 'undefined') { 
-        localStorage.setItem('appServices', JSON.stringify(services));
-    } else if (services.length === 0 && isSettingsLoaded && typeof window !== 'undefined') {
-        const storedServices = localStorage.getItem('appServices');
-        if (storedServices && JSON.parse(storedServices).length > 0) {
-             localStorage.setItem('appServices', JSON.stringify([]));
+    if (isSettingsLoaded && typeof window !== 'undefined') { 
+        if (services.length > 0 || localStorage.getItem('appServices')) {
+             localStorage.setItem('appServices', JSON.stringify(services));
         }
     }
   }, [services, isSettingsLoaded]);
@@ -233,4 +236,3 @@ export default function ServicesPage() {
     </div>
   );
 }
-

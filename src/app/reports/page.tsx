@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem } from '@/lib/types'; 
-import { mockProducts, mockServices } from '@/lib/mockData'; // Removed initialMockInvoices
+// Removed: import { mockProducts, mockServices } from '@/lib/mockData';
 import { useSettings } from '@/context/SettingsContext';
 import {
   filterInvoicesByDate,
@@ -116,25 +116,35 @@ export default function ReportsPage() {
                 const parsed = JSON.parse(storedProducts);
                 if(Array.isArray(parsed)){
                     loadedProducts = parsed.map((p: any) => {
-                        const mock = mockProducts.find(mp => mp.id === p.id);
-                        const pName = p.name || (mock ? mock.name : "Unnamed Product");
+                        const pName = p.name || "Unnamed Product";
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : 0;
+                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
+                        const stock = typeof p.stock === 'number' ? p.stock : 0;
+                        const barcode = p.barcode || "";
+                        const imageUrl = p.imageUrl || defaultPlaceholder(pName);
+                        const dataAiHint = p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image');
+                        const category = p.category || undefined;
+                        const description = p.description || undefined;
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0),
-                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : (mock && typeof mock.price === 'number' ? mock.price : 0))),
-                            stock: typeof p.stock === 'number' ? p.stock : (mock && typeof mock.stock === 'number' ? mock.stock : 0),
-                            barcode: p.barcode || (mock ? mock.barcode : "") || "",
-                            imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
-                            dataAiHint: p.dataAiHint || (mock ? mock.dataAiHint : (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image')),
-                            category: p.category || (mock ? mock.category : undefined),
-                            description: p.description || (mock ? mock.description : undefined),
+                            costPrice: costPrice,
+                            sellingPrice: sellingPrice,
+                            stock: stock,
+                            barcode: barcode,
+                            imageUrl: imageUrl,
+                            dataAiHint: dataAiHint,
+                            category: category,
+                            description: description,
                         };
                     });
                 }
             } catch(e) { 
                 console.error("Failed to parse products from localStorage for reports, starting with empty list", e); 
+                loadedProducts = [];
             }
+        } else {
+          loadedProducts = [];
         }
         setAllProducts(loadedProducts);
 
@@ -145,24 +155,33 @@ export default function ReportsPage() {
                 const parsed = JSON.parse(storedServices);
                 if(Array.isArray(parsed)){
                      loadedServices = parsed.map((s: any) => {
-                        const mock = mockServices.find(ms => ms.id === s.id);
-                        const sName = s.name || (mock ? mock.name : "Unnamed Service");
+                        const sName = s.name || "Unnamed Service";
+                        const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : 0);
+                        const serviceCode = s.serviceCode || undefined;
+                        const imageUrl = s.imageUrl || defaultPlaceholder(sName);
+                        const dataAiHint = s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image');
+                        const category = s.category || undefined;
+                        const description = s.description || undefined;
+                        const duration = s.duration || undefined;
                         return {
                             id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: sName,
-                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : (mock && typeof mock.price === 'number' ? mock.price : 0))),
-                            serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
-                            imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
-                            dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
-                            category: s.category || (mock ? mock.category : undefined),
-                            description: s.description || (mock ? mock.description : undefined),
-                            duration: s.duration || (mock ? mock.duration : undefined),
+                            sellingPrice: sellingPrice,
+                            serviceCode: serviceCode,
+                            imageUrl: imageUrl,
+                            dataAiHint: dataAiHint,
+                            category: category,
+                            description: description,
+                            duration: duration,
                         };
                     });
                 }
             } catch(e) { 
                 console.error("Failed to parse services from localStorage for reports, starting with empty list", e); 
+                loadedServices = [];
             }
+        } else {
+          loadedServices = [];
         }
         setAllServices(loadedServices);
 
@@ -436,4 +455,3 @@ export default function ReportsPage() {
     </ScrollArea>
   );
 }
-

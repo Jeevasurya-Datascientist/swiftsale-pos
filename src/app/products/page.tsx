@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Product } from '@/lib/types';
-import { mockProducts } from '@/lib/mockData';
+// Removed: import { mockProducts } from '@/lib/mockData';
 import { ProductCard } from '@/components/products/ProductCard';
 import { AddProductForm } from '@/components/products/AddProductForm';
 import { Button } from '@/components/ui/button';
@@ -50,33 +50,38 @@ export default function ProductsPage() {
                 const parsed = JSON.parse(storedProducts);
                 if (Array.isArray(parsed)) {
                     loadedProducts = parsed.map((p: any) => {
-                        const mock = mockProducts.find(mp => mp.id === p.id);
-                        const pName = p.name || (mock ? mock.name : "Unnamed Product");
-                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0);
-                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : (mock && typeof mock.price === 'number' ? mock.price : 0)));
-                        
+                        const pName = p.name || "Unnamed Product";
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : 0;
+                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
+                        const stock = typeof p.stock === 'number' ? p.stock : 0;
+                        const barcode = p.barcode || "";
+                        const imageUrl = p.imageUrl || defaultPlaceholder(pName);
+                        const dataAiHint = p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image');
+                        const category = p.category || undefined;
+                        const description = p.description || undefined;
+
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
                             costPrice: costPrice,
                             sellingPrice: sellingPrice,
-                            stock: typeof p.stock === 'number' ? p.stock : (mock && typeof mock.stock === 'number' ? mock.stock : 0),
-                            barcode: p.barcode || (mock ? mock.barcode : "") || "",
-                            imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
-                            dataAiHint: p.dataAiHint || (mock ? mock.dataAiHint : (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image')),
-                            category: p.category || (mock ? mock.category : undefined),
-                            description: p.description || (mock ? mock.description : undefined),
+                            stock: stock,
+                            barcode: barcode,
+                            imageUrl: imageUrl,
+                            dataAiHint: dataAiHint,
+                            category: category,
+                            description: description,
                         };
                     });
                 } else {
-                    loadedProducts = []; // Start with empty if stored data is not an array
+                    loadedProducts = []; 
                 }
             } catch (e) {
                 console.error("Failed to parse products from localStorage, starting with empty list.", e);
-                loadedProducts = []; // Start with empty if parsing fails
+                loadedProducts = []; 
             }
         } else {
-            loadedProducts = []; // Start with empty if nothing in localStorage
+            loadedProducts = []; 
         }
     }
     setProducts(loadedProducts);
@@ -84,13 +89,12 @@ export default function ProductsPage() {
 
 
   useEffect(() => {
-    if (products.length > 0 && isSettingsLoaded && typeof window !== 'undefined') { 
-        localStorage.setItem('appProducts', JSON.stringify(products));
-    } else if (products.length === 0 && isSettingsLoaded && typeof window !== 'undefined') {
-        // If products array is empty (e.g. after deleting all), ensure localStorage reflects this.
-        const storedProducts = localStorage.getItem('appProducts');
-        if (storedProducts && JSON.parse(storedProducts).length > 0) {
-             localStorage.setItem('appProducts', JSON.stringify([]));
+    if (isSettingsLoaded && typeof window !== 'undefined') { // Save products only if settings (and implicitly app) are loaded
+        // This ensures we don't accidentally wipe localStorage on an initial render if products array is briefly empty
+        // before being populated from localStorage itself in the first useEffect.
+        // Only save back to localStorage if products array has been definitely set (e.g. after load or modification)
+        if (products.length > 0 || localStorage.getItem('appProducts')) { // Add condition to save empty array only if 'appProducts' existed
+             localStorage.setItem('appProducts', JSON.stringify(products));
         }
     }
   }, [products, isSettingsLoaded]);
@@ -261,4 +265,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-
