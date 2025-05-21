@@ -23,7 +23,7 @@ export function LayoutRenderer({ children }: { children: ReactNode }) {
       const isAuthPagePath = pathname === '/login' || pathname === '/register';
 
       if (isAuthenticated !== 'true' && !isAuthPagePath) {
-        router.push('/login');
+        router.push('/register'); // Changed from '/login' to '/register'
       } else {
         setAuthChecked(true); // Auth check complete
       }
