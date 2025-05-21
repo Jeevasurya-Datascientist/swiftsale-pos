@@ -69,7 +69,7 @@ export default function BillingPage() {
   useEffect(() => {
     if (isSettingsLoaded && typeof window !== 'undefined') {
         const storedProducts = localStorage.getItem('appProducts');
-        let finalProducts: Product[] = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+        let finalProducts: Product[] = [];
         if (storedProducts) {
             try {
                 const parsed = JSON.parse(storedProducts);
@@ -86,13 +86,20 @@ export default function BillingPage() {
                         category: p.category || undefined,
                         description: p.description || undefined,
                     }));
+                } else {
+                   finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
                 }
-            } catch (e) { console.error("Failed to parse products from localStorage", e); }
+            } catch (e) { 
+              console.error("Failed to parse products from localStorage, using mock data.", e);
+              finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+            }
+        } else {
+            finalProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
         }
         setProducts(finalProducts);
 
         const storedServices = localStorage.getItem('appServices');
-        let finalServices: Service[] = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+        let finalServices: Service[] = [];
         if(storedServices) {
             try {
                 const parsed = JSON.parse(storedServices);
@@ -108,14 +115,19 @@ export default function BillingPage() {
                         description: s.description || undefined,
                         duration: s.duration || undefined,
                     }));
+                } else {
+                    finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
                 }
-            } catch (e) { console.error("Failed to parse services from localStorage", e); }
+            } catch (e) { 
+              console.error("Failed to parse services from localStorage, using mock data.", e);
+              finalServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+            }
         }
         setServices(finalServices);
 
         const allItems: SearchableItem[] = [
-            ...finalProducts.map(p => ({ ...p, sellingPrice: p.sellingPrice, type: 'product' as 'product' })), 
-            ...finalServices.map(s => ({ ...s, sellingPrice: s.sellingPrice, type: 'service' as 'service' }))  
+            ...finalProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product' })), 
+            ...finalServices.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service' }))  
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
         setFilteredSearchableItems(allItems);
@@ -145,8 +157,8 @@ export default function BillingPage() {
         localStorage.setItem('appProducts', JSON.stringify(products));
         localStorage.setItem('appServices', JSON.stringify(services));
         const allItems: SearchableItem[] = [
-          ...products.map(p => ({ ...p, sellingPrice: p.sellingPrice, type: 'product' as 'product'})),
-          ...services.map(s => ({ ...s, sellingPrice: s.sellingPrice, type: 'service' as 'service'}))
+          ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
+          ...services.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service'}))
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
         if (searchTerm) {
@@ -268,13 +280,13 @@ export default function BillingPage() {
           const cartItemToAdd: CartItem = {
             id: foundItem.id,
             name: foundItem.name,
-            price: foundItem.sellingPrice, 
+            price: foundItem.price, // Use foundItem.price (which is derived from sellingPrice)
             quantity: 1,
             type: type,
             imageUrl: foundItem.imageUrl || defaultPlaceholder(foundItem.name),
             dataAiHint: foundItem.dataAiHint,
             category: foundItem.category,
-            itemSpecificPhoneNumber: '',
+            itemSpecificPhoneNumber: '', // Initialize for services
             ...(type === 'product' && {
               barcode: (foundItem as Product).barcode,
               stock: (foundItem as Product).stock,
@@ -326,7 +338,7 @@ export default function BillingPage() {
     );
   
     if (newQuantity > (cartItem.quantity || 0) && (cartItem.type !== 'product' || (productDetails && quantityToSet <= productDetails.stock))) {
-        playSound(); // Play sound only if quantity increased and within stock limits
+        playSound(); 
     }
   };
 
@@ -398,7 +410,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate: currentGstRate,
+      gstRate: currentGstRate, // Store the decimal rate
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -513,7 +525,7 @@ export default function BillingPage() {
         setCurrentInvoice(null);
         setIsInvoiceDialogOpen(false);
         setIsPrintFormatDialogOpen(false);
-    }, 100);
+    }, 250); // Increased timeout slightly for styles to apply
   };
 
 
@@ -800,37 +812,28 @@ export default function BillingPage() {
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
             if (!open) {
                 setIsPrintFormatDialogOpen(false);
-                setCurrentInvoice(null);
-                setIsInvoiceDialogOpen(false);
-                setCartItems([]);
-                setCustomerName('');
-                setCustomerPhoneNumber('');
-                setCardNumber('');
-                setCardExpiry('');
-                setCardCvv('');
-                setUpiId('');
-                setAmountReceived('');
-                setBalanceAmount(0);
-                setSearchTerm('');
+                // Do not clear currentInvoice here if InvoiceView is still meant to use it for printing
+                // Clearing invoice and cart should happen AFTER print completes in performPrint
             }
          }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                 <AlertDialogTitle>Select Print Format</AlertDialogTitle>
                 <AlertDialogDescription>
-                    Choose the format for printing your invoice. The invoice preview below will be printed.
+                    Choose the format for printing your invoice. The invoice preview will be used for printing.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="gap-2">
-                    <Button variant="outline" onClick={() => performPrint('a4')}>
-                        <Printer className="w-4 h-4 mr-2" /> Print A4
+                <AlertDialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+                    <Button variant="outline" onClick={() => performPrint('a4')} className="w-full sm:w-auto">
+                        <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>
-                    <Button variant="outline" onClick={() => performPrint('thermal')}>
+                    <Button variant="outline" onClick={() => performPrint('thermal')} className="w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
                      <AlertDialogCancel onClick={() => {
+                        // Reset state as if sale was cancelled after finalization but before printing
                         setIsPrintFormatDialogOpen(false);
-                        setCurrentInvoice(null);
+                        setCurrentInvoice(null); 
                         setIsInvoiceDialogOpen(false);
                         setCartItems([]);
                         setCustomerName('');
@@ -842,7 +845,7 @@ export default function BillingPage() {
                         setAmountReceived('');
                         setBalanceAmount(0);
                         setSearchTerm('');
-                     }}>Cancel Printing</AlertDialogCancel>
+                     }} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel Printing</AlertDialogCancel>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

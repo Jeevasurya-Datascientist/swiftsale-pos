@@ -20,7 +20,7 @@ interface ItemTileProps {
 function ItemTile({ item, cartItem, onItemSelect, onUpdateQuantity, currencySymbol }: ItemTileProps) {
   const isInCart = !!cartItem;
   const quantityInCart = cartItem?.quantity || 0;
-  const itemType = 'barcode' in item && item.barcode !== undefined ? 'product' : 'service'; // Check for barcode to determine product
+  const itemType = 'barcode' in item && item.barcode !== undefined ? 'product' : 'service'; 
 
   const handleMainClick = () => {
     onItemSelect(item.id, itemType);
@@ -51,7 +51,7 @@ function ItemTile({ item, cartItem, onItemSelect, onUpdateQuantity, currencySymb
         }
       </CardHeader>
       <CardContent className="p-3 pt-0 flex-grow">
-        <p className="text-lg font-bold text-primary">{currencySymbol}{item.price.toFixed(2)}</p> {/* item.price is sellingPrice */}
+        <p className="text-lg font-bold text-primary">{currencySymbol}{(item.price || 0).toFixed(2)}</p> 
         {itemType === 'product' && 'stock' in item && typeof item.stock === 'number' && (
           <p className={cn("text-xs", item.stock > 0 ? "text-muted-foreground" : "text-destructive")}>
             Stock: {item.stock}
