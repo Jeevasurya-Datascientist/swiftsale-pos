@@ -21,6 +21,8 @@ import { useSettings } from '@/context/SettingsContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+const defaultPlaceholder = (name = "Item") => `https://placehold.co/150x150.png?text=${encodeURIComponent(name)}`;
+
 export default function BillingPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -65,18 +67,55 @@ export default function BillingPage() {
   };
 
   useEffect(() => {
-    if (isSettingsLoaded) {
+    if (isSettingsLoaded && typeof window !== 'undefined') {
         const storedProducts = localStorage.getItem('appProducts');
-        const finalProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : mockProducts;
+        let finalProducts: Product[] = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+        if (storedProducts) {
+            try {
+                const parsed = JSON.parse(storedProducts);
+                if(Array.isArray(parsed)) {
+                    finalProducts = parsed.map((p: any) => ({
+                        id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                        name: p.name || "Unnamed Product",
+                        costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
+                        sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : 0,
+                        stock: typeof p.stock === 'number' ? p.stock : 0,
+                        barcode: p.barcode || "",
+                        imageUrl: p.imageUrl || defaultPlaceholder(p.name || 'Product'),
+                        dataAiHint: p.dataAiHint || (p.name ? p.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
+                        category: p.category || undefined,
+                        description: p.description || undefined,
+                    }));
+                }
+            } catch (e) { console.error("Failed to parse products from localStorage", e); }
+        }
         setProducts(finalProducts);
 
         const storedServices = localStorage.getItem('appServices');
-        const finalServices: Service[] = storedServices ? JSON.parse(storedServices) : mockServices;
+        let finalServices: Service[] = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+        if(storedServices) {
+            try {
+                const parsed = JSON.parse(storedServices);
+                if(Array.isArray(parsed)) {
+                    finalServices = parsed.map((s: any) => ({
+                        id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                        name: s.name || "Unnamed Service",
+                        sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : 0,
+                        serviceCode: s.serviceCode || undefined,
+                        imageUrl: s.imageUrl || defaultPlaceholder(s.name || 'Service'),
+                        dataAiHint: s.dataAiHint || (s.name ? s.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
+                        category: s.category || undefined,
+                        description: s.description || undefined,
+                        duration: s.duration || undefined,
+                    }));
+                }
+            } catch (e) { console.error("Failed to parse services from localStorage", e); }
+        }
         setServices(finalServices);
 
         const allItems: SearchableItem[] = [
-            ...finalProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product' })), // Use sellingPrice for SearchableItem's price
-            ...finalServices.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service' }))  // Use sellingPrice for SearchableItem's price
+            ...finalProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product' })), 
+            ...finalServices.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service' }))  
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
         setFilteredSearchableItems(allItems);
@@ -102,7 +141,7 @@ export default function BillingPage() {
   }, [isSettingsLoaded]);
 
    useEffect(() => {
-    if (isSettingsLoaded && (products.length > 0 || services.length > 0)) {
+    if (isSettingsLoaded && (products.length > 0 || services.length > 0) && typeof window !== 'undefined') {
         localStorage.setItem('appProducts', JSON.stringify(products));
         localStorage.setItem('appServices', JSON.stringify(services));
         const allItems: SearchableItem[] = [
@@ -136,7 +175,7 @@ export default function BillingPage() {
     }
   }, [searchTerm, searchableItems]);
 
-  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0); // item.price is sellingPrice
+  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0); 
   const currentGstRate = (settingsGstRate || 0) / 100;
   const gstAmount = subTotal * currentGstRate;
   const totalAmount = subTotal + gstAmount;
@@ -191,7 +230,7 @@ export default function BillingPage() {
     if (foundItem) {
       const type: 'product' | 'service' = 'barcode' in foundItem ? 'product' : 'service';
       if (type === 'product') {
-        const product = foundItem as Product; // Full product data needed for stock and costPrice
+        const product = foundItem as Product; 
         const existingCartItem = cartItems.find(ci => ci.id === product.id);
         if (!existingCartItem && product.stock <= 0) {
           toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" });
@@ -229,10 +268,10 @@ export default function BillingPage() {
           const cartItemToAdd: CartItem = {
             id: foundItem.id,
             name: foundItem.name,
-            price: foundItem.price, // This is sellingPrice from SearchableItem
+            price: foundItem.price, 
             quantity: 1,
             type: type,
-            imageUrl: foundItem.imageUrl,
+            imageUrl: foundItem.imageUrl || defaultPlaceholder(foundItem.name),
             dataAiHint: foundItem.dataAiHint,
             category: foundItem.category,
             itemSpecificPhoneNumber: '',
@@ -244,7 +283,7 @@ export default function BillingPage() {
             ...(type === 'service' && {
               serviceCode: (foundItem as Service).serviceCode,
               duration: (foundItem as Service).duration,
-              costPrice: 0 // Default cost for service
+              costPrice: 0 
             }),
           };
           return [...prevCart, cartItemToAdd];

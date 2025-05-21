@@ -2,9 +2,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form"; // Added Controller
 import * as z from "zod";
 import type { Product } from "@/lib/types";
+import React from "react"; // Added React for handleImageUpload
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,19 +20,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { UploadCloud } from "lucide-react"; // Added UploadCloud
 
 const productFormSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters.").max(100),
   costPrice: z.coerce.number().min(0, "Cost price must be a non-negative number."),
   sellingPrice: z.coerce.number().positive("Selling price must be a positive number."),
   stock: z.coerce.number().int().min(0, "Stock cannot be negative."),
-  barcode: z.string().min(3, "Barcode must be at least 3 characters.").max(50),
+  barcode: z.string().min(3, "Barcode must be at least 3 characters if provided.").max(50).optional().or(z.literal('')),
   category: z.string().optional(),
   description: z.string().max(500, "Description too long.").optional(),
-  imageUrl: z.string().url("Must be a valid URL for image.").optional().or(z.literal('')),
+  imageUrl: z.string().min(1, "Image is required. Provide a URL or upload an image."),
 }).refine(data => data.sellingPrice >= data.costPrice, {
   message: "Selling price should typically be greater than or equal to cost price.",
-  path: ["sellingPrice"], // Point error to sellingPrice field
+  path: ["sellingPrice"], 
 });
 
 type ProductFormValues = Omit<Product, 'id' | 'dataAiHint'>;
@@ -50,10 +52,10 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
       costPrice: existingProduct.costPrice,
       sellingPrice: existingProduct.sellingPrice,
       stock: existingProduct.stock,
-      barcode: existingProduct.barcode,
+      barcode: existingProduct.barcode || '',
       category: existingProduct.category || '',
       description: existingProduct.description || '',
-      imageUrl: existingProduct.imageUrl || '',
+      imageUrl: existingProduct.imageUrl, // imageUrl is now mandatory
     } : {
       name: "",
       costPrice: 0,
@@ -62,13 +64,25 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
       barcode: "",
       category: "",
       description: "",
-      imageUrl: "",
+      imageUrl: "", // Will be caught by validation if not filled
     },
   });
 
   function handleFormSubmit(data: ProductFormValues) {
     onSubmit(data, existingProduct);
   }
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        form.setValue('imageUrl', dataUrl, { shouldDirty: true, shouldValidate: true });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <Form {...form}>
@@ -133,7 +147,7 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
             name="barcode"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Barcode</FormLabel>
+                <FormLabel>Barcode (Optional)</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g., SWSP001" {...field} />
                 </FormControl>
@@ -172,12 +186,42 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
             name="imageUrl"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Image URL (Optional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="https://example.com/image.png" {...field} />
-                </FormControl>
+                <FormLabel>Product Image <span className="text-destructive">*</span></FormLabel>
+                 <div className="mt-1 flex items-center gap-4">
+                    {field.value && (
+                        <img // Using <img> for data URLs for broader compatibility
+                        src={field.value}
+                        alt="Product Preview"
+                        width={64}
+                        height={64}
+                        className="rounded-md object-contain border"
+                        style={{maxWidth: '64px', maxHeight: '64px'}} 
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                        />
+                    )}
+                    <div className="flex-grow">
+                        <Input
+                            id="productImageUrlInput"
+                            placeholder="Enter image URL or upload"
+                            value={field.value || ''}
+                            onChange={field.onChange}
+                        />
+                    </div>
+                    <Button type="button" variant="outline" asChild className="relative">
+                        <div>
+                        <UploadCloud className="w-4 h-4 mr-2" /> Upload
+                        <input 
+                            type="file" 
+                            id="productImageUpload"
+                            accept="image/*" 
+                            onChange={handleImageUpload}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        </div>
+                    </Button>
+                 </div>
                 <FormDescription>
-                  Link to an image of the product. Use https://placehold.co for placeholders.
+                  Link to an image or upload one. Use https://placehold.co for placeholders. Required.
                 </FormDescription>
                 <FormMessage />
               </FormItem>

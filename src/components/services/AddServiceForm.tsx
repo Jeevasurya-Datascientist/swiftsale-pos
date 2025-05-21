@@ -2,9 +2,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form"; // Added Controller
 import * as z from "zod";
 import type { Service } from "@/lib/types";
+import React from "react"; // Added React for handleImageUpload
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { UploadCloud } from "lucide-react"; // Added UploadCloud
 
 const serviceFormSchema = z.object({
   name: z.string().min(2, "Service name must be at least 2 characters.").max(100),
@@ -27,7 +29,7 @@ const serviceFormSchema = z.object({
   category: z.string().optional(),
   description: z.string().max(500, "Description too long.").optional(),
   duration: z.string().max(50).optional(),
-  imageUrl: z.string().url("Must be a valid URL for image.").optional().or(z.literal('')),
+  imageUrl: z.string().min(1, "Image is required. Provide a URL or upload an image."),
 });
 
 type ServiceFormValues = Omit<Service, 'id' | 'dataAiHint'>;
@@ -48,7 +50,7 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
       category: existingService.category || '',
       description: existingService.description || '',
       duration: existingService.duration || '',
-      imageUrl: existingService.imageUrl || '',
+      imageUrl: existingService.imageUrl, // imageUrl is now mandatory
     } : {
       name: "",
       sellingPrice: 0,
@@ -56,13 +58,25 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
       category: "",
       description: "",
       duration: "",
-      imageUrl: "",
+      imageUrl: "", // Will be caught by validation if not filled
     },
   });
 
   function handleFormSubmit(data: ServiceFormValues) {
     onSubmit(data, existingService);
   }
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        form.setValue('imageUrl', dataUrl, { shouldDirty: true, shouldValidate: true });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <Form {...form}>
@@ -151,12 +165,42 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
             name="imageUrl"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Image URL (Optional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="https://example.com/image.png" {...field} />
-                </FormControl>
+                <FormLabel>Service Image <span className="text-destructive">*</span></FormLabel>
+                <div className="mt-1 flex items-center gap-4">
+                    {field.value && (
+                        <img // Using <img> for data URLs for broader compatibility
+                        src={field.value}
+                        alt="Service Preview"
+                        width={64}
+                        height={64}
+                        className="rounded-md object-contain border"
+                        style={{maxWidth: '64px', maxHeight: '64px'}}
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                        />
+                    )}
+                    <div className="flex-grow">
+                        <Input
+                            id="serviceImageUrlInput"
+                            placeholder="Enter image URL or upload"
+                            value={field.value || ''}
+                            onChange={field.onChange}
+                        />
+                    </div>
+                    <Button type="button" variant="outline" asChild className="relative">
+                        <div>
+                        <UploadCloud className="w-4 h-4 mr-2" /> Upload
+                        <input 
+                            type="file" 
+                            id="serviceImageUpload"
+                            accept="image/*" 
+                            onChange={handleImageUpload}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        </div>
+                    </Button>
+                 </div>
                 <FormDescription>
-                  Link to an image for the service. Use https://placehold.co for placeholders.
+                  Link to an image or upload one. Use https://placehold.co for placeholders. Required.
                 </FormDescription>
                 <FormMessage />
               </FormItem>

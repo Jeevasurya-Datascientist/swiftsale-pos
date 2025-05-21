@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Service } from '@/lib/types';
-import { mockServices } from '@/lib/mockData'; // Assuming you'll create mockServices
+import { mockServices } from '@/lib/mockData'; 
 import { ServiceCard } from '@/components/services/ServiceCard';
 import { AddServiceForm } from '@/components/services/AddServiceForm';
 import { Button } from '@/components/ui/button';
@@ -29,8 +29,10 @@ import { PlusCircle, Search, ConciergeBell } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useSettings } from '@/context/SettingsContext';
 
+const defaultPlaceholder = (name = "Service") => `https://placehold.co/300x200.png?text=${encodeURIComponent(name)}`;
+
 export default function ServicesPage() {
-  const [services, setServices] = useState<Service[]>(mockServices);
+  const [services, setServices] = useState<Service[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | undefined>(undefined);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
@@ -38,23 +40,42 @@ export default function ServicesPage() {
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
 
-  // Load services from localStorage or use mockServices
   useEffect(() => {
-    const storedServices = localStorage.getItem('appServices');
-    if (storedServices) {
-      try {
-        setServices(JSON.parse(storedServices));
-      } catch (e) {
-        setServices(mockServices); // fallback to mock if parsing fails
+    let loadedServices: Service[] = [];
+    if (typeof window !== 'undefined') {
+      const storedServices = localStorage.getItem('appServices');
+      if (storedServices) {
+        try {
+          const parsed = JSON.parse(storedServices);
+          if (Array.isArray(parsed)) {
+            loadedServices = parsed.map((s: any) => ({
+              id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+              name: s.name || "Unnamed Service",
+              sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : 0,
+              serviceCode: s.serviceCode || undefined,
+              imageUrl: s.imageUrl || defaultPlaceholder(s.name || 'Service'),
+              dataAiHint: s.dataAiHint || (s.name ? s.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
+              category: s.category || undefined,
+              description: s.description || undefined,
+              duration: s.duration || undefined,
+            }));
+          } else {
+            loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+          }
+        } catch (e) {
+          console.error("Failed to parse services from localStorage, using mock data.", e);
+          loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+        }
+      } else {
+         loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
       }
-    } else {
-      setServices(mockServices); // initialize with mock if nothing in localStorage
     }
+    setServices(loadedServices);
   }, []);
 
-  // Save services to localStorage whenever they change
+
   useEffect(() => {
-    if (isSettingsLoaded) { // Ensure settings (and thus the app) are loaded before saving
+    if (services.length > 0 && isSettingsLoaded && typeof window !== 'undefined') { 
         localStorage.setItem('appServices', JSON.stringify(services));
     }
   }, [services, isSettingsLoaded]);
@@ -62,13 +83,15 @@ export default function ServicesPage() {
 
   const handleFormSubmit = (data: Omit<Service, 'id' | 'dataAiHint'>, existingService?: Service) => {
     const serviceDataAiHint = data.name.toLowerCase().split(' ').slice(0,2).join(' ');
+    const imageUrl = data.imageUrl || defaultPlaceholder(data.name);
     if (existingService) {
-      setServices(services.map(s => s.id === existingService.id ? { ...existingService, ...data, dataAiHint: serviceDataAiHint } : s));
+      setServices(services.map(s => s.id === existingService.id ? { ...existingService, ...data, imageUrl, dataAiHint: serviceDataAiHint } : s));
       toast({ title: "Service Updated", description: `${data.name} has been updated.` });
     } else {
       const newService: Service = {
         id: `serv-${Date.now()}`,
         ...data,
+        imageUrl,
         dataAiHint: serviceDataAiHint,
       };
       setServices([newService, ...services]);

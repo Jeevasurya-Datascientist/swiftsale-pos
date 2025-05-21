@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem } from '@/lib/types'; // Added SearchableItem
+import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem } from '@/lib/types'; 
 import { mockInvoices as initialMockInvoices, mockProducts, mockServices } from '@/lib/mockData';
 import { useSettings } from '@/context/SettingsContext';
 import {
@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, BarChart3, LineChart, PieChart, ShoppingBag, Users, Download, MessageCircleQuestion } from 'lucide-react'; // Added MessageCircleQuestion
+import { CalendarIcon, BarChart3, LineChart, PieChart, ShoppingBag, Users, Download, MessageCircleQuestion } from 'lucide-react'; 
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +30,8 @@ import TopItemsChart from '@/components/reports/TopItemsChart';
 import CategorySalesChart from '@/components/reports/CategorySalesChart';
 import PaymentMethodsChart from '@/components/reports/PaymentMethodsChart';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+const defaultPlaceholder = (name = "Item") => `https://placehold.co/300x200.png?text=${encodeURIComponent(name)}`;
 
 const downloadCSV = (data: any[], filename: string, headers: string[]) => {
   if (data.length === 0) {
@@ -106,13 +108,50 @@ export default function ReportsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isSettingsLoaded) {
+    if (isSettingsLoaded && typeof window !== 'undefined') {
         const storedProducts = localStorage.getItem('appProducts');
-        const loadedProducts: Product[] = storedProducts ? JSON.parse(storedProducts) : mockProducts;
+        let loadedProducts: Product[] = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+        if(storedProducts){
+            try {
+                const parsed = JSON.parse(storedProducts);
+                if(Array.isArray(parsed)){
+                    loadedProducts = parsed.map((p: any) => ({
+                        id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                        name: p.name || "Unnamed Product",
+                        costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
+                        sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : 0,
+                        stock: typeof p.stock === 'number' ? p.stock : 0,
+                        barcode: p.barcode || "",
+                        imageUrl: p.imageUrl || defaultPlaceholder(p.name || 'Product'),
+                        dataAiHint: p.dataAiHint || (p.name ? p.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
+                        category: p.category || undefined,
+                        description: p.description || undefined,
+                    }));
+                }
+            } catch(e) { console.error("Failed to parse products from localStorage for reports", e); }
+        }
         setAllProducts(loadedProducts);
 
         const storedServices = localStorage.getItem('appServices');
-        const loadedServices: Service[] = storedServices ? JSON.parse(storedServices) : mockServices;
+        let loadedServices: Service[] = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+        if(storedServices){
+            try {
+                const parsed = JSON.parse(storedServices);
+                if(Array.isArray(parsed)){
+                     loadedServices = parsed.map((s: any) => ({
+                        id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                        name: s.name || "Unnamed Service",
+                        sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : 0,
+                        serviceCode: s.serviceCode || undefined,
+                        imageUrl: s.imageUrl || defaultPlaceholder(s.name || 'Service'),
+                        dataAiHint: s.dataAiHint || (s.name ? s.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
+                        category: s.category || undefined,
+                        description: s.description || undefined,
+                        duration: s.duration || undefined,
+                    }));
+                }
+            } catch(e) { console.error("Failed to parse services from localStorage for reports", e); }
+        }
         setAllServices(loadedServices);
 
         const storedInvoices = localStorage.getItem('appInvoices');
@@ -130,7 +169,7 @@ export default function ReportsPage() {
                 return {
                     ...item,
                     category: item.category || masterItem?.category || 'Uncategorized',
-                    costPrice: item.costPrice ?? costPrice, // Ensure costPrice is on invoice item
+                    costPrice: item.costPrice ?? costPrice, 
                 }
             })
         }));
@@ -183,13 +222,13 @@ export default function ReportsPage() {
     }
     const invoiceData = filteredInvoices.map(inv => ({
       invoiceNumber: inv.invoiceNumber,
-      date: inv.date, // Pass as string for CSV helper to format
+      date: inv.date, 
       customerName: inv.customerName,
       customerPhoneNumber: inv.customerPhoneNumber || 'N/A',
       totalAmount: inv.totalAmount,
       paymentMethod: inv.paymentMethod,
       status: inv.status || 'N/A',
-      items: inv.items // Pass items array for CSV helper to summarize
+      items: inv.items 
     }));
     downloadCSV(invoiceData, 'invoices_export', ['Invoice Number', 'Date', 'Customer Name', 'Phone Number', 'Total Amount', 'Payment Method', 'Status', 'Items (Name & Qty)']);
     toast({ title: "Invoices Exported", description: "Filtered invoice data downloaded as CSV." });

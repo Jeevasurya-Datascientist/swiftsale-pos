@@ -30,6 +30,8 @@ import { Input } from '@/components/ui/input';
 import { useSettings } from '@/context/SettingsContext';
 import { cn } from '@/lib/utils';
 
+const defaultPlaceholder = (name = "Product") => `https://placehold.co/300x200.png?text=${encodeURIComponent(name)}`;
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -39,44 +41,65 @@ export default function ProductsPage() {
   const { toast } = useToast();
   const { currencySymbol, isSettingsLoaded } = useSettings();
 
-  useEffect(() => {
-    const storedProducts = localStorage.getItem('appProducts');
-    if (storedProducts) {
-      try {
-        const parsedProducts = JSON.parse(storedProducts);
-        setProducts(Array.isArray(parsedProducts) ? parsedProducts : mockProducts);
-      } catch (e) {
-        setProducts(mockProducts); 
-      }
-    } else {
-      setProducts(mockProducts); 
+ useEffect(() => {
+    let loadedProducts: Product[] = [];
+    if (typeof window !== 'undefined') {
+        const storedProducts = localStorage.getItem('appProducts');
+        if (storedProducts) {
+            try {
+                const parsed = JSON.parse(storedProducts);
+                if (Array.isArray(parsed)) {
+                    loadedProducts = parsed.map((p: any) => ({
+                        id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                        name: p.name || "Unnamed Product",
+                        costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
+                        sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : 0,
+                        stock: typeof p.stock === 'number' ? p.stock : 0,
+                        barcode: p.barcode || "", // Barcode is optional
+                        imageUrl: p.imageUrl || defaultPlaceholder(p.name || 'Product'),
+                        dataAiHint: p.dataAiHint || (p.name ? p.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
+                        category: p.category || undefined,
+                        description: p.description || undefined,
+                    }));
+                } else {
+                    loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+                }
+            } catch (e) {
+                console.error("Failed to parse products from localStorage, using mock data.", e);
+                loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+            }
+        } else {
+            loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+        }
     }
+    setProducts(loadedProducts);
   }, []);
 
+
   useEffect(() => {
-    if (products.length > 0 && isSettingsLoaded) { 
+    if (products.length > 0 && isSettingsLoaded && typeof window !== 'undefined') { 
         localStorage.setItem('appProducts', JSON.stringify(products));
     }
   }, [products, isSettingsLoaded]);
 
   useEffect(() => {
-    if (!isSettingsLoaded || products.length === 0) return;
+    if (!isSettingsLoaded || products.length === 0 || typeof window === 'undefined') return;
 
     const hash = window.location.hash;
     if (hash) {
-      const productId = hash.substring(1); // Remove #
+      const productId = hash.substring(1); 
       const element = document.getElementById(`product-card-${productId}`);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Add a temporary highlight
+        
         element.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'transition-all', 'duration-1000', 'ease-out');
         setTimeout(() => {
           element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
-          // Optionally, remove the hash from URL without reloading
+          
           if (window.history.replaceState) {
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
           }
-        }, 2500); // Highlight duration
+        }, 2500); 
       }
     }
   }, [isSettingsLoaded, products]);
@@ -84,13 +107,16 @@ export default function ProductsPage() {
 
   const handleFormSubmit = (data: Omit<Product, 'id' | 'dataAiHint'>, existingProduct?: Product) => {
     const productDataAiHint = data.name.toLowerCase().split(' ').slice(0,2).join(' ');
+    const imageUrl = data.imageUrl || defaultPlaceholder(data.name);
+
     if (existingProduct) {
-      setProducts(products.map(p => p.id === existingProduct.id ? { ...existingProduct, ...data, dataAiHint: productDataAiHint } : p));
+      setProducts(products.map(p => p.id === existingProduct.id ? { ...existingProduct, ...data, imageUrl, dataAiHint: productDataAiHint } : p));
       toast({ title: "Product Updated", description: `${data.name} has been updated.` });
     } else {
       const newProduct: Product = {
         id: `prod-${Date.now()}`,
         ...data,
+        imageUrl,
         dataAiHint: productDataAiHint,
       };
       setProducts([newProduct, ...products]);
@@ -120,7 +146,7 @@ export default function ProductsPage() {
   
   const filteredProducts = products.filter(product => 
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.barcode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.barcode && product.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 

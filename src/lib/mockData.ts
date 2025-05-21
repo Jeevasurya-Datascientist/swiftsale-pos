@@ -5,11 +5,11 @@ export const mockProducts: Product[] = [
   {
     id: 'prod001',
     name: 'Fresh Milk 1L',
-    costPrice: 40, // INR
-    sellingPrice: 50, // INR
+    costPrice: 40, 
+    sellingPrice: 50, 
     barcode: 'SWSP001',
     stock: 50,
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=Milk',
     dataAiHint: 'milk carton',
     category: 'Groceries',
     description: 'Pasteurized full cream milk, 1 liter pack.'
@@ -17,11 +17,11 @@ export const mockProducts: Product[] = [
   {
     id: 'prod002',
     name: 'Whole Wheat Bread',
-    costPrice: 30, // INR
-    sellingPrice: 40, // INR
+    costPrice: 30, 
+    sellingPrice: 40, 
     barcode: 'SWSP002',
     stock: 30,
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=Bread',
     dataAiHint: 'bread loaf',
     category: 'Groceries',
     description: 'Healthy whole wheat bread, sliced.'
@@ -29,11 +29,11 @@ export const mockProducts: Product[] = [
   {
     id: 'prod003',
     name: 'Organic Eggs (Dozen)',
-    costPrice: 100, // INR
-    sellingPrice: 120, // INR
+    costPrice: 100, 
+    sellingPrice: 120, 
     barcode: 'SWSP003',
     stock: 25,
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=Eggs',
     dataAiHint: 'egg carton',
     category: 'Groceries',
     description: 'Pack of 12 organic brown eggs.'
@@ -41,11 +41,11 @@ export const mockProducts: Product[] = [
   {
     id: 'prod004',
     name: 'Classic Blue T-Shirt',
-    costPrice: 350, // INR
-    sellingPrice: 500, // INR
+    costPrice: 350, 
+    sellingPrice: 500, 
     barcode: 'SWSP004',
     stock: 40,
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=T-Shirt',
     dataAiHint: 'blue t-shirt',
     category: 'Apparel',
     description: 'Comfortable cotton t-shirt, size M.'
@@ -53,11 +53,11 @@ export const mockProducts: Product[] = [
   {
     id: 'prod005',
     name: 'Slim Fit Jeans',
-    costPrice: 1200, // INR
-    sellingPrice: 1500, // INR
+    costPrice: 1200, 
+    sellingPrice: 1500, 
     barcode: 'SWSP005',
     stock: 20,
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=Jeans',
     dataAiHint: 'denim jeans',
     category: 'Apparel',
     description: 'Dark wash slim fit jeans, waist 32.'
@@ -65,11 +65,11 @@ export const mockProducts: Product[] = [
   {
     id: 'prod010',
     name: 'Cola Drink (Can)',
-    costPrice: 25, // INR
-    sellingPrice: 35, // INR
+    costPrice: 25, 
+    sellingPrice: 35, 
     barcode: 'SWSP010',
     stock: 100,
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=Cola',
     dataAiHint: 'soda can',
     category: 'Beverages',
     description: '330ml can of cola.'
@@ -80,53 +80,55 @@ export const mockServices: Service[] = [
   {
     id: 'serv001',
     name: 'Basic Haircut',
-    sellingPrice: 200, // INR
+    sellingPrice: 200, 
     serviceCode: 'SERVHC01',
     category: 'Salon',
     description: 'Standard haircut for men or women.',
     duration: '30 minutes',
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=Haircut',
     dataAiHint: 'haircut salon'
   },
   {
     id: 'serv002',
     name: 'Software Consultation',
-    sellingPrice: 2500, // INR
+    sellingPrice: 2500, 
     serviceCode: 'SERVCONS01',
     category: 'IT Services',
     description: 'One hour software consultation.',
     duration: '1 hour',
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=Consultation',
     dataAiHint: 'software consultation'
   },
   {
     id: 'serv003',
     name: 'Express Car Wash',
-    sellingPrice: 400, // INR
+    sellingPrice: 400, 
     serviceCode: 'SERVCW01',
     category: 'Automotive',
     description: 'Quick exterior car wash.',
     duration: '20 minutes',
-    imageUrl: 'https://placehold.co/300x200.png',
+    imageUrl: 'https://placehold.co/300x200.png?text=Car+Wash',
     dataAiHint: 'car wash'
   }
 ];
 
+// Ensure all mock data has dataAiHint if using placeholders
 mockProducts.forEach(p => {
-  if (p.imageUrl && p.imageUrl.startsWith('https://placehold.co') && !p.dataAiHint) {
+  if (!p.dataAiHint && p.imageUrl.startsWith('https://placehold.co')) {
     p.dataAiHint = p.name.toLowerCase().split(' ').slice(0, 2).join(' ');
   }
 });
 mockServices.forEach(s => {
-  if (s.imageUrl && s.imageUrl.startsWith('https://placehold.co') && !s.dataAiHint) {
+  if (!s.dataAiHint && s.imageUrl.startsWith('https://placehold.co')) {
     s.dataAiHint = s.name.toLowerCase().split(' ').slice(0, 2).join(' ');
   }
 });
 
+
 const productToCartItem = (product: Product, quantity: number): CartItem => ({
   id: product.id,
   name: product.name,
-  price: product.sellingPrice, // Use sellingPrice for cart item price
+  price: product.sellingPrice, 
   quantity,
   type: 'product',
   imageUrl: product.imageUrl,
@@ -134,13 +136,13 @@ const productToCartItem = (product: Product, quantity: number): CartItem => ({
   category: product.category,
   barcode: product.barcode,
   stock: product.stock,
-  costPrice: product.costPrice, // Carry over costPrice for profit calculation
+  costPrice: product.costPrice, 
 });
 
 const serviceToCartItem = (service: Service, quantity: number): CartItem => ({
   id: service.id,
   name: service.name,
-  price: service.sellingPrice, // Use sellingPrice for cart item price
+  price: service.sellingPrice, 
   quantity,
   type: 'service',
   imageUrl: service.imageUrl,
@@ -148,10 +150,10 @@ const serviceToCartItem = (service: Service, quantity: number): CartItem => ({
   category: service.category,
   serviceCode: service.serviceCode,
   duration: service.duration,
-  costPrice: 0, // Assume cost price is 0 for services for profit calculation
+  costPrice: 0, 
 });
 
-const defaultGstRate = 0.05; // 5%
+const defaultGstRate = 0.05; 
 
 export const mockInvoices: Invoice[] = [
   {
@@ -209,7 +211,7 @@ export const mockInvoices: Invoice[] = [
     totalAmount: (((mockProducts[2].sellingPrice * 2) + mockProducts[4].sellingPrice + mockServices[2].sellingPrice) * (1 + defaultGstRate)),
     paymentMethod: 'UPI',
     date: new Date(Date.now() - 86400000 * 1).toISOString(),
-    amountReceived: (((mockProducts[2].sellingPrice * 2) + mockProducts[4].sellingPrice + mockServices[2].sellingPrice) * (1 + defaultGstRate)) - 100, // Underpaid
+    amountReceived: (((mockProducts[2].sellingPrice * 2) + mockProducts[4].sellingPrice + mockServices[2].sellingPrice) * (1 + defaultGstRate)) - 100, 
     balanceAmount: -100,
     status: 'Due',
     shopName: 'SwiftSale POS',
@@ -260,23 +262,32 @@ mockInvoices.forEach(invoice => {
       const masterItem = [...mockProducts, ...mockServices].find(mi => mi.id === item.id);
       item.category = masterItem?.category || 'Uncategorized';
     }
-    if (item.type === 'product' && !item.costPrice) {
+    if (item.type === 'product' && typeof item.costPrice !== 'number') { // Check for undefined or incorrect type
         const productData = mockProducts.find(p => p.id === item.id);
         if (productData) item.costPrice = productData.costPrice;
-    } else if (item.type === 'service' && !item.costPrice) {
-        item.costPrice = 0; // Default for services
+        else item.costPrice = 0; // Fallback if product not in mock data
+    } else if (item.type === 'service' && typeof item.costPrice !== 'number') {
+        item.costPrice = 0; 
     }
   });
 });
 
+const defaultPlaceholder = (name = "Item") => `https://placehold.co/300x200.png?text=${encodeURIComponent(name)}`;
+
 if (typeof window !== 'undefined') {
     if (!localStorage.getItem('appInvoices')) {
-        localStorage.setItem('appInvoices', JSON.stringify(mockInvoices));
+        localStorage.setItem('appInvoices', JSON.stringify(mockInvoices.map(inv => ({
+            ...inv,
+            items: inv.items.map(item => ({
+                ...item,
+                imageUrl: item.imageUrl || defaultPlaceholder(item.name)
+            }))
+        }))));
     }
     if (!localStorage.getItem('appProducts')) {
-        localStorage.setItem('appProducts', JSON.stringify(mockProducts));
+        localStorage.setItem('appProducts', JSON.stringify(mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}))));
     }
     if (!localStorage.getItem('appServices')) {
-        localStorage.setItem('appServices', JSON.stringify(mockServices));
+        localStorage.setItem('appServices', JSON.stringify(mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}))));
     }
 }

@@ -4,39 +4,39 @@ export interface BaseItem {
   name: string;
   description?: string;
   category?: string;
-  imageUrl?: string;
+  imageUrl: string; // Now mandatory
   dataAiHint?: string;
 }
 
 export interface Product extends BaseItem {
-  barcode: string;
+  barcode?: string; // Now optional
   stock: number;
-  costPrice: number; // Price shop owner pays
-  sellingPrice: number; // Price customer pays
+  costPrice: number;
+  sellingPrice: number;
 }
 
 export interface Service extends BaseItem {
   serviceCode?: string;
   duration?: string;
-  sellingPrice: number; // Price customer pays (cost assumed 0 for now for services)
+  sellingPrice: number;
 }
 
-export type SearchableItem = (Product | Service) & { price: number }; // price here refers to sellingPrice for display in grid
+export type SearchableItem = (Product | Service) & { price: number };
 
 export interface CartItem {
   id: string;
   name: string;
-  price: number; // This is the sellingPrice
+  price: number; 
   quantity: number;
-  imageUrl?: string;
+  imageUrl: string; // Now mandatory
   dataAiHint?: string;
   type: 'product' | 'service';
   category?: string;
   itemSpecificPhoneNumber?: string;
 
-  costPrice?: number; // Only for products, for profit calculation
+  costPrice?: number; 
 
-  barcode?: string;
+  barcode?: string; // Now optional
   stock?: number;
 
   serviceCode?: string;
@@ -55,7 +55,7 @@ export interface Invoice {
   gstAmount: number;
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
-  date: string; // ISO string
+  date: string; 
   amountReceived: number;
   balanceAmount: number;
   status: 'Paid' | 'Due';
@@ -86,7 +86,7 @@ export interface KeyValueDataPoint {
 
 export type ReportTimeFilter = "today" | "last7days" | "last30days" | "thisMonth" | "allTime" | "custom";
 
-export type ReportDateRange = { // Changed from DateRange to avoid conflict with react-day-picker's DateRange
+export type ReportDateRange = { 
     from: Date | undefined;
     to: Date | undefined;
 };
@@ -103,7 +103,8 @@ export interface NotificationItem {
   type: 'lowStock' | 'info' | 'success' | 'error';
   title: string;
   description: string;
-  timestamp: string; // ISO string
+  timestamp: string; 
   read: boolean;
   link?: string;
 }
+
