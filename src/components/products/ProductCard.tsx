@@ -22,8 +22,14 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
     return "outline";
   };
 
-  const profitMargin = product.sellingPrice - product.costPrice;
-  const profitPercentage = product.costPrice > 0 ? (profitMargin / product.costPrice) * 100 : (product.sellingPrice > 0 ? Infinity : 0) ;
+  const costPriceNum = typeof product.costPrice === 'number' ? product.costPrice : 0;
+  const sellingPriceNum = typeof product.sellingPrice === 'number' ? product.sellingPrice : 0;
+
+  const costPriceDisplay = costPriceNum.toFixed(2);
+  const sellingPriceDisplay = sellingPriceNum.toFixed(2);
+
+  const profitMargin = sellingPriceNum - costPriceNum;
+  const profitPercentage = costPriceNum > 0 ? (profitMargin / costPriceNum) * 100 : (sellingPriceNum > 0 ? Infinity : 0) ;
 
 
   return (
@@ -46,9 +52,9 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
       </CardHeader>
       <CardContent className="p-4 flex-grow">
         <div className="flex justify-between items-center mb-1">
-          <p className="text-sm text-muted-foreground">Cost: {currencySymbol}{product.costPrice.toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">Cost: {currencySymbol}{costPriceDisplay}</p>
           <Badge variant="secondary" className="text-sm">
-            Sell: {currencySymbol}{product.sellingPrice.toFixed(2)}
+            Sell: {currencySymbol}{sellingPriceDisplay}
           </Badge>
         </div>
         <div className="flex justify-between items-center mb-2">
@@ -61,7 +67,7 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
               {isFinite(profitPercentage) && ` (${profitPercentage.toFixed(0)}%)`}
             </Badge>
           )}
-           {profitMargin <= 0 && product.sellingPrice > 0 && (
+           {profitMargin <= 0 && sellingPriceNum > 0 && ( // Only show loss if selling price is positive
              <Badge variant="destructive" className="flex items-center gap-1">
                Loss: {currencySymbol}{Math.abs(profitMargin).toFixed(2)}
             </Badge>
@@ -81,3 +87,4 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
     </Card>
   );
 }
+
