@@ -34,13 +34,13 @@ export default function LoginPage() {
     // In a real app, you'd call your auth service here
     // For this simulation, we assume if they reach login and submit valid format, it's okay.
     // A more robust simulation would check against some locally stored registration data.
-    localStorage.setItem('isAuthenticated', 'true'); 
-    localStorage.setItem('userEmail', data.email); 
+    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('userEmail', data.email);
     toast({
       title: 'Login Successful',
       description: 'Redirecting to your dashboard...',
     });
-    router.push('/'); 
+    router.push('/');
   };
 
   return (
@@ -67,19 +67,26 @@ export default function LoginPage() {
               {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
             </div>
             <div className="space-y-2 relative">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password">Password</Label>
+                <Link href="/forgot-password" passHref>
+                  <Button variant="link" size="sm" className="text-xs text-primary p-0 h-auto">
+                    Forgot your password?
+                  </Button>
+                </Link>
+              </div>
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password (min. 8 characters)"
                 {...register("password")}
-                className="h-12 text-base pr-10" 
+                className="h-12 text-base pr-10"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-8 h-8 w-8" 
+                className="absolute right-1 top-8 h-8 w-8"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -93,9 +100,6 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col items-center text-center gap-2 pt-6">
-           <Link href="#" className="text-sm text-primary hover:underline">
-              Forgot your password?
-            </Link>
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
             <Link href="/register" className="font-medium text-primary hover:underline">

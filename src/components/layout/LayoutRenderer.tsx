@@ -11,35 +11,32 @@ export function LayoutRenderer({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false); // To prevent rendering children before auth check
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    setIsClient(true); // Component has mounted, safe to access localStorage
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (isClient) { // Only run on client-side after mount
+    if (isClient) {
       const isAuthenticated = localStorage.getItem('isAuthenticated');
-      const isAuthPagePath = pathname === '/login' || pathname === '/register';
+      const isAuthPagePath = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password';
 
       if (isAuthenticated !== 'true' && !isAuthPagePath) {
-        router.push('/register'); // Changed from '/login' to '/register'
+        router.push('/register');
       } else {
-        setAuthChecked(true); // Auth check complete
+        setAuthChecked(true);
       }
     }
   }, [pathname, router, isClient]);
 
-  const isAuthPageLayout = pathname === '/login' || pathname === '/register';
+  const isAuthPageLayout = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password';
 
-  // If auth check is not complete and it's not an auth page, show a loader or nothing
-  // This prevents a flash of protected content before redirection
   if (!authChecked && !isAuthPageLayout && isClient) {
     return (
       <>
-        {/* Optional: Add a global loading spinner here */}
         <div className="flex items-center justify-center min-h-screen bg-background">
-          <p>Loading...</p> {/* Or a spinner component */}
+          <p>Loading...</p>
         </div>
         <Toaster />
       </>
