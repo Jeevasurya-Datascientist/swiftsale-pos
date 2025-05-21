@@ -52,11 +52,14 @@ export default function ProductsPage() {
                     loadedProducts = parsed.map((p: any) => {
                         const mock = mockProducts.find(mp => mp.id === p.id);
                         const pName = p.name || (mock ? mock.name : "Unnamed Product");
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0);
+                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : (mock && typeof mock.price === 'number' ? mock.price : 0)));
+                        
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0),
-                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            costPrice: costPrice,
+                            sellingPrice: sellingPrice,
                             stock: typeof p.stock === 'number' ? p.stock : (mock && typeof mock.stock === 'number' ? mock.stock : 0),
                             barcode: p.barcode || (mock ? mock.barcode : "") || "",
                             imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
@@ -66,14 +69,14 @@ export default function ProductsPage() {
                         };
                     });
                 } else {
-                    loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+                    loadedProducts = []; // Start with empty if stored data is not an array
                 }
             } catch (e) {
-                console.error("Failed to parse products from localStorage, using mock data.", e);
-                loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+                console.error("Failed to parse products from localStorage, starting with empty list.", e);
+                loadedProducts = []; // Start with empty if parsing fails
             }
         } else {
-            loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+            loadedProducts = []; // Start with empty if nothing in localStorage
         }
     }
     setProducts(loadedProducts);
@@ -83,6 +86,12 @@ export default function ProductsPage() {
   useEffect(() => {
     if (products.length > 0 && isSettingsLoaded && typeof window !== 'undefined') { 
         localStorage.setItem('appProducts', JSON.stringify(products));
+    } else if (products.length === 0 && isSettingsLoaded && typeof window !== 'undefined') {
+        // If products array is empty (e.g. after deleting all), ensure localStorage reflects this.
+        const storedProducts = localStorage.getItem('appProducts');
+        if (storedProducts && JSON.parse(storedProducts).length > 0) {
+             localStorage.setItem('appProducts', JSON.stringify([]));
+        }
     }
   }, [products, isSettingsLoaded]);
 
@@ -252,3 +261,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+

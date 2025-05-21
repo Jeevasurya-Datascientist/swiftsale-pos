@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Invoice, Product } from '@/lib/types';
-import { mockInvoices as fallbackMockInvoices } from '@/lib/mockData'; 
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import { EditInvoiceDialog } from '@/components/invoices/EditInvoiceDialog';
 import {
@@ -57,11 +56,7 @@ export default function InvoicesPage() {
   const loadInvoices = useCallback(() => {
     if (isSettingsLoaded) {
         let storedInvoices = localStorage.getItem('appInvoices');
-        if (!storedInvoices) { // Fallback to mock if nothing in localStorage
-            localStorage.setItem('appInvoices', JSON.stringify(fallbackMockInvoices));
-            storedInvoices = JSON.stringify(fallbackMockInvoices);
-        }
-        const loadedInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : fallbackMockInvoices;
+        const loadedInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : [];
         
         let currentFilteredInvoices = loadedInvoices;
         if (timeFilter !== 'allTime') {

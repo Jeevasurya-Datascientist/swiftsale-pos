@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem } from '@/lib/types'; 
-import { mockInvoices as initialMockInvoices, mockProducts, mockServices } from '@/lib/mockData';
+import { mockProducts, mockServices } from '@/lib/mockData'; // Removed initialMockInvoices
 import { useSettings } from '@/context/SettingsContext';
 import {
   filterInvoicesByDate,
@@ -122,7 +122,7 @@ export default function ReportsPage() {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
                             costPrice: typeof p.costPrice === 'number' ? p.costPrice : (mock && typeof mock.costPrice === 'number' ? mock.costPrice : 0),
-                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : (mock && typeof mock.price === 'number' ? mock.price : 0))),
                             stock: typeof p.stock === 'number' ? p.stock : (mock && typeof mock.stock === 'number' ? mock.stock : 0),
                             barcode: p.barcode || (mock ? mock.barcode : "") || "",
                             imageUrl: p.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(pName)),
@@ -131,15 +131,10 @@ export default function ReportsPage() {
                             description: p.description || (mock ? mock.description : undefined),
                         };
                     });
-                } else {
-                    loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
                 }
             } catch(e) { 
-                console.error("Failed to parse products from localStorage for reports", e); 
-                loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
+                console.error("Failed to parse products from localStorage for reports, starting with empty list", e); 
             }
-        } else {
-            loadedProducts = mockProducts.map(p => ({...p, imageUrl: p.imageUrl || defaultPlaceholder(p.name)}));
         }
         setAllProducts(loadedProducts);
 
@@ -155,7 +150,7 @@ export default function ReportsPage() {
                         return {
                             id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: sName,
-                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : (mock && typeof mock.price === 'number' ? mock.price : 0))),
                             serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
                             imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
                             dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
@@ -164,20 +159,15 @@ export default function ReportsPage() {
                             duration: s.duration || (mock ? mock.duration : undefined),
                         };
                     });
-                } else {
-                    loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
                 }
             } catch(e) { 
-                console.error("Failed to parse services from localStorage for reports", e); 
-                loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+                console.error("Failed to parse services from localStorage for reports, starting with empty list", e); 
             }
-        } else {
-            loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
         }
         setAllServices(loadedServices);
 
         const storedInvoices = localStorage.getItem('appInvoices');
-        const loadedAppInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : initialMockInvoices;
+        const loadedAppInvoices: Invoice[] = storedInvoices ? JSON.parse(storedInvoices) : [];
 
         const allItems: SearchableItem[] = [
             ...loadedProducts.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
@@ -187,7 +177,7 @@ export default function ReportsPage() {
             ...inv,
             items: inv.items.map(item => {
                 const masterItem = allItems.find(mi => mi.id === item.id);
-                const costPrice = item.type === 'product' ? (masterItem as Product)?.costPrice : (item.costPrice ?? 0); // Ensure costPrice is taken from cartItem if available
+                const costPrice = item.type === 'product' ? (masterItem as Product)?.costPrice : (item.costPrice ?? 0); 
                 return {
                     ...item,
                     category: item.category || masterItem?.category || 'Uncategorized',
@@ -446,3 +436,4 @@ export default function ReportsPage() {
     </ScrollArea>
   );
 }
+

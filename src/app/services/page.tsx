@@ -51,10 +51,11 @@ export default function ServicesPage() {
             loadedServices = parsed.map((s: any) => {
                 const mock = mockServices.find(ms => ms.id === s.id);
                 const sName = s.name || (mock ? mock.name : "Unnamed Service");
+                const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : (mock && typeof mock.price === 'number' ? mock.price : 0)));
                 return {
                     id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                     name: sName,
-                    sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : (mock && typeof mock.sellingPrice === 'number' ? mock.sellingPrice : 0)),
+                    sellingPrice: sellingPrice,
                     serviceCode: s.serviceCode || (mock ? mock.serviceCode : undefined),
                     imageUrl: s.imageUrl || (mock ? mock.imageUrl : defaultPlaceholder(sName)),
                     dataAiHint: s.dataAiHint || (mock ? mock.dataAiHint : (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image')),
@@ -64,14 +65,14 @@ export default function ServicesPage() {
                 };
             });
           } else {
-            loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+             loadedServices = []; // Start with empty if stored data is not an array
           }
         } catch (e) {
-          console.error("Failed to parse services from localStorage, using mock data.", e);
-          loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+          console.error("Failed to parse services from localStorage, starting with empty list.", e);
+          loadedServices = []; // Start with empty if parsing fails
         }
       } else {
-         loadedServices = mockServices.map(s => ({...s, imageUrl: s.imageUrl || defaultPlaceholder(s.name)}));
+         loadedServices = []; // Start with empty if nothing in localStorage
       }
     }
     setServices(loadedServices);
@@ -81,6 +82,11 @@ export default function ServicesPage() {
   useEffect(() => {
     if (services.length > 0 && isSettingsLoaded && typeof window !== 'undefined') { 
         localStorage.setItem('appServices', JSON.stringify(services));
+    } else if (services.length === 0 && isSettingsLoaded && typeof window !== 'undefined') {
+        const storedServices = localStorage.getItem('appServices');
+        if (storedServices && JSON.parse(storedServices).length > 0) {
+             localStorage.setItem('appServices', JSON.stringify([]));
+        }
     }
   }, [services, isSettingsLoaded]);
 
@@ -227,3 +233,4 @@ export default function ServicesPage() {
     </div>
   );
 }
+
