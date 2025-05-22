@@ -80,26 +80,17 @@ export default function BillingPage() {
                 if(Array.isArray(parsed)) {
                     loadedProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
-                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0));
-                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
-                        const stock = typeof p.stock === 'number' ? p.stock : 0;
-                        const barcode = p.barcode || "";
-                        const imageUrl = p.imageUrl || defaultPlaceholder(pName);
-                        const dataAiHint = p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image');
-                        const category = p.category || undefined;
-                        const description = p.description || undefined;
-
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: costPrice,
-                            sellingPrice: sellingPrice,
-                            stock: stock,
-                            barcode: barcode,
-                            imageUrl: imageUrl,
-                            dataAiHint: dataAiHint,
-                            category: category,
-                            description: description,
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0)),
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0),
+                            stock: typeof p.stock === 'number' ? p.stock : 0,
+                            barcode: p.barcode || "",
+                            imageUrl: p.imageUrl || defaultPlaceholder(pName),
+                            dataAiHint: p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
+                            category: p.category || undefined,
+                            description: p.description || undefined,
                         };
                     });
                 } else {
@@ -122,23 +113,16 @@ export default function BillingPage() {
                 if(Array.isArray(parsed)) {
                     loadedServices = parsed.map((s: any) => {
                         const sName = s.name || "Unnamed Service";
-                        const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : 0);
-                        const serviceCode = s.serviceCode || undefined;
-                        const imageUrl = s.imageUrl || defaultPlaceholder(sName);
-                        const dataAiHint = s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image');
-                        const category = s.category || undefined;
-                        const description = s.description || undefined;
-                        const duration = s.duration || undefined;
                         return {
                             id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: sName,
-                            sellingPrice: sellingPrice,
-                            serviceCode: serviceCode,
-                            imageUrl: imageUrl,
-                            dataAiHint: dataAiHint,
-                            category: category,
-                            description: description,
-                            duration: duration,
+                            sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : 0),
+                            serviceCode: s.serviceCode || undefined,
+                            imageUrl: s.imageUrl || defaultPlaceholder(sName),
+                            dataAiHint: s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
+                            category: s.category || undefined,
+                            description: s.description || undefined,
+                            duration: s.duration || undefined,
                         };
                     });
                 } else {
@@ -315,7 +299,9 @@ export default function BillingPage() {
                     id: foundItem!.id, name: foundItem!.name, price: (foundItem as any).sellingPrice, quantity: 1, type: foundItem!.type,
                     imageUrl: foundItem!.imageUrl || defaultPlaceholder(foundItem!.name),
                     dataAiHint: foundItem!.dataAiHint, category: foundItem!.category,
-                    barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock, costPrice: (foundItem as Product).costPrice,
+                    costPrice: (foundItem as Product).costPrice,
+                    barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock, 
+                    serviceCode: (foundItem as Service).serviceCode, duration: (foundItem as Service).duration,
                     itemSpecificPhoneNumber: '',
                     itemSpecificNote: ''
                 };
@@ -344,7 +330,7 @@ export default function BillingPage() {
         const existingItem = prevCart.find((item) => item.id === service.id);
         if (existingItem) {
           return prevCart.map((item) =>
-            item.id === service.id ? { ...item, quantity: item.quantity + 1 } : item
+            item.id === service.id ? { ...item, quantity: item.quantity + 1, itemSpecificPhoneNumber: details.phoneNumber || item.itemSpecificPhoneNumber, itemSpecificNote: details.note || item.itemSpecificNote } : item
           );
         } else {
             const cartItemToAdd: CartItem = {
@@ -501,6 +487,11 @@ export default function BillingPage() {
 
   const handleFinalizeSale = () => {
     if (!currentInvoice) return;
+    setIsPrintFormatDialogOpen(true); // Open print format selection dialog
+  };
+
+  const finalizeAndSaveInvoice = () => {
+    if (!currentInvoice) return;
 
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
     if (currentInvoice.status === 'Due') {
@@ -578,8 +569,6 @@ export default function BillingPage() {
         const smsMessage = `Invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || 'Our Store'}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}. Thanks!`;
         toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${smsMessage.substring(0,100)}...`});
     }
-
-    setIsPrintFormatDialogOpen(true);
   };
 
   const performPrint = (mode: 'a4' | 'thermal') => {
@@ -590,6 +579,7 @@ export default function BillingPage() {
       return;
     }
     
+    finalizeAndSaveInvoice(); // Ensure invoice is saved before printing
     setIsPrintFormatDialogOpen(false); 
 
     if (mode === 'a4') {
@@ -942,14 +932,33 @@ export default function BillingPage() {
                     Choose the format for printing your invoice. The invoice preview will be used for printing.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="gap-2 flex-col sm:flex-row">
-                    <Button variant="outline" onClick={() => performPrint('a4')} className="w-full sm:w-auto">
-                        <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
-                    </Button>
+                <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2">
+                    <AlertDialogCancel 
+                        onClick={() => {
+                            setIsPrintFormatDialogOpen(false);
+                            setIsInvoiceDialogOpen(false);
+                            setCurrentInvoice(null);
+                            setCartItems([]);
+                            setCustomerName('');
+                            setCustomerPhoneNumber('');
+                            setCardNumber('');
+                            setCardExpiry('');
+                            setCardCvv('');
+                            setUpiId('');
+                            setAmountReceived('');
+                            setBalanceAmount(0);
+                            setSearchTerm('');
+                        }} 
+                        className="w-full sm:w-auto mt-2 sm:mt-0"
+                    >
+                        Cancel Printing
+                    </AlertDialogCancel>
                     <Button variant="outline" onClick={() => performPrint('thermal')} className="w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
-                     <AlertDialogCancel className="w-full sm:w-auto mt-2 sm:mt-0">Cancel Printing</AlertDialogCancel>
+                    <Button variant="outline" onClick={() => performPrint('a4')} className="w-full sm:w-auto">
+                        <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
+                    </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

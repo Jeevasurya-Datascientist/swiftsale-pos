@@ -221,21 +221,17 @@ export default function InvoicesPage() {
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
         
-        // If the view dialog was opened specifically for this print action, consider closing it.
-        // For now, we'll leave it open as the user might want to interact further.
-        // If a different invoice was previously selected, we revert to it.
-        if (isDifferentInvoiceOrViewClosed && originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToPrint.id) {
-            const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId); // Search current filtered list first
-            if(originalInv) {
+        if (isDifferentInvoiceOrViewClosed && !originalSelectedInvoiceId) {
+            setIsViewOpen(false);
+            setSelectedInvoice(null);
+        } else if (isDifferentInvoiceOrViewClosed && originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToPrint.id) {
+             const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId);
+             if(originalInv) {
                 setSelectedInvoice(originalInv);
-                // setIsViewOpen(true); // It should have remained open if it was for another invoice
-            } else {
-                // If original not in current filter, try to find in all historical invoices (if available)
-                // Or simply close the view if it was opened just for printing a specific item.
-                // For now, if original not found in current view, keep current selection but this might be confusing.
-                // To be safe, if the original context is lost, better to close the dialog.
-                // However, this could also be confusing. Let's keep the printed invoice selected.
-            }
+             } else {
+                setIsViewOpen(false);
+                setSelectedInvoice(null);
+             }
         }
     }, 150);
   };
@@ -408,8 +404,7 @@ export default function InvoicesPage() {
 
       {selectedInvoice && (
         <Dialog open={isViewOpen} onOpenChange={(open) => {
-            if (!open) { // Only act if the dialog is explicitly closed
-              // Only clear selectedInvoice if the print options dialog is NOT the one causing this close
+            if (!open) { 
               if(!isPrintOptionsOpen) { 
                 setSelectedInvoice(null);
               }
@@ -454,11 +449,8 @@ export default function InvoicesPage() {
 
       {selectedInvoice && isPrintOptionsOpen && (
          <AlertDialog open={isPrintOptionsOpen} onOpenChange={(open) => {
-            // This onOpenChange for AlertDialog is primarily for when it's closed by overlay click or ESC
             if (!open) { 
                 setIsPrintOptionsOpen(false);
-                // Do not change isViewOpen or selectedInvoice here,
-                // let the main Dialog manage its state.
             }
          }}>
             <AlertDialogContent>
@@ -468,14 +460,14 @@ export default function InvoicesPage() {
                     Choose the format for printing your invoice. "Print A4" can also be used to "Save as PDF" via your browser's print dialog.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="gap-2 flex-col sm:flex-row">
-                    <Button variant="outline" onClick={() => performActualPrint('a4', selectedInvoice)} className="w-full sm:w-auto">
-                        <Download className="w-4 h-4 mr-2" /> Print A4 / Save PDF
-                    </Button>
-                    <Button variant="outline" onClick={() => performActualPrint('thermal', selectedInvoice)} className="w-full sm:w-auto">
+                <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2">
+                     <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel</AlertDialogCancel>
+                     <Button variant="outline" onClick={() => performActualPrint('thermal', selectedInvoice)} className="w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
-                     <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel</AlertDialogCancel>
+                    <Button variant="outline" onClick={() => performActualPrint('a4', selectedInvoice)} className="w-full sm:w-auto">
+                        <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
+                    </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -500,9 +492,9 @@ const handleEditOpen = (invoice: Invoice | null) => {
         const context = (window as any).invoicePageContext;
         if (context) {
             if (context.setIsViewOpen) context.setIsViewOpen(false);
-            // if (context.setSelectedInvoice) context.setSelectedInvoice(null); // Keep selectedInvoice for now
             if (context.setInvoiceToEdit) context.setInvoiceToEdit(invoice);
             if (context.setIsEditOpen) context.setIsEditOpen(true);
         }
     }
 };
+
