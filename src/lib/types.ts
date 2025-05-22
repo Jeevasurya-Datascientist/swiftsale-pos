@@ -4,12 +4,12 @@ export interface BaseItem {
   name: string;
   description?: string;
   category?: string;
-  imageUrl: string; 
+  imageUrl: string;
   dataAiHint?: string;
 }
 
 export interface Product extends BaseItem {
-  barcode?: string; 
+  barcode?: string;
   stock: number;
   costPrice: number;
   sellingPrice: number;
@@ -21,23 +21,24 @@ export interface Service extends BaseItem {
   sellingPrice: number;
 }
 
-export type SearchableItem = (Product | Service) & { price: number; type: 'product' | 'service' }; // Added type explicitly
+export type SearchableItem = (Product | Service) & { price: number; type: 'product' | 'service' };
 
 export interface CartItem {
   id: string;
   name: string;
-  price: number; 
+  price: number;
   quantity: number;
-  imageUrl: string; 
+  imageUrl: string;
   dataAiHint?: string;
   type: 'product' | 'service';
   category?: string;
   itemSpecificPhoneNumber?: string;
-  itemSpecificNote?: string; // New field for service notes
+  itemSpecificNote?: string;
+  isPriceOverridden?: boolean; // New flag for TNEB or similar services
 
-  costPrice?: number; 
+  costPrice?: number;
 
-  barcode?: string; 
+  barcode?: string;
   stock?: number;
 
   serviceCode?: string;
@@ -56,7 +57,7 @@ export interface Invoice {
   gstAmount: number;
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
-  date: string; 
+  date: string;
   amountReceived: number;
   balanceAmount: number;
   status: 'Paid' | 'Due';
@@ -87,7 +88,7 @@ export interface KeyValueDataPoint {
 
 export type ReportTimeFilter = "today" | "last7days" | "last30days" | "thisMonth" | "allTime" | "custom";
 
-export type ReportDateRange = { 
+export type ReportDateRange = {
     from: Date | undefined;
     to: Date | undefined;
 };
@@ -104,8 +105,7 @@ export interface NotificationItem {
   type: 'lowStock' | 'info' | 'success' | 'error';
   title: string;
   description: string;
-  timestamp: string; 
+  timestamp: string;
   read: boolean;
   link?: string;
 }
-

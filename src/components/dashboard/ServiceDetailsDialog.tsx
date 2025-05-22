@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,30 +14,58 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Phone, MessageSquareText } from 'lucide-react';
+import { Phone, MessageSquareText, DollarSign } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ServiceDetailsDialogProps {
   isOpen: boolean;
   serviceName: string;
+  defaultPrice: number; // Pass the default price for reference
   onClose: () => void;
-  onConfirm: (details: { phoneNumber?: string; note?: string }) => void;
+  onConfirm: (details: { phoneNumber?: string; note?: string; customPrice?: number }) => void;
 }
 
-export function ServiceDetailsDialog({ isOpen, serviceName, onClose, onConfirm }: ServiceDetailsDialogProps) {
+export function ServiceDetailsDialog({ isOpen, serviceName, defaultPrice, onClose, onConfirm }: ServiceDetailsDialogProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [note, setNote] = useState('');
+  const [customPrice, setCustomPrice] = useState<string>('');
+  const [isTNEBService, setIsTNEBService] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (isOpen) {
+      const tneb = serviceName.toLowerCase() === 'tneb';
+      setIsTNEBService(tneb);
+      if (!tneb) {
+        setCustomPrice(defaultPrice.toString()); // Pre-fill for non-TNEB, though it won't be used for price override
+      } else {
+        setCustomPrice(''); // Clear for TNEB, needs manual input
+      }
+      // Reset other fields when dialog opens
+      setPhoneNumber('');
+      setNote('');
+    }
+  }, [isOpen, serviceName, defaultPrice]);
 
   const handleConfirm = () => {
-    onConfirm({ phoneNumber, note });
-    // Reset fields for next time
-    setPhoneNumber('');
-    setNote('');
+    let priceToConfirm: number | undefined = undefined;
+    if (isTNEBService) {
+      const parsedPrice = parseFloat(customPrice);
+      if (isNaN(parsedPrice) || parsedPrice <= 0) {
+        toast({
+          title: "Invalid Amount",
+          description: "Please enter a valid amount greater than 0 for TNEB service.",
+          variant: "destructive",
+        });
+        return;
+      }
+      priceToConfirm = parsedPrice;
+    }
+    onConfirm({ phoneNumber, note, customPrice: priceToConfirm });
+    // Reset fields for next time - handled by useEffect on open
   };
 
   const handleClose = () => {
-    // Reset fields on close as well
-    setPhoneNumber('');
-    setNote('');
     onClose();
   };
 
@@ -47,10 +75,28 @@ export function ServiceDetailsDialog({ isOpen, serviceName, onClose, onConfirm }
         <DialogHeader>
           <DialogTitle>Details for: {serviceName}</DialogTitle>
           <DialogDescription>
-            Add an optional phone number or note for this service.
+            {isTNEBService
+              ? "Enter the amount for TNEB service. You can also add an optional phone number or note."
+              : "Add an optional phone number or note for this service."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {isTNEBService && (
+            <div className="space-y-1">
+              <Label htmlFor="serviceCustomPrice" className="flex items-center">
+                <DollarSign className="w-4 h-4 mr-2 text-muted-foreground" />
+                Service Amount <span className="text-destructive ml-1">*</span>
+              </Label>
+              <Input
+                id="serviceCustomPrice"
+                type="number"
+                placeholder="Enter amount"
+                value={customPrice}
+                onChange={(e) => setCustomPrice(e.target.value)}
+                step="0.01"
+              />
+            </div>
+          )}
           <div className="space-y-1">
             <Label htmlFor="servicePhoneNumber" className="flex items-center">
               <Phone className="w-4 h-4 mr-2 text-muted-foreground" />

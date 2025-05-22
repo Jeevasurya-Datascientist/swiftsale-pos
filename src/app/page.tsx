@@ -273,10 +273,10 @@ export default function BillingPage() {
          toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
          return;
       }
-      
+
       const currentQuantityInCart = existingCartItem ? existingCartItem.quantity : 0;
       const prospectiveQuantityInCart = currentQuantityInCart + 1;
-      
+
       let canAdd = true;
       if (foundItem.type === 'product') {
           const productDetails = products.find(p => p.id === foundItem.id);
@@ -289,7 +289,7 @@ export default function BillingPage() {
         setCartItems((prevCart) => {
             const existingItem = prevCart.find((item) => item.id === foundItem!.id);
             if (existingItem) {
-                playSound(); 
+                playSound();
                 return prevCart.map((item) =>
                 item.id === foundItem!.id ? { ...item, quantity: item.quantity + 1 } : item
                 );
@@ -300,7 +300,7 @@ export default function BillingPage() {
                     imageUrl: foundItem!.imageUrl || defaultPlaceholder(foundItem!.name),
                     dataAiHint: foundItem!.dataAiHint, category: foundItem!.category,
                     costPrice: (foundItem as Product).costPrice,
-                    barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock, 
+                    barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock,
                     serviceCode: (foundItem as Service).serviceCode, duration: (foundItem as Service).duration,
                     itemSpecificPhoneNumber: '',
                     itemSpecificNote: ''
@@ -321,25 +321,32 @@ export default function BillingPage() {
     }
   };
 
-  const handleConfirmAddServiceToCart = (details: { phoneNumber?: string; note?: string }) => {
+  const handleConfirmAddServiceToCart = (details: { phoneNumber?: string; note?: string, customPrice?: number }) => {
     if (!currentItemForServiceDialog || currentItemForServiceDialog.type !== 'service') return;
 
     const service = currentItemForServiceDialog as Service;
+    const priceToUse = details.customPrice !== undefined ? details.customPrice : service.sellingPrice;
+    const isPriceOverridden = details.customPrice !== undefined;
+
 
     setCartItems((prevCart) => {
-        const existingItem = prevCart.find((item) => item.id === service.id);
+        const existingItem = prevCart.find((item) => item.id === service.id && item.itemSpecificNote === details.note && item.itemSpecificPhoneNumber === details.phoneNumber && item.price === priceToUse);
+
         if (existingItem) {
           return prevCart.map((item) =>
-            item.id === service.id ? { ...item, quantity: item.quantity + 1, itemSpecificPhoneNumber: details.phoneNumber || item.itemSpecificPhoneNumber, itemSpecificNote: details.note || item.itemSpecificNote } : item
+            item.id === service.id && item.itemSpecificNote === details.note && item.itemSpecificPhoneNumber === details.phoneNumber && item.price === priceToUse
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
           );
         } else {
             const cartItemToAdd: CartItem = {
-                id: service.id, name: service.name, price: service.sellingPrice, quantity: 1, type: 'service',
+                id: service.id, name: service.name, price: priceToUse, quantity: 1, type: 'service',
                 imageUrl: service.imageUrl || defaultPlaceholder(service.name),
                 dataAiHint: service.dataAiHint, category: service.category,
-                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, 
+                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0,
                 itemSpecificPhoneNumber: details.phoneNumber || '',
-                itemSpecificNote: details.note || ''
+                itemSpecificNote: details.note || '',
+                isPriceOverridden: isPriceOverridden,
             };
             return [...prevCart, cartItemToAdd];
         }
@@ -375,7 +382,7 @@ export default function BillingPage() {
       }
       checkAndNotifyLowStock(productDetails, quantityToSet);
     }
-    
+
     const previousQuantity = cartItem.quantity;
 
     setCartItems((prevCart) =>
@@ -462,7 +469,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate: currentGstRate, 
+      gstRate: currentGstRate,
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -578,9 +585,9 @@ export default function BillingPage() {
       setIsInvoiceDialogOpen(false); // Also close main invoice dialog if open
       return;
     }
-    
-    finalizeAndSaveInvoice(); 
-    setIsPrintFormatDialogOpen(false); 
+
+    finalizeAndSaveInvoice();
+    setIsPrintFormatDialogOpen(false);
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -593,7 +600,7 @@ export default function BillingPage() {
     setTimeout(() => {
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
-        
+
         // Reset state after printing
         setCartItems([]);
         setCustomerName('');
@@ -605,10 +612,10 @@ export default function BillingPage() {
         setAmountReceived('');
         setBalanceAmount(0);
         setSearchTerm('');
-        
+
         setCurrentInvoice(null);
-        setIsInvoiceDialogOpen(false); 
-    }, 150); 
+        setIsInvoiceDialogOpen(false);
+    }, 150);
   };
 
 
@@ -829,6 +836,7 @@ export default function BillingPage() {
         <ServiceDetailsDialog
           isOpen={isServiceDetailsDialogOpen}
           serviceName={currentItemForServiceDialog.name}
+          defaultPrice={(currentItemForServiceDialog as Service).sellingPrice || 0}
           onClose={() => {
             setIsServiceDetailsDialogOpen(false);
             setCurrentItemForServiceDialog(null);
@@ -840,10 +848,10 @@ export default function BillingPage() {
       {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => {
             if (!openState) {
-                if (!isPrintFormatDialogOpen) { 
-                    setCurrentInvoice(null); 
+                if (!isPrintFormatDialogOpen) {
+                    setCurrentInvoice(null);
                 }
-                setIsInvoiceDialogOpen(false); 
+                setIsInvoiceDialogOpen(false);
             } else {
                 setIsInvoiceDialogOpen(true);
             }
@@ -910,9 +918,9 @@ export default function BillingPage() {
 
       {isPrintFormatDialogOpen && currentInvoice && (
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
-             if(!open) { 
+             if(!open) {
                 setIsPrintFormatDialogOpen(false);
-                setIsInvoiceDialogOpen(false); 
+                setIsInvoiceDialogOpen(false);
                 setCurrentInvoice(null);
                 setCartItems([]);
                 setCustomerName('');
@@ -933,8 +941,8 @@ export default function BillingPage() {
                     Choose the format for printing your invoice. The invoice preview will be used for printing.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-                    <AlertDialogCancel 
+                <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
+                    <AlertDialogCancel
                         onClick={() => {
                             setIsPrintFormatDialogOpen(false);
                             setIsInvoiceDialogOpen(false);
@@ -950,13 +958,14 @@ export default function BillingPage() {
                             setBalanceAmount(0);
                             setSearchTerm('');
                         }}
+                        className="w-full sm:w-auto"
                     >
                         Cancel Printing
                     </AlertDialogCancel>
-                    <Button variant="outline" onClick={() => performPrint('thermal')}>
+                    <Button variant="outline" onClick={() => performPrint('thermal')} className="w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
-                    <Button variant="outline" onClick={() => performPrint('a4')} className="whitespace-normal h-auto">
+                    <Button variant="outline" onClick={() => performPrint('a4')} className="whitespace-normal h-auto w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>
                 </AlertDialogFooter>
