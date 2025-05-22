@@ -207,7 +207,7 @@ export default function InvoicesPage() {
         setIsViewOpen(true); 
     }
     
-    setIsPrintOptionsOpen(false); // Close the format selection dialog first
+    setIsPrintOptionsOpen(false); 
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -460,12 +460,12 @@ export default function InvoicesPage() {
                     Choose the format for printing your invoice. "Print A4" can also be used to "Save as PDF" via your browser's print dialog.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2">
-                     <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel</AlertDialogCancel>
-                     <Button variant="outline" onClick={() => performActualPrint('thermal', selectedInvoice)} className="w-full sm:w-auto">
+                <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+                     <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)}>Cancel</AlertDialogCancel>
+                     <Button variant="outline" onClick={() => performActualPrint('thermal', selectedInvoice)}>
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
-                    <Button variant="outline" onClick={() => performActualPrint('a4', selectedInvoice)} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => performActualPrint('a4', selectedInvoice)} className="whitespace-normal h-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>
                 </AlertDialogFooter>

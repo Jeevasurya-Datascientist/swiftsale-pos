@@ -83,7 +83,7 @@ export default function BillingPage() {
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0)),
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0),
                             sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0),
                             stock: typeof p.stock === 'number' ? p.stock : 0,
                             barcode: p.barcode || "",
@@ -574,12 +574,12 @@ export default function BillingPage() {
   const performPrint = (mode: 'a4' | 'thermal') => {
     if (!currentInvoice) {
       toast({ title: "Print Error", description: "No invoice selected to print.", variant: "destructive" });
-      setIsPrintFormatDialogOpen(false);
-      setIsInvoiceDialogOpen(false);
+      setIsPrintFormatDialogOpen(false); // Close format dialog if open
+      setIsInvoiceDialogOpen(false); // Also close main invoice dialog if open
       return;
     }
     
-    finalizeAndSaveInvoice(); // Ensure invoice is saved before printing
+    finalizeAndSaveInvoice(); 
     setIsPrintFormatDialogOpen(false); 
 
     if (mode === 'a4') {
@@ -594,6 +594,7 @@ export default function BillingPage() {
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
         
+        // Reset state after printing
         setCartItems([]);
         setCustomerName('');
         setCustomerPhoneNumber('');
@@ -932,7 +933,7 @@ export default function BillingPage() {
                     Choose the format for printing your invoice. The invoice preview will be used for printing.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2">
+                <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
                     <AlertDialogCancel 
                         onClick={() => {
                             setIsPrintFormatDialogOpen(false);
@@ -948,15 +949,14 @@ export default function BillingPage() {
                             setAmountReceived('');
                             setBalanceAmount(0);
                             setSearchTerm('');
-                        }} 
-                        className="w-full sm:w-auto mt-2 sm:mt-0"
+                        }}
                     >
                         Cancel Printing
                     </AlertDialogCancel>
-                    <Button variant="outline" onClick={() => performPrint('thermal')} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => performPrint('thermal')}>
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
-                    <Button variant="outline" onClick={() => performPrint('a4')} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => performPrint('a4')} className="whitespace-normal h-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>
                 </AlertDialogFooter>
