@@ -74,72 +74,85 @@ export default function BillingPage() {
   useEffect(() => {
     if (isSettingsLoaded && typeof window !== 'undefined') {
         const storedProducts = localStorage.getItem('appProducts');
-        let finalProducts: Product[] = [];
+        let loadedProducts: Product[] = [];
         if (storedProducts) {
             try {
                 const parsed = JSON.parse(storedProducts);
                 if(Array.isArray(parsed)) {
-                    finalProducts = parsed.map((p: any) => {
+                    loadedProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
                         const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0));
                         const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
+                        const stock = typeof p.stock === 'number' ? p.stock : 0;
+                        const barcode = p.barcode || "";
+                        const imageUrl = p.imageUrl || defaultPlaceholder(pName);
+                        const dataAiHint = p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image');
+                        const category = p.category || undefined;
+                        const description = p.description || undefined;
+
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
                             costPrice: costPrice,
                             sellingPrice: sellingPrice,
-                            stock: typeof p.stock === 'number' ? p.stock : 0,
-                            barcode: p.barcode || "",
-                            imageUrl: p.imageUrl || defaultPlaceholder(pName),
-                            dataAiHint: p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
-                            category: p.category || undefined,
-                            description: p.description || undefined,
+                            stock: stock,
+                            barcode: barcode,
+                            imageUrl: imageUrl,
+                            dataAiHint: dataAiHint,
+                            category: category,
+                            description: description,
                         };
                     });
                 } else {
-                  finalProducts = [];
+                  loadedProducts = [];
                 }
             } catch (e) {
               console.error("Failed to parse products from localStorage, starting with empty list.", e);
-              finalProducts = [];
+              loadedProducts = [];
             }
         } else {
-          finalProducts = [];
+          loadedProducts = [];
         }
-        setProducts(finalProducts);
+        setProducts(loadedProducts);
 
         const storedServices = localStorage.getItem('appServices');
-        let finalServices: Service[] = [];
+        let loadedServices: Service[] = [];
         if(storedServices) {
             try {
                 const parsed = JSON.parse(storedServices);
                 if(Array.isArray(parsed)) {
-                    finalServices = parsed.map((s: any) => {
+                    loadedServices = parsed.map((s: any) => {
                         const sName = s.name || "Unnamed Service";
                         const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : 0);
+                        const serviceCode = s.serviceCode || undefined;
+                        const imageUrl = s.imageUrl || defaultPlaceholder(sName);
+                        const dataAiHint = s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image');
+                        const category = s.category || undefined;
+                        const description = s.description || undefined;
+                        const duration = s.duration || undefined;
                         return {
                             id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: sName,
                             sellingPrice: sellingPrice,
-                            serviceCode: s.serviceCode || undefined,
-                            imageUrl: s.imageUrl || defaultPlaceholder(sName),
-                            dataAiHint: s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
-                            category: s.category || undefined,
-                            description: s.description || undefined,
-                            duration: s.duration || undefined,
+                            serviceCode: serviceCode,
+                            imageUrl: imageUrl,
+                            dataAiHint: dataAiHint,
+                            category: category,
+                            description: description,
+                            duration: duration,
                         };
                     });
                 } else {
-                  finalServices = [];
+                  loadedServices = [];
                 }
             } catch (e) {
               console.error("Failed to parse services from localStorage, starting with empty list.", e);
-              finalServices = [];
+              loadedServices = [];
             }
         } else {
-           finalServices = [];
+           loadedServices = [];
         }
-        setServices(finalServices);
+        setServices(loadedServices);
 
         const allInvoiceData = localStorage.getItem('appInvoices');
         let allInvoices: Invoice[] = [];
@@ -902,7 +915,7 @@ export default function BillingPage() {
                     Choose the format for printing your invoice. The invoice preview will be used for printing.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+                <AlertDialogFooter className="gap-2 flex-col sm:flex-row">
                     <Button variant="outline" onClick={() => performPrint('a4')} className="w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>

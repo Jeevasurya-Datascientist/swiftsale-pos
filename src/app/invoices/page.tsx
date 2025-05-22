@@ -452,7 +452,7 @@ export default function InvoicesPage() {
                     Choose the format for printing your invoice. "Print A4" can also be used to "Save as PDF" via your browser's print dialog.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+                <AlertDialogFooter className="gap-2 flex-col sm:flex-row">
                     <Button variant="outline" onClick={() => performActualPrint('a4', selectedInvoice)} className="w-full sm:w-auto">
                         <Download className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>

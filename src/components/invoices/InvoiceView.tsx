@@ -224,6 +224,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           }
           body.print-mode-a4 .invoice-view-print-root {
             font-family: Arial, Helvetica, sans-serif !important;
+            box-sizing: border-box;
           }
           body.print-mode-a4 .print-logo { max-height: 20mm !important; width: auto !important; margin-bottom: 5mm !important; }
           body.print-mode-a4 .print-main-title { font-size: 20pt !important; margin-bottom: 2mm; }
@@ -235,7 +236,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-a4 .print-items-table { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
           body.print-mode-a4 .print-items-table th, 
           body.print-mode-a4 .print-items-table td { font-size: 9pt !important; padding: 2mm 1.5mm !important; border: 1px solid #ccc !important; vertical-align: top; }
-          body.print-mode-a4 .print-items-table th { background-color: #f4f4f4 !important; text-align: left;}
+          body.print-mode-a4 .print-items-table th { background-color: #f0f0f0 !important; text-align: left; font-weight: bold;}
           body.print-mode-a4 .print-col-image { display: table-cell !important; width: 15mm !important; } 
           body.print-mode-a4 .print-footer-colspan-adjust { /* Colspan for Img, Item, Qty */ }
           body.print-mode-a4 .print-summary-footer td { font-size: 10pt !important; padding: 1.5mm !important; }
@@ -249,6 +250,9 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           /* Thermal Specific Styles (e.g., 58mm paper width) */
           body.print-mode-thermal .invoice-view-print-root {
             font-family: 'Courier New', Courier, monospace !important;
+            max-width: 57mm; /* Ensure content doesn't exceed typical thermal paper width */
+            margin: 0 auto; /* Center content if paper is wider */
+            box-sizing: border-box;
           }
           body.print-mode-thermal @page {
             size: 57mm auto; 
@@ -263,34 +267,39 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 3mm !important;}
           body.print-mode-thermal .print-address-grid > div { width: 100% !important; text-align: left !important; font-size: 7pt !important; line-height: 1.2; }
           body.print-mode-thermal .print-billed-to { margin-bottom: 2mm; }
-          body.print-mode-thermal .print-section-title { font-size: 8pt !important; font-weight: bold !important; margin-bottom: 1mm; }
+          body.print-mode-thermal .print-section-title { font-size: 8pt !important; font-weight: bold !important; margin-bottom: 1mm; text-align: center; }
+          body.print-mode-thermal .print-items-title { text-align: left; } /* Specific for "Items:" title */
           
-          body.print-mode-thermal .print-items-table { width: 100% !important; border-collapse: collapse; }
+          body.print-mode-thermal .print-items-table { width: 100% !important; border-collapse: collapse; table-layout: fixed;}
           body.print-mode-thermal .print-items-table th, body.print-mode-thermal .print-items-table td {
             font-size: 7pt !important;
             padding: 0.5mm 0.2mm !important; 
             vertical-align: top;
             border: none !important;
+            overflow-wrap: break-word; /* For long item names */
+            word-break: break-word; /* Ensure long words break */
           }
           body.print-mode-thermal .print-items-table th { border-bottom: 1px dashed #555 !important; font-weight: normal; text-transform: uppercase; text-align: left;}
           body.print-mode-thermal .print-col-image { display: none !important; }
           body.print-mode-thermal .print-hide-icon { display: none !important; }
-          body.print-mode-thermal .print-col-item { width: 55%; white-space: normal !important; } 
+          body.print-mode-thermal .print-col-item { width: 50%; white-space: normal !important; } 
           body.print-mode-thermal .print-col-qty { width: 10%; text-align: center !important; }
-          body.print-mode-thermal .print-col-price { width: 15%; text-align: right !important; white-space: nowrap; }
+          body.print-mode-thermal .print-col-price { width: 20%; text-align: right !important; white-space: nowrap; }
           body.print-mode-thermal .print-col-total { width: 20%; text-align: right !important; white-space: nowrap; }
           body.print-mode-thermal .print-item-code, body.print-mode-thermal .print-item-phone, body.print-mode-thermal .print-item-note { font-size: 6pt !important; }
           
           body.print-mode-thermal .print-summary-footer { margin-top: 2mm; }
           body.print-mode-thermal .print-summary-footer td { font-size: 7pt !important; padding: 0.5mm 0.2mm !important;}
           body.print-mode-thermal .print-summary-footer .font-bold { font-size: 8pt !important; }
-          body.print-mode-thermal .print-summary-footer .print-footer-colspan-adjust { display: none !important; } /* Key change for thermal totals */
-          body.print-mode-thermal .print-summary-footer .print-summary-label { text-align: left !important; padding-left: 0 !important; font-weight: bold; }
-          body.print-mode-thermal .print-summary-footer .print-summary-value { text-align: right !important; padding-right: 0 !important; }
+          body.print-mode-thermal .print-summary-footer .print-footer-colspan-adjust { display: none !important; } 
+          body.print-mode-thermal .print-summary-footer .print-summary-label { text-align: left !important; padding-left: 0 !important; font-weight: normal; width: 60%;}
+          body.print-mode-thermal .print-summary-footer .print-summary-value { text-align: right !important; padding-right: 0 !important; font-weight: bold; width: 40%;}
 
 
-          body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 3mm !important; }
-          body.print-mode-thermal .print-status-badge { font-size: 7pt !important; padding: 0.5mm 1mm !important; }
+          body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 3mm !important; text-align: center;}
+          body.print-mode-thermal .print-final-details p,
+          body.print-mode-thermal .print-final-details div { text-align: center; justify-content: center;}
+          body.print-mode-thermal .print-status-badge { font-size: 7pt !important; padding: 0.5mm 1mm !important; display: inline-block;}
           body.print-mode-thermal .print-thankyou-message { margin-top: 3mm !important; font-size: 8pt !important; font-weight: bold; }
         }
       `}</style>
