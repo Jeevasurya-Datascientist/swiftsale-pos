@@ -96,10 +96,15 @@ export default function BillingPage() {
                             description: p.description || undefined,
                         };
                     });
+                } else {
+                  finalProducts = [];
                 }
             } catch (e) {
               console.error("Failed to parse products from localStorage, starting with empty list.", e);
+              finalProducts = [];
             }
+        } else {
+          finalProducts = [];
         }
         setProducts(finalProducts);
 
@@ -124,15 +129,31 @@ export default function BillingPage() {
                             duration: s.duration || undefined,
                         };
                     });
+                } else {
+                  finalServices = [];
                 }
             } catch (e) {
               console.error("Failed to parse services from localStorage, starting with empty list.", e);
+              finalServices = [];
             }
+        } else {
+           finalServices = [];
         }
         setServices(finalServices);
 
         const allInvoiceData = localStorage.getItem('appInvoices');
-        const allInvoices: Invoice[] = allInvoiceData ? JSON.parse(allInvoiceData) : [];
+        let allInvoices: Invoice[] = [];
+        if (allInvoiceData) {
+          try {
+            const parsed = JSON.parse(allInvoiceData);
+            if (Array.isArray(parsed)) {
+              allInvoices = parsed;
+            }
+          } catch (e) {
+            console.error("Failed to parse invoices from localStorage for customer list, using empty list.", e);
+          }
+        }
+
 
         const uniqueCusts: Record<string, ExistingCustomer> = {};
         allInvoices.forEach(inv => {
@@ -306,7 +327,7 @@ export default function BillingPage() {
                 id: service.id, name: service.name, price: service.sellingPrice, quantity: 1, type: 'service',
                 imageUrl: service.imageUrl || defaultPlaceholder(service.name),
                 dataAiHint: service.dataAiHint, category: service.category,
-                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0,
+                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, // Services might not have a costPrice or it's handled differently
                 itemSpecificPhoneNumber: details.phoneNumber || '',
                 itemSpecificNote: details.note || ''
             };
@@ -429,7 +450,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate: currentGstRate,
+      gstRate: currentGstRate, // Store the rate used for this invoice
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -467,6 +488,7 @@ export default function BillingPage() {
     }
 
     if (currentInvoice.status === 'Paid') {
+      try {
         const updatedProducts = products.map(p => {
           const cartItem = cartItems.find(ci => ci.id === p.id && ci.type === 'product');
           if (cartItem) {
@@ -476,12 +498,32 @@ export default function BillingPage() {
         });
         setProducts(updatedProducts);
         localStorage.setItem('appProducts', JSON.stringify(updatedProducts));
+      } catch (error) {
+        console.error("Error updating product stock in localStorage:", error);
+        toast({title: "Stock Update Error", description: "Could not update product stock due to storage issue.", variant: "destructive"});
+      }
     }
 
-    const storedAppInvoices = localStorage.getItem('appInvoices');
-    let allAppInvoices: Invoice[] = storedAppInvoices ? JSON.parse(storedAppInvoices) : [];
-    allAppInvoices = [currentInvoice, ...allAppInvoices];
-    localStorage.setItem('appInvoices', JSON.stringify(allAppInvoices));
+    try {
+      const storedAppInvoices = localStorage.getItem('appInvoices');
+      let allAppInvoices: Invoice[] = [];
+       if (storedAppInvoices) {
+            try {
+                const parsed = JSON.parse(storedAppInvoices);
+                if (Array.isArray(parsed)) {
+                    allAppInvoices = parsed;
+                }
+            } catch (e) {
+                 console.error("Failed to parse existing invoices for saving, starting with empty list", e);
+            }
+        }
+      allAppInvoices = [currentInvoice, ...allAppInvoices];
+      localStorage.setItem('appInvoices', JSON.stringify(allAppInvoices));
+    } catch (error) {
+      console.error("Error saving invoice to localStorage:", error);
+      toast({title: "Invoice Save Error", description: "Could not save invoice due to storage issue.", variant: "destructive"});
+    }
+
 
     const custId = `${currentInvoice.customerName.toLowerCase().replace(/\s/g, '_')}-${(currentInvoice.customerPhoneNumber || '').replace(/\D/g, '')}`;
     if(!existingCustomers.find(c => c.id === custId)){
@@ -515,7 +557,12 @@ export default function BillingPage() {
   };
 
   const performPrint = (mode: 'a4' | 'thermal') => {
-    if (!currentInvoice) return;
+    if (!currentInvoice) {
+      toast({ title: "Print Error", description: "No invoice selected to print.", variant: "destructive" });
+      setIsPrintFormatDialogOpen(false);
+      setIsInvoiceDialogOpen(false);
+      return;
+    }
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -775,10 +822,17 @@ export default function BillingPage() {
       )}
 
       {currentInvoice && isInvoiceDialogOpen && (
-        <Dialog open={isInvoiceDialogOpen} onOpenChange={(open) => {
-            if(!open) {
-              setIsInvoiceDialogOpen(false);
-              setCurrentInvoice(null);
+        <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => {
+            // If the dialog is being closed (openState is false)
+            if (!openState) {
+                // And if the print format dialog is NOT currently open (meaning we are not in the middle of the print flow)
+                if (!isPrintFormatDialogOpen) {
+                    setCurrentInvoice(null); // Then it's safe to clear the invoice
+                }
+                setIsInvoiceDialogOpen(false); // Always update the dialog's own open state
+            } else {
+                // If dialog is being opened (openState is true)
+                setIsInvoiceDialogOpen(true);
             }
         }}>
           <DialogContent className="max-w-2xl">
@@ -842,11 +896,7 @@ export default function BillingPage() {
       )}
 
       {isPrintFormatDialogOpen && currentInvoice && (
-         <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
-            if (!open) {
-                setIsPrintFormatDialogOpen(false);
-            }
-         }}>
+         <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={setIsPrintFormatDialogOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                 <AlertDialogTitle>Select Print Format</AlertDialogTitle>
@@ -883,3 +933,4 @@ export default function BillingPage() {
     </div>
   );
 }
+
