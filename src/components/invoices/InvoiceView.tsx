@@ -41,9 +41,10 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
         )}
+        <h1 className="text-xl font-bold print-shop-details-name uppercase">{displayShopName}</h1>
         <h2 className="text-2xl font-bold text-primary print-main-title">INVOICE</h2>
-        <p className="text-muted-foreground print-invoice-meta">Invoice Number: {invoice.invoiceNumber}</p>
-        <p className="text-muted-foreground print-invoice-meta">Date: {format(new Date(invoice.date), 'PPPpp')}</p>
+        <p className="text-muted-foreground print-invoice-meta">Inv #: {invoice.invoiceNumber}</p>
+        <p className="text-muted-foreground print-invoice-meta">Date: {format(new Date(invoice.date), 'dd/MM/yy HH:mm')}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6 text-sm print-address-grid">
@@ -54,7 +55,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         </div>
         <div className="text-right print-from-address">
           <h3 className="font-semibold mb-1 print-section-title">From:</h3>
-          <p className="font-bold print-shop-details-name">{displayShopName}</p>
+          <p className="font-bold print-shop-details-name-alt">{displayShopName}</p>
           {shopAddress.split('\n').map((line, index) => ( 
             <p key={index} className="print-shop-details-line">{line.trim()}</p>
           ))}
@@ -196,16 +197,13 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
               top: unset !important;
               z-index: auto !important; 
           }
-           .invoice-view-dialog-content > button[aria-label="Close"] { 
+          .invoice-view-dialog-content > button[aria-label="Close"] { 
             display: none !important;
           }
 
           [data-radix-dialog-overlay],
           [data-radix-alert-dialog-overlay],
-          [role="alertdialog"] { /* Hides the print format selection dialog */
-            display: none !important; 
-          }
-          
+          [role="alertdialog"], /* Hides the print format selection dialog */
           .print-hide,
           .print-hide-icon { /* General class to hide elements & specific for icons if needed */
             display: none !important; 
@@ -214,10 +212,11 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
 
           .invoice-view-print-root {
             background-color: #fff !important;
+            color: #000 !important;
             box-sizing: border-box;
-            margin: 0 auto;
-            position: static !important;
-            width: 100%;
+            margin: 0 auto; /* Center on page */
+            position: static !important; /* Ensure it's not absolutely positioned */
+            width: 100%; /* Will be overridden by specific modes */
             height: auto !important;
             max-height: none !important;
             overflow: visible !important;
@@ -231,96 +230,111 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           }
           body.print-mode-a4 .invoice-view-print-root {
             font-family: Arial, Helvetica, sans-serif !important;
+            width: 180mm !important; /* 210mm - 2*15mm margin */
+            padding: 0 !important;
           }
           body.print-mode-a4 .print-logo { max-height: 20mm !important; width: auto !important; margin-bottom: 5mm !important; }
-          body.print-mode-a4 .print-main-title { font-size: 20pt !important; margin-bottom: 2mm; }
+          body.print-mode-a4 .print-shop-details-name { font-size: 14pt !important; margin-bottom: 2mm;}
+          body.print-mode-a4 .print-main-title { font-size: 18pt !important; margin-bottom: 2mm; }
           body.print-mode-a4 .print-invoice-meta { font-size: 10pt !important; line-height: 1.3; margin-bottom: 1mm;}
           body.print-mode-a4 .print-address-grid { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8mm !important; font-size: 10pt;}
           body.print-mode-a4 .print-address-grid > div { width: 48%; }
           body.print-mode-a4 .print-from-address { text-align: right !important; }
-          body.print-mode-a4 .print-section-title { font-size: 12pt !important; margin-bottom: 2mm; font-weight: bold; }
-          body.print-mode-a4 .print-items-title { text-align: left; }
+          body.print-mode-a4 .print-section-title { font-size: 11pt !important; margin-bottom: 2mm; font-weight: bold; }
+          body.print-mode-a4 .print-items-title { text-align: left; margin-bottom: 1mm !important; }
           body.print-mode-a4 .print-items-table { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
           body.print-mode-a4 .print-items-table th, 
           body.print-mode-a4 .print-items-table td { font-size: 9pt !important; padding: 2mm 1.5mm !important; border: 1px solid #ccc !important; vertical-align: top; }
           body.print-mode-a4 .print-items-table th { background-color: #f0f0f0 !important; text-align: left; font-weight: bold;}
-          body.print-mode-a4 .print-col-image { display: table-cell !important; width: 15mm !important; } 
+          body.print-mode-a4 .print-col-image { display: table-cell !important; width: 15mm !important; text-align: center;}
+          body.print-mode-a4 .print-col-image img { max-width: 100%; height: auto; }
+          body.print-mode-a4 .print-item-details-cell { width: auto; }
+          body.print-mode-a4 .print-col-qty { width: 10%; text-align: center !important;}
+          body.print-mode-a4 .print-col-price, body.print-mode-a4 .print-col-total { width: 18%; text-align: right !important;}
           body.print-mode-a4 .print-summary-footer td { font-size: 10pt !important; padding: 1.5mm !important; }
           body.print-mode-a4 .print-summary-footer .font-bold { font-size: 11pt !important; }
           body.print-mode-a4 .print-final-details { font-size: 10pt !important; margin-top: 8mm !important; }
           body.print-mode-a4 .print-status-badge { font-size: 10pt !important; padding: 2px 6px !important; }
           body.print-mode-a4 .print-thankyou-message { text-align: center; margin-top: 10mm !important; font-size: 10pt;}
-          body.print-mode-a4 .print-hide-icon { display: inline-block !important; } /* Re-show icons for A4 */
+          body.print-mode-a4 .print-hide-icon { display: inline-block !important; } 
 
 
           /* Thermal Specific Styles (e.g., 58mm paper width) */
+          body.print-mode-thermal @page {
+            size: 58mm auto; 
+            margin: 1.5mm; 
+          }
           body.print-mode-thermal .invoice-view-print-root {
             font-family: 'Courier New', Courier, monospace !important;
-            width: 57mm; 
-            padding: 1mm; /* Reduced padding for thermal */
+            width: 55mm !important; /* 58mm - 2*1.5mm margin */
+            padding: 0 !important;
             box-sizing: border-box;
+            font-size: 8pt !important;
+            line-height: 1.25 !important;
+            color: black !important;
           }
-          body.print-mode-thermal @page {
-            size: 57mm auto; 
-            margin: 0mm; /* Minimal margins for thermal */
-          }
+          body.print-mode-thermal .print-logo { display: none !important; } /* Hide logo for thermal */
           body.print-mode-thermal .print-header-section, 
           body.print-mode-thermal .print-thankyou-message,
-          body.print-mode-thermal .print-from-address,
           body.print-mode-thermal .print-final-details { 
             text-align: center !important; 
+            margin-bottom: 2mm !important;
           }
-          body.print-mode-thermal .print-from-address p,
-          body.print-mode-thermal .print-final-details p,
-          body.print-mode-thermal .print-final-details div {
-             text-align: center !important;
-             justify-content: center;
-          }
-          body.print-mode-thermal .print-status-badge {
-            display: inline-block; 
-          }
-
-          body.print-mode-thermal .print-logo { max-height: 10mm !important; width: auto !important; margin-bottom: 2mm !important; }
-          body.print-mode-thermal .print-main-title { font-size: 11pt !important; font-weight: bold !important; margin-bottom: 1mm;}
-          body.print-mode-thermal .print-invoice-meta { font-size: 7pt !important; line-height: 1.2; margin-bottom: 0.5mm;}
+          body.print-mode-thermal .print-shop-details-name { font-size: 10pt !important; font-weight: bold !important; margin-bottom: 1mm !important; text-transform: uppercase;}
+          body.print-mode-thermal .print-main-title { font-size: 9pt !important; font-weight: bold !important; margin-bottom: 1mm; border-top: 1px solid black !important; border-bottom: 1px solid black !important; padding: 0.5mm 0;}
+          body.print-mode-thermal .print-invoice-meta { font-size: 7pt !important; line-height: 1.1; margin-bottom: 0.2mm;}
           
-          body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 2mm !important;}
-          body.print-mode-thermal .print-address-grid > div { width: 100% !important; text-align: left !important; font-size: 7pt !important; line-height: 1.2; }
+          body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 2mm !important; border-top: 1px dashed black; padding-top: 1mm;}
+          body.print-mode-thermal .print-address-grid > div { width: 100% !important; text-align: left !important; font-size: 7pt !important; line-height: 1.2; margin-bottom: 0.5mm;}
           body.print-mode-thermal .print-billed-to { margin-bottom: 1mm; }
+          body.print-mode-thermal .print-from-address { text-align: center !important; font-size: 7pt !important; }
+          body.print-mode-thermal .print-from-address .print-shop-details-name-alt { font-weight: normal !important; }
+          body.print-mode-thermal .print-from-address .print-shop-details-line { margin: 0; }
+          body.print-mode-thermal .print-section-title { font-size: 8pt !important; font-weight: bold !important; margin-bottom: 0.5mm; text-align: left; }
+          body.print-mode-thermal .print-items-title { text-align: left; border-top: 1px dashed black; padding-top: 1mm; } 
           
-          body.print-mode-thermal .print-section-title { font-size: 8pt !important; font-weight: bold !important; margin-bottom: 1mm; text-align: center; }
-          body.print-mode-thermal .print-items-title { text-align: left; } 
-          
-          body.print-mode-thermal .print-items-table { width: 100% !important; border-collapse: collapse; table-layout: fixed;}
+          body.print-mode-thermal .print-items-table { width: 100% !important; border-collapse: collapse; table-layout: auto; margin-top: 0.5mm; border-top: 1px solid black !important; border-bottom: 1px solid black !important;}
           body.print-mode-thermal .print-items-table th, body.print-mode-thermal .print-items-table td {
             font-size: 7pt !important;
-            padding: 0.5mm 0.2mm !important; 
+            padding: 0.5mm 0.3mm !important; 
             vertical-align: top;
             border: none !important;
             overflow-wrap: break-word; 
-            word-break: break-word; 
+            word-break: break-all; /* Allow breaking long words */
           }
-          body.print-mode-thermal .print-items-table th { border-bottom: 1px dashed #555 !important; font-weight: normal; text-transform: uppercase; text-align: left;}
+          body.print-mode-thermal .print-items-table th { border-bottom: 1px solid black !important; font-weight: bold; text-transform: uppercase;}
           body.print-mode-thermal .print-col-image { display: none !important; }
-          body.print-mode-thermal .print-hide-icon { display: none !important; } /* Ensure icons hidden for thermal */
-          body.print-mode-thermal .print-col-item { width: 50%; white-space: normal !important; } 
-          body.print-mode-thermal .print-col-qty { width: 10%; text-align: center !important; }
-          body.print-mode-thermal .print-col-price { width: 20%; text-align: right !important; white-space: nowrap; }
-          body.print-mode-thermal .print-col-total { width: 20%; text-align: right !important; white-space: nowrap; }
+          body.print-mode-thermal .print-hide-icon { display: none !important; } 
+          body.print-mode-thermal .print-item-details-cell { text-align: left !important; } 
+          body.print-mode-thermal .print-col-qty { text-align: center !important; }
+          body.print-mode-thermal .print-col-price { text-align: right !important; white-space: nowrap; }
+          body.print-mode-thermal .print-col-total { text-align: right !important; white-space: nowrap; }
           body.print-mode-thermal .print-item-code, body.print-mode-thermal .print-item-phone, body.print-mode-thermal .print-item-note { font-size: 6pt !important; }
           
-          body.print-mode-thermal .print-summary-footer { margin-top: 2mm; }
-          body.print-mode-thermal .print-summary-footer td { font-size: 7pt !important; padding: 0.5mm 0.2mm !important;}
+          body.print-mode-thermal .print-summary-footer { margin-top: 1.5mm; }
+          body.print-mode-thermal .print-summary-footer td { font-size: 7pt !important; padding: 0.3mm !important;}
+          body.print-mode-thermal .print-summary-footer tr:first-child td { padding-top: 1mm !important; border-top: 1px dashed black !important; }
           body.print-mode-thermal .print-summary-footer .print-footer-colspan-adjust { display: none !important; } 
-          body.print-mode-thermal .print-summary-footer .print-summary-label { text-align: left !important; padding-left: 0 !important; font-weight: normal; width: 60%;}
-          body.print-mode-thermal .print-summary-footer .print-summary-value { text-align: right !important; padding-right: 0 !important; font-weight: bold; width: 40%;}
+          body.print-mode-thermal .print-summary-footer .print-summary-label { text-align: left !important; padding-left: 0 !important; font-weight: normal !important; width: auto !important; }
+          body.print-mode-thermal .print-summary-footer .print-summary-value { text-align: right !important; padding-right: 0 !important; font-weight: bold !important; width: auto !important; white-space: nowrap;}
+          body.print-mode-thermal .print-summary-footer tr.font-bold .print-summary-label,
+          body.print-mode-thermal .print-summary-footer tr.font-bold .print-summary-value { font-size: 8pt !important; font-weight: bold !important; }
 
 
-          body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 3mm !important; }
-          body.print-mode-thermal .print-thankyou-message { margin-top: 3mm !important; font-size: 8pt !important; font-weight: bold; }
+          body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 2mm !important; text-align: center;}
+          body.print-mode-thermal .print-final-details p { margin-bottom: 0.3mm;}
+          body.print-mode-thermal .print-thankyou-message { margin-top: 2mm !important; font-size: 8pt !important; font-weight: bold; border-top: 1px solid black !important; padding-top: 1mm;}
+          body.print-mode-thermal .print-status-badge {
+            display: inline-block; 
+            font-size: 7pt !important;
+            padding: 0.5mm 1mm !important;
+            border: 1px solid black !important;
+            background: white !important; /* Ensure no background color prints */
+            color: black !important;
+          }
+          body.print-mode-thermal .print-separator { display: none !important; }
         }
       `}</style>
     </div>
   );
 }
-
