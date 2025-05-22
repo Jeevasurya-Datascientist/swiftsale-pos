@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer, MessageSquare } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -289,36 +289,47 @@ export default function BillingPage() {
          toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" });
          return;
       }
+      
       const currentQuantityInCart = existingCartItem ? existingCartItem.quantity : 0;
       const prospectiveQuantityInCart = currentQuantityInCart + 1;
-      if (prospectiveQuantityInCart <= product.stock) {
-        checkAndNotifyLowStock(product, prospectiveQuantityInCart);
+      
+      let canAdd = true;
+      if (foundItem.type === 'product') {
+          const productDetails = products.find(p => p.id === foundItem.id);
+          if (productDetails && prospectiveQuantityInCart > productDetails.stock) {
+              canAdd = false;
+          }
       }
 
-      setCartItems((prevCart) => {
-        const existingItem = prevCart.find((item) => item.id === product.id);
-        if (existingItem) {
-          if (existingItem.quantity < product.stock) {
-            playSound(); // Play sound only if quantity actually increases
-            return prevCart.map((item) =>
-              item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-            );
-          }
-          return prevCart;
-        } else {
-          playSound();
-          const cartItemToAdd: CartItem = {
-            id: product.id, name: product.name, price: product.sellingPrice, quantity: 1, type: 'product',
-            imageUrl: product.imageUrl || defaultPlaceholder(product.name),
-            dataAiHint: product.dataAiHint, category: product.category,
-            barcode: product.barcode, stock: product.stock, costPrice: product.costPrice,
-            itemSpecificPhoneNumber: '',
-            itemSpecificNote: ''
-          };
-          return [...prevCart, cartItemToAdd];
+      if (canAdd) {
+        setCartItems((prevCart) => {
+            const existingItem = prevCart.find((item) => item.id === foundItem!.id);
+            if (existingItem) {
+                playSound(); 
+                return prevCart.map((item) =>
+                item.id === foundItem!.id ? { ...item, quantity: item.quantity + 1 } : item
+                );
+            } else {
+                playSound();
+                const cartItemToAdd: CartItem = {
+                    id: foundItem!.id, name: foundItem!.name, price: (foundItem as any).sellingPrice, quantity: 1, type: foundItem!.type,
+                    imageUrl: foundItem!.imageUrl || defaultPlaceholder(foundItem!.name),
+                    dataAiHint: foundItem!.dataAiHint, category: foundItem!.category,
+                    barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock, costPrice: (foundItem as Product).costPrice,
+                    itemSpecificPhoneNumber: '',
+                    itemSpecificNote: ''
+                };
+                return [...prevCart, cartItemToAdd];
+            }
+        });
+        toast({ title: "Item Added", description: `${foundItem.name} added to cart.` });
+        if (foundItem.type === 'product') {
+            checkAndNotifyLowStock(foundItem as Product, prospectiveQuantityInCart);
         }
-      });
-      toast({ title: "Item Added", description: `${product.name} added to cart.` });
+      } else {
+           toast({ title: "Stock Limit Reached", description: `Cannot add more ${foundItem.name}. Max stock available.`, variant: "destructive" });
+      }
+
     } else {
       toast({ title: "Item Not Found", description: "No product matched your search.", variant: "destructive" });
     }
@@ -340,7 +351,7 @@ export default function BillingPage() {
                 id: service.id, name: service.name, price: service.sellingPrice, quantity: 1, type: 'service',
                 imageUrl: service.imageUrl || defaultPlaceholder(service.name),
                 dataAiHint: service.dataAiHint, category: service.category,
-                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, // Services might not have a costPrice or it's handled differently
+                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, 
                 itemSpecificPhoneNumber: details.phoneNumber || '',
                 itemSpecificNote: details.note || ''
             };
@@ -378,12 +389,14 @@ export default function BillingPage() {
       }
       checkAndNotifyLowStock(productDetails, quantityToSet);
     }
+    
+    const previousQuantity = cartItem.quantity;
 
     setCartItems((prevCart) =>
       prevCart.map((item) => (item.id === itemId ? { ...item, quantity: quantityToSet } : item))
     );
 
-    if (newQuantity > (cartItem.quantity || 0) && (cartItem.type !== 'product' || (productDetails && quantityToSet <= productDetails.stock))) {
+    if (quantityToSet > previousQuantity && (cartItem.type !== 'product' || (productDetails && quantityToSet <= productDetails.stock))) {
         playSound();
     }
   };
@@ -463,7 +476,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate: currentGstRate, // Store the rate used for this invoice
+      gstRate: currentGstRate, 
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -572,13 +585,12 @@ export default function BillingPage() {
   const performPrint = (mode: 'a4' | 'thermal') => {
     if (!currentInvoice) {
       toast({ title: "Print Error", description: "No invoice selected to print.", variant: "destructive" });
-      // Ensure both dialogs are closed if currentInvoice is somehow null
       setIsPrintFormatDialogOpen(false);
       setIsInvoiceDialogOpen(false);
       return;
     }
     
-    setIsPrintFormatDialogOpen(false); // Close the format selection dialog first
+    setIsPrintFormatDialogOpen(false); 
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -588,12 +600,10 @@ export default function BillingPage() {
         document.body.classList.remove('print-mode-a4');
     }
 
-    // Delay to allow DOM updates (dialog closing, class adding) to apply
     setTimeout(() => {
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
-
-        // Reset cart and invoice details after printing
+        
         setCartItems([]);
         setCustomerName('');
         setCustomerPhoneNumber('');
@@ -606,7 +616,7 @@ export default function BillingPage() {
         setSearchTerm('');
         
         setCurrentInvoice(null);
-        setIsInvoiceDialogOpen(false); // Ensure main invoice preview dialog is also closed
+        setIsInvoiceDialogOpen(false); 
     }, 150); 
   };
 
@@ -839,7 +849,6 @@ export default function BillingPage() {
       {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => {
             if (!openState) {
-                // Only clear currentInvoice if print format dialog is NOT also trying to open or already open
                 if (!isPrintFormatDialogOpen) { 
                     setCurrentInvoice(null); 
                 }
@@ -853,8 +862,8 @@ export default function BillingPage() {
               <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
-            <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2 print-hide pt-4">
-              <div className="flex flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:justify-between md:items-center print-hide pt-4 gap-2">
+              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -878,7 +887,7 @@ export default function BillingPage() {
                     }}
                     disabled={!currentInvoice?.customerPhoneNumber}
                   >
-                    Share via WhatsApp
+                    <MessageSquare className="mr-2 h-4 w-4" /> Share via WhatsApp
                   </Button>
                   <Button
                     type="button"
@@ -896,7 +905,7 @@ export default function BillingPage() {
                     Send SMS (Simulated)
                   </Button>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
                 <Button type="button" variant="secondary" onClick={() => {setIsInvoiceDialogOpen(false); setCurrentInvoice(null);}}>Close</Button>
                 <Button type="button" onClick={handleFinalizeSale}>
                     <Printer className="w-4 h-4 mr-2" />
@@ -910,11 +919,10 @@ export default function BillingPage() {
 
       {isPrintFormatDialogOpen && currentInvoice && (
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
-             if(!open) { // This is triggered by AlertDialogCancel or overlay click
+             if(!open) { 
                 setIsPrintFormatDialogOpen(false);
                 setIsInvoiceDialogOpen(false); 
                 setCurrentInvoice(null);
-                // Reset cart and other states as this means printing was cancelled *after* finalizing
                 setCartItems([]);
                 setCustomerName('');
                 setCustomerPhoneNumber('');
@@ -949,3 +957,4 @@ export default function BillingPage() {
     </div>
   );
 }
+
