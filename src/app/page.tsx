@@ -3,7 +3,6 @@
 
 import { useState, useEffect, ChangeEvent, useRef } from 'react';
 import type { Product, Service, CartItem, Invoice, SearchableItem, ExistingCustomer } from '@/lib/types';
-// Removed import from '@/lib/mockData';
 import { ItemGrid } from '@/components/dashboard/ItemGrid';
 import { CartDisplay } from '@/components/dashboard/CartDisplay';
 import { ServiceDetailsDialog } from '@/components/dashboard/ServiceDetailsDialog'; // New Dialog
@@ -573,10 +572,13 @@ export default function BillingPage() {
   const performPrint = (mode: 'a4' | 'thermal') => {
     if (!currentInvoice) {
       toast({ title: "Print Error", description: "No invoice selected to print.", variant: "destructive" });
+      // Ensure both dialogs are closed if currentInvoice is somehow null
       setIsPrintFormatDialogOpen(false);
       setIsInvoiceDialogOpen(false);
       return;
     }
+    
+    setIsPrintFormatDialogOpen(false); // Close the format selection dialog first
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -586,12 +588,12 @@ export default function BillingPage() {
         document.body.classList.remove('print-mode-a4');
     }
 
+    // Delay to allow DOM updates (dialog closing, class adding) to apply
     setTimeout(() => {
         window.print();
-        document.body.classList.remove('print-mode-a4');
-        document.body.classList.remove('print-mode-thermal');
+        document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
 
-
+        // Reset cart and invoice details after printing
         setCartItems([]);
         setCustomerName('');
         setCustomerPhoneNumber('');
@@ -602,11 +604,10 @@ export default function BillingPage() {
         setAmountReceived('');
         setBalanceAmount(0);
         setSearchTerm('');
-
+        
         setCurrentInvoice(null);
-        setIsInvoiceDialogOpen(false);
-        setIsPrintFormatDialogOpen(false);
-    }, 250);
+        setIsInvoiceDialogOpen(false); // Ensure main invoice preview dialog is also closed
+    }, 150); 
   };
 
 
@@ -838,7 +839,8 @@ export default function BillingPage() {
       {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => {
             if (!openState) {
-                if (!isPrintFormatDialogOpen) {
+                // Only clear currentInvoice if print format dialog is NOT also trying to open or already open
+                if (!isPrintFormatDialogOpen) { 
                     setCurrentInvoice(null); 
                 }
                 setIsInvoiceDialogOpen(false); 
@@ -846,7 +848,7 @@ export default function BillingPage() {
                 setIsInvoiceDialogOpen(true);
             }
         }}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl invoice-view-dialog-content">
             <DialogHeader>
               <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle>
             </DialogHeader>
@@ -907,7 +909,24 @@ export default function BillingPage() {
       )}
 
       {isPrintFormatDialogOpen && currentInvoice && (
-         <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={setIsPrintFormatDialogOpen}>
+         <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
+             if(!open) { // This is triggered by AlertDialogCancel or overlay click
+                setIsPrintFormatDialogOpen(false);
+                setIsInvoiceDialogOpen(false); 
+                setCurrentInvoice(null);
+                // Reset cart and other states as this means printing was cancelled *after* finalizing
+                setCartItems([]);
+                setCustomerName('');
+                setCustomerPhoneNumber('');
+                setCardNumber('');
+                setCardExpiry('');
+                setCardCvv('');
+                setUpiId('');
+                setAmountReceived('');
+                setBalanceAmount(0);
+                setSearchTerm('');
+             }
+         }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                 <AlertDialogTitle>Select Print Format</AlertDialogTitle>
@@ -922,21 +941,7 @@ export default function BillingPage() {
                     <Button variant="outline" onClick={() => performPrint('thermal')} className="w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
-                     <AlertDialogCancel onClick={() => {
-                        setIsPrintFormatDialogOpen(false);
-                        setCurrentInvoice(null);
-                        setIsInvoiceDialogOpen(false);
-                        setCartItems([]);
-                        setCustomerName('');
-                        setCustomerPhoneNumber('');
-                        setCardNumber('');
-                        setCardExpiry('');
-                        setCardCvv('');
-                        setUpiId('');
-                        setAmountReceived('');
-                        setBalanceAmount(0);
-                        setSearchTerm('');
-                     }} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel Printing</AlertDialogCancel>
+                     <AlertDialogCancel className="w-full sm:w-auto mt-2 sm:mt-0">Cancel Printing</AlertDialogCancel>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -944,4 +949,3 @@ export default function BillingPage() {
     </div>
   );
 }
-

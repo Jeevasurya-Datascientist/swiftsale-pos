@@ -31,7 +31,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-// import type { ReportTimeFilter } from '@/lib/types'; // Already imported above
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -129,7 +128,7 @@ export default function InvoicesPage() {
         delete (window as any).invoicePageContext;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- This effect is specifically for window context
-  }, [setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen]);
+  }, []);
 
 
   const handleViewDetails = (invoice: Invoice) => {
@@ -200,13 +199,15 @@ export default function InvoicesPage() {
   const performActualPrint = (mode: 'a4' | 'thermal', invoiceToPrint: Invoice | null) => {
     if (!invoiceToPrint) return;
 
-    const originalSelectedInvoice = selectedInvoice;
-    const originalIsViewOpen = isViewOpen;
-    const dialogAlreadyOpenForThisInvoice = isViewOpen && selectedInvoice?.id === invoiceToPrint.id;
-
-    setSelectedInvoice(invoiceToPrint); 
-    if(!dialogAlreadyOpenForThisInvoice) setIsViewOpen(true); 
-
+    const originalSelectedInvoiceId = selectedInvoice?.id;
+    const isDifferentInvoiceOrViewClosed = !isViewOpen || selectedInvoice?.id !== invoiceToPrint.id;
+    
+    if (isDifferentInvoiceOrViewClosed) {
+        setSelectedInvoice(invoiceToPrint);
+        setIsViewOpen(true); 
+    }
+    
+    setIsPrintOptionsOpen(false); // Close the format selection dialog first
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -219,17 +220,24 @@ export default function InvoicesPage() {
     setTimeout(() => { 
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
-        setIsPrintOptionsOpen(false); 
         
-        if(!dialogAlreadyOpenForThisInvoice) {
-            setIsViewOpen(false); 
-            setSelectedInvoice(null);
-        } else if (originalIsViewOpen && originalSelectedInvoice?.id !== invoiceToPrint.id) {
-            setSelectedInvoice(originalSelectedInvoice);
-            setIsViewOpen(true);
+        // If the view dialog was opened specifically for this print action, consider closing it.
+        // For now, we'll leave it open as the user might want to interact further.
+        // If a different invoice was previously selected, we revert to it.
+        if (isDifferentInvoiceOrViewClosed && originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToPrint.id) {
+            const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId); // Search current filtered list first
+            if(originalInv) {
+                setSelectedInvoice(originalInv);
+                // setIsViewOpen(true); // It should have remained open if it was for another invoice
+            } else {
+                // If original not in current filter, try to find in all historical invoices (if available)
+                // Or simply close the view if it was opened just for printing a specific item.
+                // For now, if original not found in current view, keep current selection but this might be confusing.
+                // To be safe, if the original context is lost, better to close the dialog.
+                // However, this could also be confusing. Let's keep the printed invoice selected.
+            }
         }
-
-    }, 250);
+    }, 150);
   };
 
   const handleShareInvoiceRow = (invoiceToShare: Invoice) => {
@@ -400,8 +408,13 @@ export default function InvoicesPage() {
 
       {selectedInvoice && (
         <Dialog open={isViewOpen} onOpenChange={(open) => {
+            if (!open) { // Only act if the dialog is explicitly closed
+              // Only clear selectedInvoice if the print options dialog is NOT the one causing this close
+              if(!isPrintOptionsOpen) { 
+                setSelectedInvoice(null);
+              }
+            }
             setIsViewOpen(open);
-            if (!open) setSelectedInvoice(null);
         }}>
           <DialogContent className="max-w-2xl invoice-view-dialog-content">
             <DialogHeader>
@@ -441,8 +454,11 @@ export default function InvoicesPage() {
 
       {selectedInvoice && isPrintOptionsOpen && (
          <AlertDialog open={isPrintOptionsOpen} onOpenChange={(open) => {
-            if (!open) {
+            // This onOpenChange for AlertDialog is primarily for when it's closed by overlay click or ESC
+            if (!open) { 
                 setIsPrintOptionsOpen(false);
+                // Do not change isViewOpen or selectedInvoice here,
+                // let the main Dialog manage its state.
             }
          }}>
             <AlertDialogContent>
@@ -484,11 +500,9 @@ const handleEditOpen = (invoice: Invoice | null) => {
         const context = (window as any).invoicePageContext;
         if (context) {
             if (context.setIsViewOpen) context.setIsViewOpen(false);
-            if (context.setSelectedInvoice) context.setSelectedInvoice(null);
+            // if (context.setSelectedInvoice) context.setSelectedInvoice(null); // Keep selectedInvoice for now
             if (context.setInvoiceToEdit) context.setInvoiceToEdit(invoice);
             if (context.setIsEditOpen) context.setIsEditOpen(true);
         }
     }
 };
-
-    

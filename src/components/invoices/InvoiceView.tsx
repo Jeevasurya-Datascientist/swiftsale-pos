@@ -173,49 +173,44 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             color-adjust: exact !important;
           }
 
-          /* Hide elements not part of the invoice print */
-          .print-hide {
-            display: none !important;
+          .print-hide,
+          div[role="alertdialog"], /* Hides the print format selection dialog */
+          [data-radix-dialog-overlay], /* Hides all dialog overlays */
+          [data-radix-alert-dialog-overlay] { 
+            display: none !important; 
           }
           
-          .invoice-view-dialog-content { 
-            position: static !important;
-            width: auto !important;
-            max-width: none !important;
-            height: auto !important;
-            max-height: none !important;
-            transform: none !important;
-            translate: none !important;
-            border: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-            background: transparent !important; 
-            overflow: visible !important;
-            left: unset !important; 
-            top: unset !important;
-            grid-template-columns: 1fr !important; 
+          /* Ensure the specific DialogContent that wraps InvoiceView IS visible and reset for printing */
+          /* This rule is critical to make sure the invoice content itself is printed */
+          .invoice-view-dialog-content {
+              display: block !important; 
+              position: static !important;
+              width: 100% !important; /* For A4, take full printable width */
+              height: auto !important;
+              max-width: none !important;
+              max-height: none !important;
+              overflow: visible !important;
+              transform: none !important;
+              border: none !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              box-shadow: none !important;
+              background: transparent !important; 
+              left: unset !important; 
+              top: unset !important;
           }
-          .invoice-view-dialog-content > button[aria-label="Close"] { 
+           .invoice-view-dialog-content > button[aria-label="Close"] { 
             display: none !important;
           }
-          .invoice-view-dialog-content > .print-hide { 
-             display: none !important;
-          }
 
 
+          /* Styling for the InvoiceView root itself when printing */
           .invoice-view-print-root {
-            position: static !important; 
-            width: 100% !important; 
-            height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
             background-color: #fff !important;
-            padding: 0 !important; 
-            margin: 0 !important; 
-            border: none !important;
-            box-shadow: none !important;
+            box-sizing: border-box;
+            margin: 0 auto; 
           }
+
 
           /* A4 Specific Styles */
           body.print-mode-a4 @page {
@@ -224,7 +219,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           }
           body.print-mode-a4 .invoice-view-print-root {
             font-family: Arial, Helvetica, sans-serif !important;
-            box-sizing: border-box;
+            width: 100%; /* Use full printable area width defined by @page */
+            min-height: 0; 
           }
           body.print-mode-a4 .print-logo { max-height: 20mm !important; width: auto !important; margin-bottom: 5mm !important; }
           body.print-mode-a4 .print-main-title { font-size: 20pt !important; margin-bottom: 2mm; }
@@ -238,7 +234,6 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-a4 .print-items-table td { font-size: 9pt !important; padding: 2mm 1.5mm !important; border: 1px solid #ccc !important; vertical-align: top; }
           body.print-mode-a4 .print-items-table th { background-color: #f0f0f0 !important; text-align: left; font-weight: bold;}
           body.print-mode-a4 .print-col-image { display: table-cell !important; width: 15mm !important; } 
-          body.print-mode-a4 .print-footer-colspan-adjust { /* Colspan for Img, Item, Qty */ }
           body.print-mode-a4 .print-summary-footer td { font-size: 10pt !important; padding: 1.5mm !important; }
           body.print-mode-a4 .print-summary-footer .font-bold { font-size: 11pt !important; }
           body.print-mode-a4 .print-final-details { font-size: 10pt !important; margin-top: 8mm !important; }
@@ -250,13 +245,13 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           /* Thermal Specific Styles (e.g., 58mm paper width) */
           body.print-mode-thermal .invoice-view-print-root {
             font-family: 'Courier New', Courier, monospace !important;
-            max-width: 57mm; /* Ensure content doesn't exceed typical thermal paper width */
-            margin: 0 auto; /* Center content if paper is wider */
-            box-sizing: border-box;
+            width: 57mm; 
+            padding: 2mm; 
+            min-height: 0;
           }
           body.print-mode-thermal @page {
             size: 57mm auto; 
-            margin: 2mm 2mm 2mm 3mm; 
+            margin: 1mm 1mm 1mm 2mm; 
           }
           body.print-mode-thermal .print-header-section, 
           body.print-mode-thermal .print-thankyou-message { text-align: center !important; }
@@ -267,8 +262,9 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 3mm !important;}
           body.print-mode-thermal .print-address-grid > div { width: 100% !important; text-align: left !important; font-size: 7pt !important; line-height: 1.2; }
           body.print-mode-thermal .print-billed-to { margin-bottom: 2mm; }
+          body.print-mode-thermal .print-from-address { text-align: center !important; } 
           body.print-mode-thermal .print-section-title { font-size: 8pt !important; font-weight: bold !important; margin-bottom: 1mm; text-align: center; }
-          body.print-mode-thermal .print-items-title { text-align: left; } /* Specific for "Items:" title */
+          body.print-mode-thermal .print-items-title { text-align: left; } 
           
           body.print-mode-thermal .print-items-table { width: 100% !important; border-collapse: collapse; table-layout: fixed;}
           body.print-mode-thermal .print-items-table th, body.print-mode-thermal .print-items-table td {
@@ -276,8 +272,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             padding: 0.5mm 0.2mm !important; 
             vertical-align: top;
             border: none !important;
-            overflow-wrap: break-word; /* For long item names */
-            word-break: break-word; /* Ensure long words break */
+            overflow-wrap: break-word; 
+            word-break: break-word; 
           }
           body.print-mode-thermal .print-items-table th { border-bottom: 1px dashed #555 !important; font-weight: normal; text-transform: uppercase; text-align: left;}
           body.print-mode-thermal .print-col-image { display: none !important; }
@@ -290,7 +286,6 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           
           body.print-mode-thermal .print-summary-footer { margin-top: 2mm; }
           body.print-mode-thermal .print-summary-footer td { font-size: 7pt !important; padding: 0.5mm 0.2mm !important;}
-          body.print-mode-thermal .print-summary-footer .font-bold { font-size: 8pt !important; }
           body.print-mode-thermal .print-summary-footer .print-footer-colspan-adjust { display: none !important; } 
           body.print-mode-thermal .print-summary-footer .print-summary-label { text-align: left !important; padding-left: 0 !important; font-weight: normal; width: 60%;}
           body.print-mode-thermal .print-summary-footer .print-summary-value { text-align: right !important; padding-right: 0 !important; font-weight: bold; width: 40%;}
@@ -306,4 +301,3 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
     </div>
   );
 }
-
