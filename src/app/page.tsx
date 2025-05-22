@@ -81,7 +81,7 @@ export default function BillingPage() {
                 if(Array.isArray(parsed)) {
                     finalProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
-                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0);
+                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0));
                         const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
@@ -287,24 +287,25 @@ export default function BillingPage() {
         const existingItem = prevCart.find((item) => item.id === product.id);
         if (existingItem) {
           if (existingItem.quantity < product.stock) {
+            playSound(); // Play sound only if quantity actually increases
             return prevCart.map((item) =>
               item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
             );
           }
           return prevCart;
         } else {
+          playSound();
           const cartItemToAdd: CartItem = {
             id: product.id, name: product.name, price: product.sellingPrice, quantity: 1, type: 'product',
             imageUrl: product.imageUrl || defaultPlaceholder(product.name),
             dataAiHint: product.dataAiHint, category: product.category,
             barcode: product.barcode, stock: product.stock, costPrice: product.costPrice,
-            itemSpecificPhoneNumber: '', 
-            itemSpecificNote: '' 
+            itemSpecificPhoneNumber: '',
+            itemSpecificNote: ''
           };
           return [...prevCart, cartItemToAdd];
         }
       });
-      playSound();
       toast({ title: "Item Added", description: `${product.name} added to cart.` });
     } else {
       toast({ title: "Item Not Found", description: "No product matched your search.", variant: "destructive" });
@@ -823,15 +824,12 @@ export default function BillingPage() {
 
       {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => {
-            // If the dialog is being closed (openState is false)
             if (!openState) {
-                // And if the print format dialog is NOT currently open (meaning we are not in the middle of the print flow)
                 if (!isPrintFormatDialogOpen) {
-                    setCurrentInvoice(null); // Then it's safe to clear the invoice
+                    setCurrentInvoice(null); 
                 }
-                setIsInvoiceDialogOpen(false); // Always update the dialog's own open state
+                setIsInvoiceDialogOpen(false); 
             } else {
-                // If dialog is being opened (openState is true)
                 setIsInvoiceDialogOpen(true);
             }
         }}>
