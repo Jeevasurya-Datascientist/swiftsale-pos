@@ -173,19 +173,15 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             color-adjust: exact !important;
           }
 
-          .print-hide,
-          div[role="alertdialog"], /* Hides the print format selection dialog */
-          [data-radix-dialog-overlay], /* Hides all dialog overlays */
-          [data-radix-alert-dialog-overlay] { 
-            display: none !important; 
+          /* --- START: AGGRESSIVE HIDING & ISOLATION --- */
+          body > *:not(.invoice-view-dialog-content):not(script):not(style) {
+            display: none !important;
           }
           
-          /* Ensure the specific DialogContent that wraps InvoiceView IS visible and reset for printing */
-          /* This rule is critical to make sure the invoice content itself is printed */
           .invoice-view-dialog-content {
               display: block !important; 
               position: static !important;
-              width: 100% !important; /* For A4, take full printable width */
+              width: 100% !important;
               height: auto !important;
               max-width: none !important;
               max-height: none !important;
@@ -198,17 +194,33 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
               background: transparent !important; 
               left: unset !important; 
               top: unset !important;
+              z-index: auto !important; 
           }
            .invoice-view-dialog-content > button[aria-label="Close"] { 
             display: none !important;
           }
 
+          [data-radix-dialog-overlay],
+          [data-radix-alert-dialog-overlay],
+          [role="alertdialog"] { /* Hides the print format selection dialog */
+            display: none !important; 
+          }
+          
+          .print-hide,
+          .print-hide-icon { /* General class to hide elements & specific for icons if needed */
+            display: none !important; 
+          }
+          /* --- END: AGGRESSIVE HIDING & ISOLATION --- */
 
-          /* Styling for the InvoiceView root itself when printing */
           .invoice-view-print-root {
             background-color: #fff !important;
             box-sizing: border-box;
-            margin: 0 auto; 
+            margin: 0 auto;
+            position: static !important;
+            width: 100%;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
           }
 
 
@@ -219,8 +231,6 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           }
           body.print-mode-a4 .invoice-view-print-root {
             font-family: Arial, Helvetica, sans-serif !important;
-            width: 100%; /* Use full printable area width defined by @page */
-            min-height: 0; 
           }
           body.print-mode-a4 .print-logo { max-height: 20mm !important; width: auto !important; margin-bottom: 5mm !important; }
           body.print-mode-a4 .print-main-title { font-size: 20pt !important; margin-bottom: 2mm; }
@@ -228,7 +238,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-a4 .print-address-grid { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8mm !important; font-size: 10pt;}
           body.print-mode-a4 .print-address-grid > div { width: 48%; }
           body.print-mode-a4 .print-from-address { text-align: right !important; }
-          body.print-mode-a4 .print-section-title { font-size: 12pt !important; margin-bottom: 2mm; }
+          body.print-mode-a4 .print-section-title { font-size: 12pt !important; margin-bottom: 2mm; font-weight: bold; }
+          body.print-mode-a4 .print-items-title { text-align: left; }
           body.print-mode-a4 .print-items-table { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
           body.print-mode-a4 .print-items-table th, 
           body.print-mode-a4 .print-items-table td { font-size: 9pt !important; padding: 2mm 1.5mm !important; border: 1px solid #ccc !important; vertical-align: top; }
@@ -239,30 +250,44 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-a4 .print-final-details { font-size: 10pt !important; margin-top: 8mm !important; }
           body.print-mode-a4 .print-status-badge { font-size: 10pt !important; padding: 2px 6px !important; }
           body.print-mode-a4 .print-thankyou-message { text-align: center; margin-top: 10mm !important; font-size: 10pt;}
-          body.print-mode-a4 .print-hide-icon { display: inline-block !important; }
+          body.print-mode-a4 .print-hide-icon { display: inline-block !important; } /* Re-show icons for A4 */
 
 
           /* Thermal Specific Styles (e.g., 58mm paper width) */
           body.print-mode-thermal .invoice-view-print-root {
             font-family: 'Courier New', Courier, monospace !important;
             width: 57mm; 
-            padding: 2mm; 
-            min-height: 0;
+            padding: 1mm; /* Reduced padding for thermal */
+            box-sizing: border-box;
           }
           body.print-mode-thermal @page {
             size: 57mm auto; 
-            margin: 1mm 1mm 1mm 2mm; 
+            margin: 0mm; /* Minimal margins for thermal */
           }
           body.print-mode-thermal .print-header-section, 
-          body.print-mode-thermal .print-thankyou-message { text-align: center !important; }
-          body.print-mode-thermal .print-logo { max-height: 10mm !important; width: auto !important; margin-bottom: 3mm !important; }
+          body.print-mode-thermal .print-thankyou-message,
+          body.print-mode-thermal .print-from-address,
+          body.print-mode-thermal .print-final-details { 
+            text-align: center !important; 
+          }
+          body.print-mode-thermal .print-from-address p,
+          body.print-mode-thermal .print-final-details p,
+          body.print-mode-thermal .print-final-details div {
+             text-align: center !important;
+             justify-content: center;
+          }
+          body.print-mode-thermal .print-status-badge {
+            display: inline-block; 
+          }
+
+          body.print-mode-thermal .print-logo { max-height: 10mm !important; width: auto !important; margin-bottom: 2mm !important; }
           body.print-mode-thermal .print-main-title { font-size: 11pt !important; font-weight: bold !important; margin-bottom: 1mm;}
           body.print-mode-thermal .print-invoice-meta { font-size: 7pt !important; line-height: 1.2; margin-bottom: 0.5mm;}
           
-          body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 3mm !important;}
+          body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 2mm !important;}
           body.print-mode-thermal .print-address-grid > div { width: 100% !important; text-align: left !important; font-size: 7pt !important; line-height: 1.2; }
-          body.print-mode-thermal .print-billed-to { margin-bottom: 2mm; }
-          body.print-mode-thermal .print-from-address { text-align: center !important; } 
+          body.print-mode-thermal .print-billed-to { margin-bottom: 1mm; }
+          
           body.print-mode-thermal .print-section-title { font-size: 8pt !important; font-weight: bold !important; margin-bottom: 1mm; text-align: center; }
           body.print-mode-thermal .print-items-title { text-align: left; } 
           
@@ -277,7 +302,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           }
           body.print-mode-thermal .print-items-table th { border-bottom: 1px dashed #555 !important; font-weight: normal; text-transform: uppercase; text-align: left;}
           body.print-mode-thermal .print-col-image { display: none !important; }
-          body.print-mode-thermal .print-hide-icon { display: none !important; }
+          body.print-mode-thermal .print-hide-icon { display: none !important; } /* Ensure icons hidden for thermal */
           body.print-mode-thermal .print-col-item { width: 50%; white-space: normal !important; } 
           body.print-mode-thermal .print-col-qty { width: 10%; text-align: center !important; }
           body.print-mode-thermal .print-col-price { width: 20%; text-align: right !important; white-space: nowrap; }
@@ -291,13 +316,11 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-thermal .print-summary-footer .print-summary-value { text-align: right !important; padding-right: 0 !important; font-weight: bold; width: 40%;}
 
 
-          body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 3mm !important; text-align: center;}
-          body.print-mode-thermal .print-final-details p,
-          body.print-mode-thermal .print-final-details div { text-align: center; justify-content: center;}
-          body.print-mode-thermal .print-status-badge { font-size: 7pt !important; padding: 0.5mm 1mm !important; display: inline-block;}
+          body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 3mm !important; }
           body.print-mode-thermal .print-thankyou-message { margin-top: 3mm !important; font-size: 8pt !important; font-weight: bold; }
         }
       `}</style>
     </div>
   );
 }
+
