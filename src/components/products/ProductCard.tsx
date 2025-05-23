@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Package, Edit3, Trash2, TrendingUp } from 'lucide-react'; // Added TrendingUp for profit indication
+import { DollarSign, Package, Edit3, Trash2, TrendingUp, Percent } from 'lucide-react'; // Added Percent
 
 interface ProductCardProps {
   product: Product;
@@ -24,6 +24,7 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
 
   const costPriceNum = typeof product.costPrice === 'number' ? product.costPrice : 0;
   const sellingPriceNum = typeof product.sellingPrice === 'number' ? product.sellingPrice : 0;
+  const gstPercentageNum = typeof product.gstPercentage === 'number' ? product.gstPercentage : 0;
 
   const costPriceDisplay = costPriceNum.toFixed(2);
   const sellingPriceDisplay = sellingPriceNum.toFixed(2);
@@ -57,6 +58,13 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
             Sell: {currencySymbol}{sellingPriceDisplay}
           </Badge>
         </div>
+         {gstPercentageNum > 0 && (
+          <div className="flex justify-between items-center mb-1">
+            <p className="text-xs text-muted-foreground flex items-center">
+              GST: {gstPercentageNum}% <Percent className="w-3 h-3 ml-0.5"/>
+            </p>
+          </div>
+        )}
         <div className="flex justify-between items-center mb-2">
            <Badge variant={getStockBadgeVariant()}>
             Stock: {product.stock}
@@ -67,14 +75,14 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
               {isFinite(profitPercentage) && ` (${profitPercentage.toFixed(0)}%)`}
             </Badge>
           )}
-           {profitMargin <= 0 && sellingPriceNum > 0 && ( // Only show loss if selling price is positive
+           {profitMargin <= 0 && sellingPriceNum > 0 && ( 
              <Badge variant="destructive" className="flex items-center gap-1">
                Loss: {currencySymbol}{Math.abs(profitMargin).toFixed(2)}
             </Badge>
            )}
         </div>
         <p className="text-xs text-muted-foreground">Category: {product.category || 'N/A'}</p>
-        <p className="text-xs text-muted-foreground">Barcode: {product.barcode}</p>
+        <p className="text-xs text-muted-foreground">Barcode: {product.barcode || 'N/A'}</p>
       </CardContent>
       <CardFooter className="p-4 border-t flex gap-2">
         <Button variant="outline" size="sm" onClick={() => onEdit(product)} className="flex-1">
@@ -87,4 +95,3 @@ export function ProductCard({ product, onEdit, onDelete, currencySymbol }: Produ
     </Card>
   );
 }
-

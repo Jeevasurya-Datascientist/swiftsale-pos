@@ -12,35 +12,35 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Settings as SettingsIcon, Save, UploadCloud, Percent } from 'lucide-react';
+import { Settings as SettingsIcon, Save, UploadCloud } from 'lucide-react'; // Removed Percent
 import Image from 'next/image';
 import React, { useEffect, useState } from 'react';
 
+// Updated schema: removed gstRate
 const settingsSchema = z.object({
   shopName: z.string().min(1, "Shop name is required"),
   shopLogoUrl: z.string().optional(), 
   shopAddress: z.string().min(1, "Shop address is required"),
   currencySymbol: z.string().min(1, "Currency symbol is required").max(5),
   userName: z.string().min(2, "User name must be at least 2 characters.").max(50).or(z.literal('')).optional(),
-  gstRate: z.coerce.number().min(0, "GST rate cannot be negative.").max(100, "GST rate seems too high."),
+  // gstRate: z.coerce.number().min(0, "GST rate cannot be negative.").max(100, "GST rate seems too high."), // Removed
 });
 
-type SettingsFormValues = z.infer<typeof settingsSchema>;
+type SettingsFormValues = Omit<AppSettings, 'gstRate'>; // Omit gstRate if it was part of AppSettings
 
 export default function SettingsPage() {
-  const { shopName, shopLogoUrl, shopAddress, currencySymbol, userName, gstRate, updateSettings, isSettingsLoaded } = useSettings();
+  const { shopName, shopLogoUrl, shopAddress, currencySymbol, userName, updateSettings, isSettingsLoaded } = useSettings();
   const { toast } = useToast();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   const { control, handleSubmit, reset, formState: { errors, isDirty }, setValue, watch } = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: {
-      shopName,
-      shopLogoUrl,
-      shopAddress,
-      currencySymbol,
-      userName,
-      gstRate,
+    defaultValues: { // Ensure defaultValues match SettingsFormValues
+      shopName: shopName || '',
+      shopLogoUrl: shopLogoUrl || '',
+      shopAddress: shopAddress || '',
+      currencySymbol: currencySymbol || '₹',
+      userName: userName || '',
     }
   });
 
@@ -54,12 +54,12 @@ export default function SettingsPage() {
         shopAddress: shopAddress || '',
         currencySymbol: currencySymbol || '₹',
         userName: userName || '',
-        gstRate: typeof gstRate === 'number' ? gstRate : 5, // Default to 5 if not set or invalid
+        // gstRate removed
       };
       reset(initialValues);
       setLogoPreview(shopLogoUrl || null);
     }
-  }, [isSettingsLoaded, shopName, shopLogoUrl, shopAddress, currencySymbol, userName, gstRate, reset]);
+  }, [isSettingsLoaded, shopName, shopLogoUrl, shopAddress, currencySymbol, userName, reset]);
 
   useEffect(() => {
     setLogoPreview(currentShopLogoUrl || null);
@@ -72,7 +72,7 @@ export default function SettingsPage() {
       title: 'Settings Saved',
       description: 'Your application settings have been updated.',
     });
-    reset(data); // Reset form with new data to clear isDirty state
+    reset(data); 
   };
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,6 +135,7 @@ export default function SettingsPage() {
                       width={64}
                       height={64}
                       className="rounded-md object-contain border"
+                      data-ai-hint="shop logo"
                       onError={() => setLogoPreview(null)} 
                     />
                   )}
@@ -189,17 +190,7 @@ export default function SettingsPage() {
                   />
                   {errors.currencySymbol && <p className="text-sm text-destructive mt-1">{errors.currencySymbol.message}</p>}
                 </div>
-                <div>
-                    <Label htmlFor="gstRate" className="flex items-center">
-                        GST Rate <Percent className="w-3 h-3 ml-1 text-muted-foreground" />
-                    </Label>
-                    <Controller
-                        name="gstRate"
-                        control={control}
-                        render={({ field }) => <Input id="gstRate" type="number" {...field} placeholder="e.g., 5 for 5%" className="w-32" />}
-                    />
-                    {errors.gstRate && <p className="text-sm text-destructive mt-1">{errors.gstRate.message}</p>}
-                </div>
+                {/* GST Rate input field removed */}
               </div>
           </CardContent>
         </Card>

@@ -24,11 +24,10 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
   const displayShopName = invoice.shopName || contextShopName;
   const displayAmountReceived = invoice.amountReceived;
   const displayBalanceAmount = invoice.balanceAmount;
-  const displayGstRatePercentage = (invoice.gstRate * 100).toFixed(invoice.gstRate * 100 % 1 === 0 ? 0 : 2);
-
+  // displayGstRatePercentage removed as GST is now a sum
 
   return (
-    <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto invoice-view-print-root">
+    <div id="invoice-view-content" className="p-2 space-y-4 max-h-[70vh] overflow-y-auto invoice-view-print-root">
       <div className="text-center mb-6 print-header-section">
         {shopLogoUrl && (
           <Image
@@ -36,7 +35,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             alt={`${displayShopName} Logo`}
             width={80}
             height={80}
-            className="rounded-sm object-contain mb-2 print-logo" // Removed mx-auto
+            className="rounded-sm object-contain mb-2 print-logo"
             data-ai-hint="shop logo"
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
@@ -69,7 +68,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         <TableHeader>
           <TableRow>
             <TableHead className="w-[60px] print-col-image">Img</TableHead>
-            <TableHead className="print-col-item">Item</TableHead>
+            <TableHead className="print-col-item">Item Details</TableHead>
             <TableHead className="text-center print-col-qty">Qty</TableHead>
             <TableHead className="text-right print-col-price">Price</TableHead>
             <TableHead className="text-right print-col-total">Total</TableHead>
@@ -98,6 +97,9 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
                 </div>
                 {item.type === 'product' && item.barcode && <div className="text-xs text-muted-foreground print-item-code">Code: {item.barcode}</div>}
                 {item.type === 'service' && item.serviceCode && <div className="text-xs text-muted-foreground print-item-code">Code: {item.serviceCode}</div>}
+                {item.type === 'product' && typeof item.gstPercentage === 'number' && item.gstPercentage > 0 && (
+                  <div className="text-xs text-muted-foreground print-item-gst">GST: {item.gstPercentage}%</div>
+                )}
                 {item.type === 'service' && item.itemSpecificPhoneNumber && (
                   <div className="text-xs text-muted-foreground print-item-phone flex items-center gap-1">
                     <Phone size={10} className="print-hide-icon"/> Contact: {item.itemSpecificPhoneNumber}
@@ -124,7 +126,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           </TableRow>
           <TableRow>
             <TableCell colSpan={3} className="print-footer-colspan-adjust"/>
-            <TableCell className="text-right font-medium print-summary-label">GST ({displayGstRatePercentage}%):</TableCell>
+            {/* Changed to display Total GST Amount instead of a single rate */}
+            <TableCell className="text-right font-medium print-summary-label">Total GST:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.gstAmount.toFixed(2)}</TableCell>
           </TableRow>
           <TableRow className="font-bold text-lg">
@@ -227,22 +230,21 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           }
           body.print-mode-a4 .invoice-view-print-root {
             font-family: Arial, Helvetica, sans-serif !important;
-            /* width: 180mm !important; /* 210mm - 2*15mm margin - Let it be 100% of @page content box */
             width: 100% !important;
             padding: 0 !important;
+            box-sizing: border-box;
           }
           body.print-mode-a4 .print-header-section { text-align: left !important; margin-bottom: 6mm !important; }
           body.print-mode-a4 .print-logo { 
             display: block !important; 
             max-height: 20mm !important; 
-            width: auto !important; /* Let height dictate width based on aspect ratio */
-            max-width: 50mm !important; /* Prevent overly wide logos */
+            width: auto !important; 
+            max-width: 50mm !important; 
             margin-bottom: 4mm !important; 
-            margin-left: 0 !important; /* Align to left */
-            margin-right: auto !important; 
+            margin-left: 0 !important;
           }
-          body.print-mode-a4 .print-shop-details-name { font-size: 14pt !important; margin-bottom: 2mm; text-align: center !important; }
-          body.print-mode-a4 .print-main-title { font-size: 18pt !important; margin-bottom: 2mm; text-align: center !important; }
+          body.print-mode-a4 .print-shop-details-name { font-size: 14pt !important; margin-bottom: 2mm; text-align: center !important; font-weight: bold; }
+          body.print-mode-a4 .print-main-title { font-size: 18pt !important; margin-bottom: 2mm; text-align: center !important; font-weight: bold; }
           body.print-mode-a4 .print-invoice-meta { font-size: 10pt !important; line-height: 1.3; margin-bottom: 1mm; text-align: center !important; }
           
           body.print-mode-a4 .print-address-grid { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8mm !important; font-size: 10pt;}
@@ -257,6 +259,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-a4 .print-col-image { display: table-cell !important; width: 15mm !important; text-align: center;}
           body.print-mode-a4 .print-col-image img { max-width: 100%; height: auto; }
           body.print-mode-a4 .print-item-details-cell { width: auto; }
+          body.print-mode-a4 .print-item-gst { font-size: 8pt !important; }
           body.print-mode-a4 .print-col-qty { width: 10%; text-align: center !important;}
           body.print-mode-a4 .print-col-price, body.print-mode-a4 .print-col-total { width: 18%; text-align: right !important;}
           body.print-mode-a4 .print-summary-footer td { font-size: 10pt !important; padding: 1.5mm !important; }
@@ -282,21 +285,15 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             color: black !important;
           }
           body.print-mode-thermal .print-logo { display: none !important; } 
-          body.print-mode-thermal .print-header-section, 
-          body.print-mode-thermal .print-from-address,
-          body.print-mode-thermal .print-final-details,
-          body.print-mode-thermal .print-thankyou-message { 
-            text-align: center !important; 
-            margin-bottom: 2mm !important;
-          }
+          body.print-mode-thermal .print-header-section { margin-bottom: 2mm !important; border-bottom: 1px solid black !important; padding-bottom: 1mm;}
           body.print-mode-thermal .print-shop-details-name { font-size: 10pt !important; font-weight: bold !important; margin-bottom: 1mm !important; text-transform: uppercase; text-align: center !important;}
-          body.print-mode-thermal .print-main-title { font-size: 9pt !important; font-weight: bold !important; margin-bottom: 1mm; border-top: 1px solid black !important; border-bottom: 1px solid black !important; padding: 0.5mm 0; text-align: center !important;}
+          body.print-mode-thermal .print-main-title { font-size: 9pt !important; font-weight: bold !important; margin-bottom: 1mm; text-align: center !important;}
           body.print-mode-thermal .print-invoice-meta { font-size: 7pt !important; line-height: 1.1; margin-bottom: 0.2mm; text-align: center !important;}
           
-          body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 2mm !important; border-top: 1px dashed black; padding-top: 1mm;}
+          body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 2mm !important; border-bottom: 1px dashed black; padding-bottom: 1mm;}
           body.print-mode-thermal .print-address-grid > div { width: 100% !important; text-align: left !important; font-size: 7pt !important; line-height: 1.2; margin-bottom: 0.5mm;}
           body.print-mode-thermal .print-billed-to { margin-bottom: 1mm; text-align: left !important; }
-          body.print-mode-thermal .print-from-address .print-shop-details-name-alt { font-weight: normal !important; }
+          body.print-mode-thermal .print-from-address .print-shop-details-name-alt { font-weight: normal !important; text-align: center !important; display: block;}
           body.print-mode-thermal .print-from-address .print-shop-details-line { margin: 0; text-align: center !important; }
           body.print-mode-thermal .print-section-title { font-size: 8pt !important; font-weight: bold !important; margin-bottom: 0.5mm; text-align: left; }
           body.print-mode-thermal .print-items-title { text-align: left; border-top: 1px dashed black; padding-top: 1mm; } 
@@ -310,10 +307,15 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             overflow-wrap: break-word; 
             word-break: break-all; 
           }
-          body.print-mode-thermal .print-items-table th { border-bottom: 1px solid black !important; font-weight: bold; text-transform: uppercase;}
+          body.print-mode-thermal .print-items-table th { border-bottom: 1px solid black !important; font-weight: bold; text-transform: uppercase; text-align: left;}
+          body.print-mode-thermal .print-items-table th.print-col-qty { text-align: center !important; }
+          body.print-mode-thermal .print-items-table th.print-col-price,
+          body.print-mode-thermal .print-items-table th.print-col-total { text-align: right !important; }
+
           body.print-mode-thermal .print-col-image { display: none !important; }
           body.print-mode-thermal .print-hide-icon { display: none !important; } 
           body.print-mode-thermal .print-item-details-cell { text-align: left !important; width: 50% !important; } 
+          body.print-mode-thermal .print-item-gst { font-size: 6pt !important; }
           body.print-mode-thermal .print-col-qty { text-align: center !important; width: 10% !important; }
           body.print-mode-thermal .print-col-price { text-align: right !important; white-space: nowrap; width: 20% !important;}
           body.print-mode-thermal .print-col-total { text-align: right !important; white-space: nowrap; width: 20% !important;}
@@ -328,8 +330,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-thermal .print-summary-footer tr.font-bold .print-summary-label,
           body.print-mode-thermal .print-summary-footer tr.font-bold .print-summary-value { font-size: 8pt !important; font-weight: bold !important; }
 
-
-          body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 2mm !important; text-align: center !important;}
+          body.print-mode-thermal .print-final-details { font-size: 7pt !important; margin-top: 2mm !important; text-align: center !important; border-top: 1px dashed black; padding-top: 1mm;}
           body.print-mode-thermal .print-final-details p { margin-bottom: 0.3mm;}
           body.print-mode-thermal .print-thankyou-message { margin-top: 2mm !important; font-size: 8pt !important; font-weight: bold; border-top: 1px solid black !important; padding-top: 1mm; text-align: center !important;}
           body.print-mode-thermal .print-status-badge {
@@ -346,4 +347,3 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
     </div>
   );
 }
-

@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import type { Service } from '@/lib/types';
-// Removed import from '@/lib/mockData'; 
 import { ServiceCard } from '@/components/services/ServiceCard';
 import { AddServiceForm } from '@/components/services/AddServiceForm';
 import { Button } from '@/components/ui/button';
@@ -38,7 +37,7 @@ export default function ServicesPage() {
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-  const { currencySymbol, isSettingsLoaded } = useSettings();
+  const { currencySymbol, isSettingsLoaded } = useSettings(); // currencySymbol might not be used if price removed from ServiceCard
 
   useEffect(() => {
     let loadedServices: Service[] = [];
@@ -50,24 +49,16 @@ export default function ServicesPage() {
           if (Array.isArray(parsed)) {
             loadedServices = parsed.map((s: any) => {
                 const sName = s.name || "Unnamed Service";
-                const sellingPrice = typeof s.sellingPrice === 'number' ? s.sellingPrice : (typeof s.price === 'number' ? s.price : 0);
-                const serviceCode = s.serviceCode || undefined;
-                const imageUrl = s.imageUrl || defaultPlaceholder(sName);
-                const dataAiHint = s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image');
-                const category = s.category || undefined;
-                const description = s.description || undefined;
-                const duration = s.duration || undefined;
-                
+                // sellingPrice removed
                 return {
                     id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                     name: sName,
-                    sellingPrice: sellingPrice,
-                    serviceCode: serviceCode,
-                    imageUrl: imageUrl,
-                    dataAiHint: dataAiHint,
-                    category: category,
-                    description: description,
-                    duration: duration,
+                    serviceCode: s.serviceCode || undefined,
+                    imageUrl: s.imageUrl || defaultPlaceholder(sName),
+                    dataAiHint: s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
+                    category: s.category || undefined,
+                    description: s.description || undefined,
+                    duration: s.duration || undefined,
                 };
             });
           } else {
@@ -89,21 +80,24 @@ export default function ServicesPage() {
     if (isSettingsLoaded && typeof window !== 'undefined') { 
         if (services.length > 0 || localStorage.getItem('appServices')) {
              localStorage.setItem('appServices', JSON.stringify(services));
+        } else if (services.length === 0 && !localStorage.getItem('appServices')) {
+             localStorage.removeItem('appServices');
         }
     }
   }, [services, isSettingsLoaded]);
 
 
-  const handleFormSubmit = (data: Omit<Service, 'id' | 'dataAiHint'>, existingService?: Service) => {
+  const handleFormSubmit = (data: Omit<Service, 'id' | 'dataAiHint' | 'sellingPrice'>, existingService?: Service) => {
     const serviceDataAiHint = data.name.toLowerCase().split(' ').slice(0,2).join(' ');
     const imageUrl = data.imageUrl || defaultPlaceholder(data.name);
     if (existingService) {
+      // Ensure not to spread sellingPrice if it was removed from 'data'
       setServices(services.map(s => s.id === existingService.id ? { ...existingService, ...data, imageUrl, dataAiHint: serviceDataAiHint } : s));
       toast({ title: "Service Updated", description: `${data.name} has been updated.` });
     } else {
       const newService: Service = {
         id: `serv-${Date.now()}`,
-        ...data,
+        ...(data as Omit<Service, 'id' | 'dataAiHint' | 'sellingPrice'>), // Cast data to match the new structure
         imageUrl,
         dataAiHint: serviceDataAiHint,
       };
@@ -182,7 +176,7 @@ export default function ServicesPage() {
               service={service} 
               onEdit={handleEditService} 
               onDelete={() => openDeleteConfirm(service.id)}
-              currencySymbol={currencySymbol} 
+              currencySymbol={currencySymbol} // Will be unused if price removed from card
             />
           ))}
         </div>

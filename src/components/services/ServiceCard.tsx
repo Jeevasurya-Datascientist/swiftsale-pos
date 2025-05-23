@@ -12,7 +12,7 @@ interface ServiceCardProps {
   service: Service;
   onEdit: (service: Service) => void;
   onDelete: (serviceId: string) => void;
-  currencySymbol: string;
+  currencySymbol: string; // Kept for consistency, but price is not shown here
 }
 
 export function ServiceCard({ service, onEdit, onDelete, currencySymbol }: ServiceCardProps) {
@@ -34,15 +34,14 @@ export function ServiceCard({ service, onEdit, onDelete, currencySymbol }: Servi
         {service.description && <CardDescription className="text-xs h-8 overflow-hidden text-ellipsis">{service.description}</CardDescription>}
       </CardHeader>
       <CardContent className="p-4 flex-grow">
+        {/* Selling price display removed as it's dynamic */}
         <div className="flex justify-between items-center mb-2">
-          <Badge variant="secondary" className="text-sm">
-            Price: {currencySymbol}{service.sellingPrice.toFixed(2)}
-          </Badge>
-          {service.duration && (
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Clock className="w-3 h-3" /> {service.duration}
-            </Badge>
-          )}
+            <p className="text-sm text-muted-foreground">Price: Dynamic</p>
+            {service.duration && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                <Clock className="w-3 h-3" /> {service.duration}
+                </Badge>
+            )}
         </div>
         <p className="text-xs text-muted-foreground">Category: {service.category || 'N/A'}</p>
         {service.serviceCode && <p className="text-xs text-muted-foreground">Service Code: {service.serviceCode}</p>}

@@ -2,10 +2,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form"; // Added Controller
+import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import type { Service } from "@/lib/types";
-import React from "react"; // Added React for handleImageUpload
+import React from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,11 +20,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UploadCloud } from "lucide-react"; // Added UploadCloud
+import { UploadCloud } from "lucide-react";
 
+// Removed sellingPrice from schema
 const serviceFormSchema = z.object({
   name: z.string().min(2, "Service name must be at least 2 characters.").max(100),
-  sellingPrice: z.coerce.number().positive("Price must be a positive number."),
+  // sellingPrice: z.coerce.number().positive("Price must be a positive number."), // Removed
   serviceCode: z.string().max(50).optional(),
   category: z.string().optional(),
   description: z.string().max(500, "Description too long.").optional(),
@@ -32,7 +33,7 @@ const serviceFormSchema = z.object({
   imageUrl: z.string().min(1, "Image is required. Provide a URL or upload an image."),
 });
 
-type ServiceFormValues = Omit<Service, 'id' | 'dataAiHint'>;
+type ServiceFormValues = Omit<Service, 'id' | 'dataAiHint' | 'sellingPrice'>; // sellingPrice removed
 
 interface AddServiceFormProps {
   onSubmit: (data: ServiceFormValues, existingService?: Service) => void;
@@ -45,20 +46,20 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
     resolver: zodResolver(serviceFormSchema),
     defaultValues: existingService ? {
       name: existingService.name,
-      sellingPrice: existingService.sellingPrice,
+      // sellingPrice: existingService.sellingPrice, // Removed
       serviceCode: existingService.serviceCode || '',
       category: existingService.category || '',
       description: existingService.description || '',
       duration: existingService.duration || '',
-      imageUrl: existingService.imageUrl, // imageUrl is now mandatory
+      imageUrl: existingService.imageUrl,
     } : {
       name: "",
-      sellingPrice: 0,
+      // sellingPrice: 0, // Removed
       serviceCode: "",
       category: "",
       description: "",
       duration: "",
-      imageUrl: "", // Will be caught by validation if not filled
+      imageUrl: "",
     },
   });
 
@@ -95,19 +96,7 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="sellingPrice"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Selling Price</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="0.00" {...field} step="0.01" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Selling Price field removed */}
           <FormField
             control={form.control}
             name="serviceCode"
@@ -168,13 +157,14 @@ export function AddServiceForm({ onSubmit, existingService, onClose }: AddServic
                 <FormLabel>Service Image <span className="text-destructive">*</span></FormLabel>
                 <div className="mt-1 flex items-center gap-4">
                     {field.value && (
-                        <img // Using <img> for data URLs for broader compatibility
+                        <img
                         src={field.value}
                         alt="Service Preview"
                         width={64}
                         height={64}
                         className="rounded-md object-contain border"
                         style={{maxWidth: '64px', maxHeight: '64px'}}
+                        data-ai-hint="service image"
                         onError={(e) => (e.currentTarget.style.display = 'none')}
                         />
                     )}

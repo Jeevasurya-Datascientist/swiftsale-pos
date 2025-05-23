@@ -13,20 +13,21 @@ export interface Product extends BaseItem {
   stock: number;
   costPrice: number;
   sellingPrice: number;
+  gstPercentage: number; // New: Product-specific GST rate
 }
 
 export interface Service extends BaseItem {
   serviceCode?: string;
   duration?: string;
-  sellingPrice: number;
+  // sellingPrice: number; // Removed: Price is now dynamic at point of sale
 }
 
-export type SearchableItem = (Product | Service) & { price: number; type: 'product' | 'service' };
+export type SearchableItem = (Omit<Product, 'gstPercentage'> | Service) & { price: number; type: 'product' | 'service'; gstPercentage?: number }; // Added gstPercentage for product items
 
 export interface CartItem {
   id: string;
   name: string;
-  price: number;
+  price: number; // This will be the manually entered service charge for services, or sellingPrice for products
   quantity: number;
   imageUrl: string;
   dataAiHint?: string;
@@ -34,9 +35,10 @@ export interface CartItem {
   category?: string;
   itemSpecificPhoneNumber?: string;
   itemSpecificNote?: string;
-  isPriceOverridden?: boolean; // New flag for TNEB or similar services
+  isPriceOverridden?: boolean;
 
-  costPrice?: number;
+  costPrice?: number; // For products, to calculate profit
+  gstPercentage?: number; // For products, specific GST rate
 
   barcode?: string;
   stock?: number;
@@ -47,14 +49,14 @@ export interface CartItem {
 
 
 export interface Invoice {
-  id: string;
+  id:string;
   invoiceNumber: string;
   customerName: string;
   customerPhoneNumber?: string;
   items: CartItem[];
   subTotal: number;
-  gstRate: number;
-  gstAmount: number;
+  // gstRate: number; // Removed: GST is now item-specific for products
+  gstAmount: number; // This will be the SUM of GST from all applicable items
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string;
@@ -70,7 +72,7 @@ export interface AppSettings {
   shopAddress: string;
   currencySymbol: string;
   userName: string;
-  gstRate: number;
+  // gstRate: number; // Removed: Global GST rate is no longer used
 }
 
 export interface TimeSeriesDataPoint {

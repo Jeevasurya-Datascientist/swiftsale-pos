@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   shopAddress: '123 Commerce Street, Business City, 12345',
   currencySymbol: '₹',
   userName: 'Store Admin',
-  gstRate: 5, // Default GST Rate set to 5%
+  // gstRate: 5, // Removed global GST rate
 };
 
 interface SettingsContextType extends AppSettings {
@@ -29,20 +29,12 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     if (storedSettings) {
       try {
         const parsedSettings = JSON.parse(storedSettings);
-        
-        // Ensure gstRate is a number, and provide default if missing or invalid
-        if (parsedSettings.gstRate === undefined || parsedSettings.gstRate === null || typeof parsedSettings.gstRate === 'string') {
-           parsedSettings.gstRate = Number(parsedSettings.gstRate);
-        }
-        if (typeof parsedSettings.gstRate !== 'number' || isNaN(parsedSettings.gstRate)) {
-          parsedSettings.gstRate = DEFAULT_SETTINGS.gstRate;
-        }
-
+        // Removed GST rate specific parsing here as it's no longer global
         const completeSettings = { ...DEFAULT_SETTINGS, ...parsedSettings };
         setSettings(completeSettings);
       } catch (error) {
         console.error("Failed to parse settings from localStorage", error);
-        localStorage.setItem('appSettings', JSON.stringify(DEFAULT_SETTINGS)); // Save defaults if parse fails
+        localStorage.setItem('appSettings', JSON.stringify(DEFAULT_SETTINGS)); 
         setSettings(DEFAULT_SETTINGS);
       }
     } else {
@@ -53,7 +45,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (isSettingsLoaded) { // Only save if initial load is complete
+    if (isSettingsLoaded) { 
         localStorage.setItem('appSettings', JSON.stringify(settings));
     }
   }, [settings, isSettingsLoaded]);
@@ -61,13 +53,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const updateSettings = (newSettings: Partial<AppSettings>) => {
     setSettings(prevSettings => {
       const updated = {...prevSettings, ...newSettings};
-      // Ensure gstRate is stored as a number
-      if (newSettings.gstRate !== undefined) {
-        updated.gstRate = Number(newSettings.gstRate);
-        if (isNaN(updated.gstRate)) {
-          updated.gstRate = DEFAULT_SETTINGS.gstRate; // fallback if conversion fails
-        }
-      }
+      // Removed GST rate specific update logic
       return updated;
     });
   };
@@ -86,4 +72,3 @@ export const useSettings = () => {
   }
   return context;
 };
-

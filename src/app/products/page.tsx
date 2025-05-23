@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import type { Product } from '@/lib/types';
-// Removed import from '@/lib/mockData';
 import { ProductCard } from '@/components/products/ProductCard';
 import { AddProductForm } from '@/components/products/AddProductForm';
 import { Button } from '@/components/ui/button';
@@ -28,7 +27,6 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Package, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useSettings } from '@/context/SettingsContext';
-import { cn } from '@/lib/utils';
 
 const defaultPlaceholder = (name = "Product") => `https://placehold.co/300x200.png?text=${encodeURIComponent(name)}`;
 
@@ -51,26 +49,18 @@ export default function ProductsPage() {
                 if (Array.isArray(parsed)) {
                     loadedProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
-                        const costPrice = typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0);
-                        const sellingPrice = typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0);
-                        const stock = typeof p.stock === 'number' ? p.stock : 0;
-                        const barcode = p.barcode || "";
-                        const imageUrl = p.imageUrl || defaultPlaceholder(pName);
-                        const dataAiHint = p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image');
-                        const category = p.category || undefined;
-                        const description = p.description || undefined;
-
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: costPrice,
-                            sellingPrice: sellingPrice,
-                            stock: stock,
-                            barcode: barcode,
-                            imageUrl: imageUrl,
-                            dataAiHint: dataAiHint,
-                            category: category,
-                            description: description,
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0),
+                            stock: typeof p.stock === 'number' ? p.stock : 0,
+                            barcode: p.barcode || "",
+                            imageUrl: p.imageUrl || defaultPlaceholder(pName),
+                            dataAiHint: p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
+                            category: p.category || undefined,
+                            description: p.description || undefined,
+                            gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : 0, // Default if missing
                         };
                     });
                 } else {
@@ -92,6 +82,10 @@ export default function ProductsPage() {
     if (isSettingsLoaded && typeof window !== 'undefined') { 
         if (products.length > 0 || localStorage.getItem('appProducts')) { 
              localStorage.setItem('appProducts', JSON.stringify(products));
+        } else if (products.length === 0 && !localStorage.getItem('appProducts')) {
+            // If products array is empty and nothing in localStorage, ensure it's cleared
+            // This case is mainly for explicit clearing or first-time load with no seeding
+            localStorage.removeItem('appProducts');
         }
     }
   }, [products, isSettingsLoaded]);
@@ -105,11 +99,9 @@ export default function ProductsPage() {
       const element = document.getElementById(`product-card-${productId}`);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
         element.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'transition-all', 'duration-1000', 'ease-out');
         setTimeout(() => {
           element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
-          
           if (window.history.replaceState) {
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
           }
