@@ -38,8 +38,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 
-declare var html2pdf: any;
-
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -127,11 +125,6 @@ export default function InvoicesPage() {
     loadInvoices();
   }, [loadInvoices]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && typeof html2pdf === 'undefined') {
-      // console.warn('html2pdf.js is not loaded. PDF download functionality will not work. Please include it via CDN or install the package.');
-    }
-  }, []);
 
   useEffect(() => {
     (window as any).invoicePageContext = {
@@ -140,8 +133,7 @@ export default function InvoicesPage() {
     return () => {
         delete (window as any).invoicePageContext;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- This effect is specifically for window context
-  }, []);
+  }, [setIsViewOpen, setSelectedInvoice, setInvoiceToEdit, setIsEditOpen]);
 
 
   const handleViewDetails = (invoice: Invoice) => {
@@ -234,21 +226,18 @@ export default function InvoicesPage() {
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
         
-        if (!wasViewOpenForThisInvoice) { // If view was opened just for this print
+        if (!wasViewOpenForThisInvoice) { 
             setIsViewOpen(false);
             setSelectedInvoice(null);
         } else if (originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToPrint.id) {
-             // This case should not be common if flow is right, but handles if view was switched.
              const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId);
              if(originalInv) {
                 setSelectedInvoice(originalInv);
-                // setIsViewOpen(true); // Keep it open as it was for another invoice
-             } else { // Original invoice no longer found or was never selected
+             } else { 
                 setIsViewOpen(false);
                 setSelectedInvoice(null);
              }
         }
-        // If wasViewOpenForThisInvoice was true, view stays open.
     }, 150);
   };
 
@@ -269,65 +258,6 @@ export default function InvoicesPage() {
     } else {
         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
     }
-  };
-
-  const handleDownloadSelectedInvoiceAsPdf = async (invoiceToDownload: Invoice | null) => {
-    if (!invoiceToDownload) {
-      toast({ title: "Error", description: "No invoice selected for download.", variant: "destructive" });
-      return;
-    }
-    if (typeof html2pdf === 'undefined') {
-      toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded. Cannot download PDF. Please include it in your project.", variant: "destructive" });
-      return;
-    }
-
-    const originalSelectedInvoiceId = selectedInvoice?.id;
-    const wasViewOpenForThisInvoice = isViewOpen && selectedInvoice?.id === invoiceToDownload.id;
-
-    // Ensure the print options dialog (if open) is closed before proceeding.
-    if (isPrintOptionsOpen) setIsPrintOptionsOpen(false);
-
-    if (!wasViewOpenForThisInvoice) {
-        setSelectedInvoice(invoiceToDownload);
-        setIsViewOpen(true); // Ensure the InvoiceView is mounted and rendered
-    }
-
-    // Delay to ensure InvoiceView is rendered if it was just opened
-    setTimeout(async () => {
-        const invoiceElement = document.getElementById('invoice-view-content');
-        if (!invoiceElement) {
-          toast({ title: "Download Error", description: "Invoice content not found for PDF generation. Please try opening invoice details first.", variant: "destructive" });
-          if (!wasViewOpenForThisInvoice) { // If view was opened just for this, close it.
-              setIsViewOpen(false);
-              setSelectedInvoice(null);
-          }
-          return;
-        }
-
-        document.body.classList.add('print-mode-a4');
-        const options = { margin: 10, filename: `invoice-${invoiceToDownload.invoiceNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, logging: false }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-        
-        try {
-          await html2pdf().from(invoiceElement).set(options).save();
-          toast({ title: "PDF Downloaded", description: `Invoice ${invoiceToDownload.invoiceNumber}.pdf downloaded successfully.` });
-        } catch (error) {
-          console.error("Error generating PDF:", error);
-          toast({ title: "PDF Generation Error", description: "An error occurred while generating the PDF.", variant: "destructive" });
-        } finally {
-          document.body.classList.remove('print-mode-a4');
-          // State restoration / cleanup
-           if (!wasViewOpenForThisInvoice) { // If view was opened just for this download
-              setIsViewOpen(false);
-              setSelectedInvoice(null);
-          } else if (originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToDownload.id) {
-             // This case might occur if the view was open for a different invoice.
-             // Revert to the original selected invoice if it's different from the downloaded one.
-              const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId);
-              if(originalInv) setSelectedInvoice(originalInv); else {setIsViewOpen(false); setSelectedInvoice(null);}
-          }
-          // If wasViewOpenForThisInvoice was true (and for the same invoice), we leave the view dialog open as it was.
-        }
-    }, 150);
   };
 
   const filteredInvoicesBySearch = useMemo(() => 
@@ -536,8 +466,8 @@ export default function InvoicesPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleViewDetails(invoice)} title="View Details">
                             <Eye className="h-5 w-5 text-muted-foreground hover:text-primary" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDownloadSelectedInvoiceAsPdf(invoice)} title="Download PDF / Print A4">
-                            <Download className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                        <Button variant="ghost" size="icon" onClick={() => performActualPrint('a4', invoice)} title="Print A4">
+                            <Printer className="h-5 w-5 text-muted-foreground hover:text-primary" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleShareInvoiceRow(invoice)} title="Share via WhatsApp">
                             <Share2 className="h-5 w-5 text-muted-foreground hover:text-primary" />
@@ -565,7 +495,7 @@ export default function InvoicesPage() {
       {selectedInvoice && (
         <Dialog open={isViewOpen} onOpenChange={(open) => {
             if (!open) { 
-              if(!isPrintOptionsOpen) { // Only clear selectedInvoice if print options also closing
+              if(!isPrintOptionsOpen) { 
                 setSelectedInvoice(null);
               }
             }
@@ -598,7 +528,7 @@ export default function InvoicesPage() {
               </div>
               <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
                 <Button type="button" onClick={() => setIsPrintOptionsOpen(true)} className="w-full xs:w-auto">
-                  <Printer className="w-4 h-4 mr-2" /> Print / Download Options
+                  <Printer className="w-4 h-4 mr-2" /> Print Options
                 </Button>
                 <DialogClose asChild>
                     <Button type="button" variant="secondary" className="w-full xs:w-auto">Close</Button>
@@ -611,18 +541,18 @@ export default function InvoicesPage() {
 
       {selectedInvoice && isPrintOptionsOpen && (
          <AlertDialog open={isPrintOptionsOpen} onOpenChange={(open) => {
-            if (!open) setIsPrintOptionsOpen(false); // Just close this dialog, keep main view open
+            if (!open) setIsPrintOptionsOpen(false); 
          }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                 <AlertDialogTitle>Select Print Format</AlertDialogTitle>
                 <AlertDialogDescription>
-                    Choose the format for printing your invoice. "Download PDF" is recommended for A4.
+                    Choose the format for printing your invoice.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
                      <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel</AlertDialogCancel>
-                     <Button variant="outline" onClick={() => handleDownloadSelectedInvoiceAsPdf(selectedInvoice)} className="whitespace-normal h-auto w-full sm:w-auto"> <Download className="w-4 h-4 mr-2" /> Download PDF (A4) </Button>
+                     <Button variant="outline" onClick={() => performActualPrint('a4', selectedInvoice)} className="whitespace-normal h-auto w-full sm:w-auto"> <Printer className="w-4 h-4 mr-2" /> Print A4 </Button>
                     <Button variant="outline" onClick={() => performActualPrint('thermal', selectedInvoice)} className="whitespace-normal h-auto w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
                     </Button>
@@ -641,7 +571,6 @@ export default function InvoicesPage() {
         />
       )}
 
-      {/* Single Delete Confirmation Dialog */}
       <AlertDialog open={isSingleDeleteConfirmOpen} onOpenChange={setIsSingleDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -657,7 +586,6 @@ export default function InvoicesPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Bulk Delete Confirmation Dialog */}
       <AlertDialog open={isBulkDeleteConfirmOpen} onOpenChange={setIsBulkDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -677,16 +605,13 @@ export default function InvoicesPage() {
   );
 }
 
-// Helper to open edit dialog from view dialog
 const handleEditOpen = (invoice: Invoice | null) => {
     if (invoice) {
         const context = (window as any).invoicePageContext;
         if (context) {
-            if (context.setIsViewOpen) context.setIsViewOpen(false); // Close view dialog
+            if (context.setIsViewOpen) context.setIsViewOpen(false); 
             if (context.setInvoiceToEdit) context.setInvoiceToEdit(invoice);
             if (context.setIsEditOpen) context.setIsEditOpen(true);
         }
     }
 };
-
-

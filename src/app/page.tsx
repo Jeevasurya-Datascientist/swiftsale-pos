@@ -16,13 +16,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer, MessageSquare, Download } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer, MessageSquare, Printer as PrinterIcon } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format as formatDateFns } from 'date-fns';
-
-declare var html2pdf: any;
 
 const defaultPlaceholder = (name = "Item") => `https://placehold.co/150x150.png?text=${encodeURIComponent(name)}`;
 
@@ -63,9 +61,6 @@ export default function BillingPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       audioRef.current = new Audio('/sounds/add-to-cart.mp3');
-      if (typeof html2pdf === 'undefined') {
-        console.warn('html2pdf.js is not loaded. PDF download functionality will not work. Please include it via CDN or install the package.');
-      }
     }
   }, []);
 
@@ -105,7 +100,7 @@ export default function BillingPage() {
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0),
                             sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0), 
                             stock: typeof p.stock === 'number' ? p.stock : 0,
                             barcode: p.barcode || "",
@@ -415,39 +410,10 @@ export default function BillingPage() {
     setIsCurrentInvoiceFinalized(true); return true;
   };
 
-  const handleDownloadCurrentInvoiceAsPdf = async () => {
-    if (!currentInvoice) { toast({ title: "Download Error", description:"No current invoice to download.", variant: "destructive" }); return; }
-    if (typeof html2pdf === 'undefined') { toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded. Please include it in your project.", variant: "destructive" }); return; }
-    
-    // Invoice is already finalized by the time this is called from print options dialog
-    
-    const invoiceElement = document.getElementById('invoice-view-content');
-    if (!invoiceElement) { toast({ title: "Download Error", description: "Invoice content not found for PDF generation. Please ensure the invoice preview is visible.", variant: "destructive" }); return; }
-    
-    document.body.classList.add('print-mode-a4');
-    const options = { margin: 10, filename: `invoice-${currentInvoice.invoiceNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, logging: false }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-    
-    try { 
-        await html2pdf().from(invoiceElement).set(options).save(); 
-        toast({ title: "PDF Downloaded", description: `Invoice ${currentInvoice.invoiceNumber}.pdf downloaded successfully.` }); 
-    } catch (error) { 
-        console.error("Error generating PDF:", error); 
-        toast({ title: "PDF Generation Error", description: "An error occurred while generating the PDF.", variant: "destructive" }); 
-    }
-    finally { 
-        document.body.classList.remove('print-mode-a4'); 
-        setIsPrintFormatDialogOpen(false); 
-        setIsInvoiceDialogOpen(false); 
-        resetBillingState(); 
-    }
-  };
-
   const performPrint = (mode: 'a4' | 'thermal') => {
     if (!currentInvoice) { toast({ title: "Print Error", description:"No current invoice to print.", variant: "destructive" }); return; }
     
-    // Invoice is already finalized by the time this is called from print options dialog
-
-    if (isPrintFormatDialogOpen) setIsPrintFormatDialogOpen(false); // Close print format dialog
+    if (isPrintFormatDialogOpen) setIsPrintFormatDialogOpen(false); 
     
     if (mode === 'a4') { document.body.classList.add('print-mode-a4'); document.body.classList.remove('print-mode-thermal'); }
     else { document.body.classList.add('print-mode-thermal'); document.body.classList.remove('print-mode-a4'); }
@@ -549,7 +515,7 @@ export default function BillingPage() {
           <DialogContent className="max-w-2xl invoice-view-dialog-content">
             <DialogHeader> <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle> </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
-             <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center print-hide gap-2">
+             <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center gap-2">
                 <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
                     <Button 
                         type="button" 
@@ -558,7 +524,7 @@ export default function BillingPage() {
                         onClick={() => { 
                             if (!isCurrentInvoiceFinalized) {
                                 const success = finalizeAndSaveCurrentInvoice();
-                                if (!success) return; // Stop if saving failed
+                                if (!success) return; 
                             }
                             if (currentInvoice?.customerPhoneNumber) { 
                                 let phoneNumber = currentInvoice.customerPhoneNumber.replace(/\D/g, ''); 
@@ -608,8 +574,6 @@ export default function BillingPage() {
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => { 
             if(!open) {
                  setIsPrintFormatDialogOpen(false); 
-                 // If the main invoice dialog is also closed, then reset state.
-                 // This ensures that if user cancels print, they return to the invoice preview.
                  if (!isInvoiceDialogOpen) {
                     resetBillingState();
                  }
@@ -618,11 +582,11 @@ export default function BillingPage() {
             }
          }}>
             <AlertDialogContent>
-                <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. "Download PDF" is recommended for A4. </AlertDialogDescription> </AlertDialogHeader>
+                <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. </AlertDialogDescription> </AlertDialogHeader>
                 <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
-                    <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); /* Do not reset state here, allow returning to invoice preview */ }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
-                    <Button variant="outline" onClick={handleDownloadCurrentInvoiceAsPdf} className="whitespace-normal h-auto w-full sm:w-auto"> <Download className="w-4 h-4 mr-2" /> Download PDF (A4) </Button>
-                    <Button variant="outline" onClick={() => performPrint('thermal')} className="whitespace-normal h-auto w-full sm:w-auto"> <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt) </Button>
+                    <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
+                    <Button variant="outline" onClick={() => performPrint('a4')} className="whitespace-normal h-auto w-full sm:w-auto"> <PrinterIcon className="w-4 h-4 mr-2" /> Print A4 </Button>
+                    <Button variant="outline" onClick={() => performPrint('thermal')} className="whitespace-normal h-auto w-full sm:w-auto"> <PrinterIcon className="w-4 h-4 mr-2" /> Print Thermal (Receipt) </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
