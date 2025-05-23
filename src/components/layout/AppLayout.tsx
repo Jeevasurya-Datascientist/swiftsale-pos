@@ -76,19 +76,21 @@ const CustomSidebarFooter = () => {
   const avatarFallback = isSettingsLoaded ? (userName?.[0]?.toUpperCase() || 'U') : "L";
 
   const handleLogout = () => {
-    // Clear all relevant localStorage items
-    localStorage.removeItem('appSettings');
-    localStorage.removeItem('appProducts');
-    localStorage.removeItem('appServices');
-    localStorage.removeItem('isAuthenticated'); // Clear simulated auth flag
-    localStorage.removeItem('userEmail'); // Clear stored email
+    // Only clear authentication-related flags
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('userEmail'); 
+
+    // DO NOT clear:
+    // localStorage.removeItem('appSettings');
+    // localStorage.removeItem('appProducts');
+    // localStorage.removeItem('appServices');
+    // localStorage.removeItem('appInvoices');
 
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",
     });
 
-    // Redirect to login page
     router.push('/login');
   };
 
