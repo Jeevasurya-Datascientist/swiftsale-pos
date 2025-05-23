@@ -53,14 +53,14 @@ export default function ProductsPage() {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
                             costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
-                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0),
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0), // Fallback for old data
                             stock: typeof p.stock === 'number' ? p.stock : 0,
                             barcode: p.barcode || "",
                             imageUrl: p.imageUrl || defaultPlaceholder(pName),
                             dataAiHint: p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
                             category: p.category || undefined,
                             description: p.description || undefined,
-                            gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : 0, // Default if missing
+                            gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : 0,
                         };
                     });
                 } else {
@@ -80,13 +80,8 @@ export default function ProductsPage() {
 
   useEffect(() => {
     if (isSettingsLoaded && typeof window !== 'undefined') { 
-        if (products.length > 0 || localStorage.getItem('appProducts')) { 
-             localStorage.setItem('appProducts', JSON.stringify(products));
-        } else if (products.length === 0 && !localStorage.getItem('appProducts')) {
-            // If products array is empty and nothing in localStorage, ensure it's cleared
-            // This case is mainly for explicit clearing or first-time load with no seeding
-            localStorage.removeItem('appProducts');
-        }
+        // Always save the current state of products, even if it's an empty array
+        localStorage.setItem('appProducts', JSON.stringify(products));
     }
   }, [products, isSettingsLoaded]);
 
@@ -120,7 +115,7 @@ export default function ProductsPage() {
       toast({ title: "Product Updated", description: `${data.name} has been updated.` });
     } else {
       const newProduct: Product = {
-        id: `prod-${Date.now()}`,
+        id: `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
         ...data,
         imageUrl,
         dataAiHint: productDataAiHint,
@@ -254,3 +249,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+

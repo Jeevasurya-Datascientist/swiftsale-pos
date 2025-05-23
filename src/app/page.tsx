@@ -20,6 +20,7 @@ import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle
 import { useSettings } from '@/context/SettingsContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { format as formatDateFns } from 'date-fns';
 
 declare var html2pdf: any;
 
@@ -63,7 +64,7 @@ export default function BillingPage() {
     if (typeof window !== 'undefined') {
       audioRef.current = new Audio('/sounds/add-to-cart.mp3');
       if (typeof html2pdf === 'undefined') {
-        console.warn('html2pdf.js is not loaded. PDF download functionality will not work.');
+        console.warn('html2pdf.js is not loaded. PDF download functionality will not work. Please include it via CDN or install the package.');
       }
     }
   }, []);
@@ -88,6 +89,7 @@ export default function BillingPage() {
     setSearchTerm('');
     setCurrentInvoice(null);
     setIsCurrentInvoiceFinalized(false);
+    setPaymentMethod('Cash');
   };
 
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function BillingPage() {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
                             costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
-                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : 0,
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0), // Fallback for older data
                             stock: typeof p.stock === 'number' ? p.stock : 0,
                             barcode: p.barcode || "",
                             imageUrl: p.imageUrl || defaultPlaceholder(pName),
@@ -115,7 +117,10 @@ export default function BillingPage() {
                         };
                     });
                 } else { loadedProducts = []; }
-            } catch (e) { loadedProducts = []; }
+            } catch (e) { 
+                console.error("Failed to parse products from localStorage for BillingPage, starting with empty list.", e);
+                loadedProducts = []; 
+            }
         } else { loadedProducts = []; }
         setProducts(loadedProducts);
 
@@ -136,10 +141,14 @@ export default function BillingPage() {
                             category: s.category || undefined,
                             description: s.description || undefined,
                             duration: s.duration || undefined,
+                            // sellingPrice is no longer part of Service type
                         };
                     });
                 } else { loadedServices = []; }
-            } catch (e) { loadedServices = []; }
+            } catch (e) { 
+                console.error("Failed to parse services from localStorage for BillingPage, starting with empty list.", e);
+                loadedServices = []; 
+            }
         } else { loadedServices = []; }
         setServices(loadedServices);
 
@@ -156,7 +165,7 @@ export default function BillingPage() {
     if (isSettingsLoaded) {
         const allItems: SearchableItem[] = [
           ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product', costPrice: p.costPrice, stock: p.stock, barcode: p.barcode, gstPercentage: p.gstPercentage })),
-          ...services.map(s => ({ ...s, price: 0, type: 'service' as 'service', costPrice: 0 }))
+          ...services.map(s => ({ ...s, price: 0, type: 'service' as 'service', costPrice: 0 })) // Services have dynamic price, so default to 0 here
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
     }
@@ -216,12 +225,12 @@ export default function BillingPage() {
 
     if (foundItem) {
       if (foundItem.type === 'service') {
-        setCurrentItemForServiceDialog(foundItem);
+        setCurrentItemForServiceDialog(foundItem); // Found item is SearchableItem (Service)
         setIsServiceDetailsDialogOpen(true);
         return;
       }
 
-      const product = foundItem as Product;
+      const product = foundItem as Product; // If not service, it's a product
       const existingCartItem = cartItems.find(ci => ci.id === product.id);
       if (!existingCartItem && product.stock <= 0) { toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" }); return; }
       if (existingCartItem && existingCartItem.quantity >= product.stock) { toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" }); return; }
@@ -250,7 +259,7 @@ export default function BillingPage() {
       toast({ title: "Item Added", description: `${product.name} added to cart.` });
       checkAndNotifyLowStock(product, prospectiveQuantityInCart);
     } else {
-      toast({ title: "Item Not Found", description: "No product matched your search.", variant: "destructive" });
+      toast({ title: "Item Not Found", description: "No item matched your search.", variant: "destructive" });
     }
   };
 
@@ -262,7 +271,7 @@ export default function BillingPage() {
   }) => {
     if (!currentItemForServiceDialog || currentItemForServiceDialog.type !== 'service') return;
 
-    const service = currentItemForServiceDialog as Service;
+    const service = currentItemForServiceDialog as Service; // It's a Service from SearchableItem
     const finalPrice = details.baseServiceAmount + details.additionalServiceCharge;
 
     setCartItems((prevCart) => {
@@ -270,7 +279,7 @@ export default function BillingPage() {
             item.id === service.id &&
             item.itemSpecificNote === (details.note || '') &&
             item.itemSpecificPhoneNumber === (details.phoneNumber || '') &&
-            item.price === finalPrice && // Check against the final combined price
+            item.price === finalPrice && 
             item.baseServiceAmount === details.baseServiceAmount &&
             item.additionalServiceCharge === details.additionalServiceCharge
         );
@@ -292,10 +301,10 @@ export default function BillingPage() {
                 imageUrl: service.imageUrl || defaultPlaceholder(service.name),
                 dataAiHint: service.dataAiHint, category: service.category,
                 serviceCode: service.serviceCode, duration: service.duration,
-                costPrice: 0, // Services have no direct cost price for this calculation
+                costPrice: 0, 
                 itemSpecificPhoneNumber: details.phoneNumber || '',
                 itemSpecificNote: details.note || '',
-                isPriceOverridden: true,
+                isPriceOverridden: true, // Price for services is always 'overridden'/manual
                 baseServiceAmount: details.baseServiceAmount,
                 additionalServiceCharge: details.additionalServiceCharge,
             };
@@ -327,10 +336,39 @@ export default function BillingPage() {
   const handleUpdateItemPhoneNumber = (itemId: string, phoneNumber: string) => { setCartItems(prevCart => prevCart.map(item => item.id === itemId ? { ...item, itemSpecificPhoneNumber: phoneNumber } : item)); };
   const handleUpdateItemNote = (itemId: string, note: string) => { setCartItems(prevCart => prevCart.map(item => item.id === itemId ? { ...item, itemSpecificNote: note } : item)); };
 
-  const generateInvoiceNumber = () => `INV-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}${new Date().getDate().toString().padStart(2, '0')}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+  const generateInvoiceNumber = (): string => {
+    const today = new Date();
+    const datePrefix = formatDateFns(today, 'yyyyMMdd');
+    
+    const storedInvoicesString = localStorage.getItem('appInvoices');
+    let allInvoices: Invoice[] = [];
+    if (storedInvoicesString) {
+        try {
+            const parsed = JSON.parse(storedInvoicesString);
+            if (Array.isArray(parsed)) {
+                allInvoices = parsed;
+            }
+        } catch (e) { /* Do nothing, proceed with empty allInvoices */ }
+    }
+
+    const todaysInvoices = allInvoices.filter(inv => 
+        inv.invoiceNumber.startsWith(`INV-${datePrefix}-`)
+    );
+
+    let nextSequence = 1;
+    if (todaysInvoices.length > 0) {
+        const sequenceNumbers = todaysInvoices.map(inv => {
+            const parts = inv.invoiceNumber.split('-');
+            return parseInt(parts[parts.length - 1], 10);
+        });
+        nextSequence = Math.max(...sequenceNumbers) + 1;
+    }
+    
+    return `INV-${datePrefix}-${nextSequence.toString().padStart(3, '0')}`;
+  };
   
   const handleGenerateInvoice = () => {
-    if (cartItems.length === 0) { toast({ title: "Empty Cart", variant: "destructive" }); return; }
+    if (cartItems.length === 0) { toast({ title: "Empty Cart", description: "Cannot generate invoice for an empty cart.", variant: "destructive" }); return; }
     if (!customerName.trim()) { toast({ title: "Customer Name is required.", variant: "destructive" }); return; }
     if (!customerPhoneNumber.trim() || !/^\d{10,}$/.test(customerPhoneNumber.replace(/\D/g, ''))) { toast({ title: "Valid Customer Phone (min. 10 digits) is required.", variant: "destructive" }); return; }
     if (paymentMethod === 'Card' && (!cardNumber.trim() || !/^\d{13,19}$/.test(cardNumber.replace(/\s/g, '')) || !cardExpiry.trim() || !/^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(cardExpiry) || !cardCvv.trim() || !/^\d{3,4}$/.test(cardCvv))) { toast({ title: "Valid Card Details are required.", variant: "destructive" }); return; }
@@ -340,7 +378,9 @@ export default function BillingPage() {
 
     const invoiceStatus: 'Paid' | 'Due' = numericAmountReceived >= totalAmount ? 'Paid' : 'Due';
     const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`, invoiceNumber: generateInvoiceNumber(), customerName, customerPhoneNumber, items: cartItems,
+      id: `inv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, 
+      invoiceNumber: generateInvoiceNumber(), 
+      customerName, customerPhoneNumber, items: cartItems,
       subTotal, gstAmount, totalAmount, paymentMethod, date: new Date().toISOString(),
       amountReceived: numericAmountReceived, balanceAmount: numericAmountReceived - totalAmount, status: invoiceStatus, shopName: currentShopName,
     };
@@ -366,8 +406,9 @@ export default function BillingPage() {
       } catch (error) { console.error("Error updating product stock:", error); toast({title: "Stock Update Error", variant: "destructive"}); }
     }
     try {
-      const storedInvoices = localStorage.getItem('appInvoices'); let allInvoices: Invoice[] = [];
-      if (storedInvoices) { try { const parsed = JSON.parse(storedInvoices); if (Array.isArray(parsed)) { allInvoices = parsed; } } catch (e) { allInvoices = []; } }
+      const storedInvoicesString = localStorage.getItem('appInvoices'); 
+      let allInvoices: Invoice[] = [];
+      if (storedInvoicesString) { try { const parsed = JSON.parse(storedInvoicesString); if (Array.isArray(parsed)) { allInvoices = parsed; } } catch (e) { allInvoices = []; } }
       allInvoices = [currentInvoice, ...allInvoices]; localStorage.setItem('appInvoices', JSON.stringify(allInvoices));
     } catch (error) { console.error("Error saving invoice:", error); toast({title: "Invoice Save Error", variant: "destructive"}); return false; }
     const custId = `${currentInvoice.customerName.toLowerCase().replace(/\s/g, '_')}-${(currentInvoice.customerPhoneNumber || '').replace(/\D/g, '')}`;
@@ -377,23 +418,59 @@ export default function BillingPage() {
   };
 
   const handleDownloadCurrentInvoiceAsPdf = async () => {
-    if (!currentInvoice) { toast({ title: "Download Error", variant: "destructive" }); return; }
-    if (typeof html2pdf === 'undefined') { toast({ title: "PDF Library Missing", variant: "destructive" }); return; }
-    if (!isCurrentInvoiceFinalized) { const success = finalizeAndSaveCurrentInvoice(); if (!success) { toast({ title: "Save Failed before PDF", variant: "destructive" }); return; } }
+    if (!currentInvoice) { toast({ title: "Download Error", description:"No current invoice to download.", variant: "destructive" }); return; }
+    if (typeof html2pdf === 'undefined') { toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded.", variant: "destructive" }); return; }
+    
+    if (!isCurrentInvoiceFinalized) { 
+        const success = finalizeAndSaveCurrentInvoice(); 
+        if (!success) { 
+            toast({ title: "Save Failed", description:"Could not save invoice before PDF generation.", variant: "destructive" }); 
+            return; 
+        } 
+    }
+    
     const invoiceElement = document.getElementById('invoice-view-content');
-    if (!invoiceElement) { toast({ title: "Download Error", description: "Invoice content not found.", variant: "destructive" }); return; }
+    if (!invoiceElement) { toast({ title: "Download Error", description: "Invoice content not found for PDF generation.", variant: "destructive" }); return; }
+    
     document.body.classList.add('print-mode-a4');
     const options = { margin: 10, filename: `invoice-${currentInvoice.invoiceNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, logging: false }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-    try { await html2pdf().from(invoiceElement).set(options).save(); toast({ title: "PDF Downloaded" }); } catch (error) { console.error("Error PDF:", error); toast({ title: "PDF Error", variant: "destructive" }); }
-    finally { document.body.classList.remove('print-mode-a4'); setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); resetBillingState(); }
+    
+    try { 
+        await html2pdf().from(invoiceElement).set(options).save(); 
+        toast({ title: "PDF Downloaded", description: `Invoice ${currentInvoice.invoiceNumber}.pdf downloaded successfully.` }); 
+    } catch (error) { 
+        console.error("Error generating PDF:", error); 
+        toast({ title: "PDF Generation Error", description: "An error occurred while generating the PDF.", variant: "destructive" }); 
+    }
+    finally { 
+        document.body.classList.remove('print-mode-a4'); 
+        setIsPrintFormatDialogOpen(false); 
+        setIsInvoiceDialogOpen(false); 
+        resetBillingState(); 
+    }
   };
 
   const performPrint = (mode: 'a4' | 'thermal') => {
-    if (!currentInvoice) { toast({ title: "Print Error", variant: "destructive" }); setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); return; }
+    if (!currentInvoice) { toast({ title: "Print Error", description:"No current invoice to print.", variant: "destructive" }); setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); return; }
+    
+    if (!isCurrentInvoiceFinalized) { 
+        const success = finalizeAndSaveCurrentInvoice(); 
+        if (!success) { 
+            toast({ title: "Save Failed", description: "Could not save invoice before printing.", variant: "destructive" }); 
+            return; 
+        } 
+    }
+
     setIsPrintFormatDialogOpen(false); 
     if (mode === 'a4') { document.body.classList.add('print-mode-a4'); document.body.classList.remove('print-mode-thermal'); }
     else { document.body.classList.add('print-mode-thermal'); document.body.classList.remove('print-mode-a4'); }
-    setTimeout(() => { window.print(); document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); setIsInvoiceDialogOpen(false); resetBillingState(); }, 150); 
+    
+    setTimeout(() => { 
+        window.print(); 
+        document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); 
+        setIsInvoiceDialogOpen(false); 
+        resetBillingState(); 
+    }, 150); 
   };
 
   const cartItemNames = cartItems.map(item => item.name);
@@ -470,6 +547,7 @@ export default function BillingPage() {
         <ServiceDetailsDialog
             isOpen={isServiceDetailsDialogOpen}
             serviceName={currentItemForServiceDialog.name}
+            defaultPrice={currentItemForServiceDialog.price} // Pass default price (0 for services now)
             onClose={() => { setIsServiceDetailsDialogOpen(false); setCurrentItemForServiceDialog(null); }}
             onConfirm={handleConfirmAddServiceToCart}
         />
@@ -485,13 +563,51 @@ export default function BillingPage() {
           <DialogContent className="max-w-2xl invoice-view-dialog-content">
             <DialogHeader> <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle> </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
-            <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center print-hide gap-2">
+             <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center print-hide gap-2">
               <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
-                 <Button type="button" variant="outline" className="w-full xs:w-auto" onClick={() => { if (currentInvoice?.customerPhoneNumber) { let phoneNumber = currentInvoice.customerPhoneNumber.replace(/\D/g, ''); if (phoneNumber.length === 10 && !phoneNumber.startsWith('91')) { phoneNumber = `91${phoneNumber}`; } let baseMessage = `Hello ${currentInvoice.customerName || 'Customer'}, invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || "Our Store"}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}.`; if (currentInvoice.status === 'Due') { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.`; } else if (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`; } else { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`; } baseMessage += ` Thank you for your purchase!`; const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(baseMessage)}`; window.open(whatsappUrl, '_blank'); toast({ title: "WhatsApp Redirecting..."}); } else { toast({ title: "WhatsApp Share Failed", variant: "destructive" }); } }} disabled={!currentInvoice?.customerPhoneNumber} > <MessageSquare className="mr-2 h-4 w-4" /> Share via WhatsApp (+91) </Button>
+                 <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full xs:w-auto" 
+                    onClick={() => { 
+                        if (currentInvoice?.customerPhoneNumber) { 
+                            let phoneNumber = currentInvoice.customerPhoneNumber.replace(/\D/g, ''); 
+                            if (phoneNumber.length === 10 && !phoneNumber.startsWith('91')) { phoneNumber = `91${phoneNumber}`; } 
+                            let baseMessage = `Hello ${currentInvoice.customerName || 'Customer'}, invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || "Our Store"}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}.`; 
+                            if (currentInvoice.status === 'Due') { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.`; } 
+                            else if (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`; } 
+                            else { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`; } 
+                            baseMessage += ` Thank you for your purchase!`; 
+                            const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(baseMessage)}`; 
+                            window.open(whatsappUrl, '_blank'); 
+                            toast({ title: "WhatsApp Redirecting...", description:"Opening WhatsApp with invoice details."}); 
+                        } else { 
+                            toast({ title: "WhatsApp Share Failed", description:"Customer phone number not available for this invoice.", variant: "destructive" }); 
+                        } 
+                    }} 
+                    disabled={!currentInvoice?.customerPhoneNumber} 
+                 > 
+                    <MessageSquare className="mr-2 h-4 w-4" /> Share via WhatsApp (+91) 
+                 </Button>
               </div>
               <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
                  <Button type="button" variant="secondary" className="w-full xs:w-auto" onClick={() => { setIsInvoiceDialogOpen(false); resetBillingState(); }} > Close </Button>
-                <Button type="button" className="w-full xs:w-auto" onClick={() => { if(!isCurrentInvoiceFinalized) { const success = finalizeAndSaveCurrentInvoice(); if(!success) return; } setIsPrintFormatDialogOpen(true); }} > <Printer className="w-4 h-4 mr-2" /> {isCurrentInvoiceFinalized ? 'Print Options' : (currentInvoice.status === 'Due' ? 'Save Invoice & Print Options' : 'Finalize Sale & Print Options')} </Button>
+                <Button 
+                    type="button" 
+                    className="w-full xs:w-auto" 
+                    onClick={() => { 
+                        if(!isCurrentInvoiceFinalized) { 
+                            const success = finalizeAndSaveCurrentInvoice(); 
+                            if(!success) {
+                                toast({title: "Save Error", description: "Could not save the invoice.", variant: "destructive"});
+                                return;
+                            }
+                        } 
+                        setIsPrintFormatDialogOpen(true); 
+                    }} 
+                > 
+                    <Printer className="w-4 h-4 mr-2" /> {isCurrentInvoiceFinalized ? 'Print Options' : (currentInvoice.status === 'Due' ? 'Save Invoice & Print Options' : 'Finalize Sale & Print Options')} 
+                </Button>
               </div>
             </DialogFooter>
           </DialogContent>
@@ -501,8 +617,8 @@ export default function BillingPage() {
       {isPrintFormatDialogOpen && currentInvoice && (
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => { if(!open) { setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); resetBillingState(); } }}>
             <AlertDialogContent>
-                <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. </AlertDialogDescription> </AlertDialogHeader>
-                <AlertDialogFooter className="gap-2 flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+                <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. "Download PDF" is recommended for A4. </AlertDialogDescription> </AlertDialogHeader>
+                <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
                     <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); resetBillingState(); }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
                     <Button variant="outline" onClick={handleDownloadCurrentInvoiceAsPdf} className="whitespace-normal h-auto w-full sm:w-auto"> <Download className="w-4 h-4 mr-2" /> Download PDF (A4) </Button>
                     <Button variant="outline" onClick={() => performPrint('thermal')} className="whitespace-normal h-auto w-full sm:w-auto"> <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt) </Button>
