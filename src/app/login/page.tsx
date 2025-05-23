@@ -63,6 +63,7 @@ export default function LoginPage() {
                 placeholder="you@example.com"
                 {...register("email")}
                 className="h-12 text-base"
+                autoComplete="email"
               />
               {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
             </div>
@@ -81,6 +82,7 @@ export default function LoginPage() {
                 placeholder="Enter your password (min. 8 characters)"
                 {...register("password")}
                 className="h-12 text-base pr-10"
+                autoComplete="current-password"
               />
               <Button
                 type="button"
@@ -88,9 +90,9 @@ export default function LoginPage() {
                 size="icon"
                 className="absolute right-1 top-8 h-8 w-8"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
               </Button>
               {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
             </div>
@@ -106,6 +108,9 @@ export default function LoginPage() {
               Register here
             </Link>
           </p>
+           <div className="mt-4">
+            <p className="text-xs text-muted-foreground">Google Sign-In is currently unavailable.</p>
+          </div>
         </CardFooter>
       </Card>
     </div>
