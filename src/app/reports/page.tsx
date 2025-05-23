@@ -125,7 +125,7 @@ export default function ReportsPage() {
                     }));
                 } else { loadedProducts = []; }
             } catch(e) { 
-                console.error("Failed to parse products from localStorage, starting with empty list.", e);
+                console.error("Failed to parse products from localStorage for ReportsPage, starting with empty list.", e);
                 loadedProducts = []; 
             }
         } else { loadedProducts = []; }
@@ -140,18 +140,16 @@ export default function ReportsPage() {
                      loadedServices = parsed.map((s: any) => ({
                         id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                         name: s.name || "Unnamed Service",
-                        // sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : 0, // Services now have dynamic pricing
                         serviceCode: s.serviceCode || undefined,
                         imageUrl: s.imageUrl || defaultPlaceholder(s.name),
                         dataAiHint: s.dataAiHint || (s.name ? s.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
                         category: s.category || undefined,
                         description: s.description || undefined,
                         duration: s.duration || undefined,
-                        // costPrice would be 0 for services
                     }));
                 } else { loadedServices = []; }
             } catch(e) { 
-                console.error("Failed to parse services from localStorage, starting with empty list.", e);
+                console.error("Failed to parse services from localStorage for ReportsPage, starting with empty list.", e);
                 loadedServices = []; 
             }
         }  else { loadedServices = []; }
@@ -174,16 +172,16 @@ export default function ReportsPage() {
             } 
         } else { loadedAppInvoices = []; }
         
-        // Enrich invoices with costPrice for profit calculation
         const enrichedInvoices = loadedAppInvoices.map(inv => ({
             ...inv,
             items: inv.items.map(item => {
-                let costPrice = item.costPrice || 0; // Use existing cartItem.costPrice if present
-                if (item.type === 'product' && !item.costPrice) { // Fallback if costPrice wasn't stored on older cartItems
+                let costPrice = item.costPrice || 0; 
+                if (item.type === 'product' && !item.costPrice) { 
                     const productDetails = loadedProducts.find(p => p.id === item.id);
                     costPrice = productDetails?.costPrice || 0;
+                } else if (item.type === 'service') {
+                    costPrice = 0; // Ensure services have 0 cost price if not already set
                 }
-                // Ensure category is present for charts, default if necessary
                 const category = item.category || (item.type === 'product' ? 'General Product' : 'General Service');
                 return { ...item, costPrice, category };
             })
@@ -202,7 +200,7 @@ export default function ReportsPage() {
   const salesSummary = calculateSalesSummary(filteredInvoices);
   const salesOverTimeData = getSalesOverTimeData(filteredInvoices, timeFilter, customDateRange);
   const topSellingItemsData = getTopSellingItemsData(filteredInvoices);
-  const topProfitableItemsData = getTopProfitableItemsData(filteredInvoices); // New data
+  const topProfitableItemsData = getTopProfitableItemsData(filteredInvoices); 
   const salesByCategoryData = getSalesByCategoryData(filteredInvoices);
   const paymentMethodData = getPaymentMethodDistributionData(filteredInvoices);
 
@@ -296,7 +294,7 @@ export default function ReportsPage() {
           <CardHeader> <CardTitle className="flex items-center gap-2"><PieChart className="h-6 w-6 text-primary"/>Sales by Category</CardTitle> </CardHeader>
           <CardContent> {salesByCategoryData.length > 0 ? (<CategorySalesChart data={salesByCategoryData} currencySymbol={currencySymbol} />) : <p className="text-muted-foreground text-center py-8">No category data for selected period.</p>} </CardContent>
         </Card>
-        <Card className="shadow-md lg:col-span-2">
+        <Card className="shadow-md lg:col-span-2 mb-6"> {/* Added mb-6 here */}
           <CardHeader> <CardTitle className="flex items-center gap-2"><Users className="h-6 w-6 text-primary"/>Payment Method Distribution</CardTitle> </CardHeader>
           <CardContent> {paymentMethodData.length > 0 ? (<PaymentMethodsChart data={paymentMethodData} />) : <p className="text-muted-foreground text-center py-8">No payment data for selected period.</p>} </CardContent>
         </Card>
@@ -305,7 +303,8 @@ export default function ReportsPage() {
             <CardHeader> <CardTitle className="flex items-center gap-2"> <MessageCircleQuestion className="h-6 w-6 text-purple-600" /> AI Profit Insights </CardTitle> </CardHeader>
             <CardContent className="space-y-4">
               <form onSubmit={handleAiQuerySubmit} className="flex items-start sm:items-center gap-2 flex-col sm:flex-row">
-                <Input 
+                <Input
+                  key={isAiLoading ? 'ai-loading' : 'ai-ready'} // Force re-render on loading state change
                   type="text"
                   value={aiQuery}
                   onChange={(e) => setAiQuery(e.target.value)}
@@ -347,3 +346,4 @@ export default function ReportsPage() {
     </ScrollArea>
   );
 }
+
