@@ -5,13 +5,13 @@ import { useState, useEffect, ChangeEvent, useRef } from 'react';
 import type { Product, Service, CartItem, Invoice, SearchableItem, ExistingCustomer } from '@/lib/types';
 import { ItemGrid } from '@/components/dashboard/ItemGrid';
 import { CartDisplay } from '@/components/dashboard/CartDisplay';
-import { ServiceDetailsDialog } from '@/components/dashboard/ServiceDetailsDialog'; // New Dialog
+import { ServiceDetailsDialog } from '@/components/dashboard/ServiceDetailsDialog';
 import { SmartSuggestions } from '@/components/dashboard/SmartSuggestions';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle
 import { useSettings } from '@/context/SettingsContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+declare var html2pdf: any; // For html2pdf.js if used via CDN
 
 const defaultPlaceholder = (name = "Item") => `https://placehold.co/150x150.png?text=${encodeURIComponent(name)}`;
 
@@ -36,6 +38,8 @@ export default function BillingPage() {
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [isPrintFormatDialogOpen, setIsPrintFormatDialogOpen] = useState(false);
+  const [isCurrentInvoiceFinalized, setIsCurrentInvoiceFinalized] = useState(false);
+
 
   const [isServiceDetailsDialogOpen, setIsServiceDetailsDialogOpen] = useState(false);
   const [currentItemForServiceDialog, setCurrentItemForServiceDialog] = useState<SearchableItem | null>(null);
@@ -60,6 +64,12 @@ export default function BillingPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       audioRef.current = new Audio('/sounds/add-to-cart.mp3');
+       // Check for html2pdf and guide user if not found
+      if (typeof html2pdf === 'undefined') {
+        console.warn(
+          'html2pdf.js is not loaded. PDF download functionality will not work. Please include it via CDN or install as a package.'
+        );
+      }
     }
   }, []);
 
@@ -69,21 +79,36 @@ export default function BillingPage() {
       audioRef.current.play().catch(error => console.warn("Audio play failed:", error));
     }
   };
+  
+  const resetBillingState = () => {
+    setCartItems([]);
+    setCustomerName('');
+    setCustomerPhoneNumber('');
+    setCardNumber('');
+    setCardExpiry('');
+    setCardCvv('');
+    setUpiId('');
+    setAmountReceived('');
+    setBalanceAmount(0);
+    setSearchTerm('');
+    setCurrentInvoice(null);
+    setIsCurrentInvoiceFinalized(false);
+  };
 
   useEffect(() => {
     if (isSettingsLoaded && typeof window !== 'undefined') {
-        const storedProducts = localStorage.getItem('appProducts');
+        const storedProductsString = localStorage.getItem('appProducts');
         let loadedProducts: Product[] = [];
-        if (storedProducts) {
+        if (storedProductsString) {
             try {
-                const parsed = JSON.parse(storedProducts);
+                const parsed = JSON.parse(storedProductsString);
                 if(Array.isArray(parsed)) {
                     loadedProducts = parsed.map((p: any) => {
                         const pName = p.name || "Unnamed Product";
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0),
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0)),
                             sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0),
                             stock: typeof p.stock === 'number' ? p.stock : 0,
                             barcode: p.barcode || "",
@@ -93,23 +118,18 @@ export default function BillingPage() {
                             description: p.description || undefined,
                         };
                     });
-                } else {
-                  loadedProducts = [];
                 }
             } catch (e) {
               console.error("Failed to parse products from localStorage, starting with empty list.", e);
-              loadedProducts = [];
             }
-        } else {
-          loadedProducts = [];
         }
         setProducts(loadedProducts);
 
-        const storedServices = localStorage.getItem('appServices');
+        const storedServicesString = localStorage.getItem('appServices');
         let loadedServices: Service[] = [];
-        if(storedServices) {
+        if(storedServicesString) {
             try {
-                const parsed = JSON.parse(storedServices);
+                const parsed = JSON.parse(storedServicesString);
                 if(Array.isArray(parsed)) {
                     loadedServices = parsed.map((s: any) => {
                         const sName = s.name || "Unnamed Service";
@@ -125,15 +145,10 @@ export default function BillingPage() {
                             duration: s.duration || undefined,
                         };
                     });
-                } else {
-                  loadedServices = [];
                 }
             } catch (e) {
               console.error("Failed to parse services from localStorage, starting with empty list.", e);
-              loadedServices = [];
             }
-        } else {
-           loadedServices = [];
         }
         setServices(loadedServices);
 
@@ -146,11 +161,9 @@ export default function BillingPage() {
               allInvoices = parsed;
             }
           } catch (e) {
-            console.error("Failed to parse invoices from localStorage for customer list, using empty list.", e);
+            // console.error("Failed to parse invoices from localStorage for customer list, using empty list.", e);
           }
         }
-
-
         const uniqueCusts: Record<string, ExistingCustomer> = {};
         allInvoices.forEach(inv => {
             if (inv.customerName) {
@@ -174,23 +187,11 @@ export default function BillingPage() {
           ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
           ...services.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service'}))
         ].sort((a, b) => a.name.localeCompare(b.name));
-
         setSearchableItems(allItems);
-        if (searchTerm) {
-            setFilteredSearchableItems(
-                allItems.filter(item =>
-                    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()))
-                )
-            );
-        } else {
-            setFilteredSearchableItems(allItems);
-        }
     } else if (isSettingsLoaded) {
         setSearchableItems([]);
-        setFilteredSearchableItems([]);
     }
-  }, [products, services, isSettingsLoaded, searchTerm]);
+  }, [products, services, isSettingsLoaded]);
 
   useEffect(() => {
     if (searchTerm === '') {
@@ -303,7 +304,8 @@ export default function BillingPage() {
                     barcode: (foundItem as Product).barcode, stock: (foundItem as Product).stock,
                     serviceCode: (foundItem as Service).serviceCode, duration: (foundItem as Service).duration,
                     itemSpecificPhoneNumber: '',
-                    itemSpecificNote: ''
+                    itemSpecificNote: '',
+                    isPriceOverridden: false,
                 };
                 return [...prevCart, cartItemToAdd];
             }
@@ -480,6 +482,7 @@ export default function BillingPage() {
       shopName: currentShopName,
     };
     setCurrentInvoice(newInvoice);
+    setIsCurrentInvoiceFinalized(false); // Reset finalized state for new invoice preview
     setIsInvoiceDialogOpen(true);
 
     if (invoiceStatus === 'Due') {
@@ -491,14 +494,12 @@ export default function BillingPage() {
         });
     }
   };
-
-  const handleFinalizeSale = () => {
-    if (!currentInvoice) return;
-    setIsPrintFormatDialogOpen(true); // Open print format selection dialog
-  };
-
-  const finalizeAndSaveInvoice = () => {
-    if (!currentInvoice) return;
+  
+  const finalizeAndSaveCurrentInvoice = (): boolean => {
+    if (!currentInvoice) {
+        toast({ title: "Error", description: "No current invoice to finalize.", variant: "destructive" });
+        return false;
+    }
 
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
     if (currentInvoice.status === 'Due') {
@@ -514,7 +515,7 @@ export default function BillingPage() {
     if (currentInvoice.status === 'Paid') {
       try {
         const updatedProducts = products.map(p => {
-          const cartItem = cartItems.find(ci => ci.id === p.id && ci.type === 'product');
+          const cartItem = currentInvoice.items.find(ci => ci.id === p.id && ci.type === 'product');
           if (cartItem) {
               return { ...p, stock: p.stock - cartItem.quantity };
           }
@@ -538,7 +539,7 @@ export default function BillingPage() {
                     allAppInvoices = parsed;
                 }
             } catch (e) {
-                 console.error("Failed to parse existing invoices for saving, starting with empty list", e);
+                 // console.error("Failed to parse existing invoices for saving, starting with empty list", e);
             }
         }
       allAppInvoices = [currentInvoice, ...allAppInvoices];
@@ -546,6 +547,7 @@ export default function BillingPage() {
     } catch (error) {
       console.error("Error saving invoice to localStorage:", error);
       toast({title: "Invoice Save Error", description: "Could not save invoice due to storage issue.", variant: "destructive"});
+      return false;
     }
 
 
@@ -558,36 +560,86 @@ export default function BillingPage() {
         title: currentInvoice.status === 'Paid' ? "Sale Finalized!" : "Invoice Saved (Payment Due)",
         description: `${paymentSuccessMessage} ${currentInvoice.status === 'Paid' ? 'Stock updated.' : 'Stock not updated.'}`
     });
+    return true;
+  };
 
-    if (currentInvoice.customerPhoneNumber) {
-        let baseMessage = `Hello ${currentInvoice.customerName || 'Customer'}, invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || "Our Store"}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}.`;
-        if (currentInvoice.status === 'Due') {
-            baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.`;
-        } else if (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) {
-            baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`;
-        } else {
-            baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`;
+
+  const handlePrintOptionsOpen = () => {
+    if (!currentInvoice) return;
+    if (!isCurrentInvoiceFinalized) {
+        const success = finalizeAndSaveCurrentInvoice();
+        if (!success) {
+            toast({ title: "Save Failed", description: "Could not save invoice before printing.", variant: "destructive" });
+            return;
         }
-        baseMessage += ` Thank you for your purchase!`;
+        setIsCurrentInvoiceFinalized(true);
+    }
+    setIsPrintFormatDialogOpen(true);
+  };
 
-        const whatsappUrl = `https://api.whatsapp.com/send?phone=${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}&text=${encodeURIComponent(baseMessage)}`;
-        toast({ title: "Simulated WhatsApp Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Would open: ${whatsappUrl.substring(0,100)}...`});
+  const handleDownloadCurrentInvoiceAsPdf = async () => {
+    if (!currentInvoice) {
+      toast({ title: "Download Error", description: "No invoice to download.", variant: "destructive" });
+      return;
+    }
+    if (typeof html2pdf === 'undefined') {
+        toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded. Cannot download PDF.", variant: "destructive" });
+        return;
+    }
 
-        const smsMessage = `Invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || 'Our Store'}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}. Thanks!`;
-        toast({ title: "Simulated SMS Sent", description: `To: ${currentInvoice.customerPhoneNumber}. Message: ${smsMessage.substring(0,100)}...`});
+    if (!isCurrentInvoiceFinalized) {
+        const success = finalizeAndSaveCurrentInvoice();
+         if (!success) {
+            toast({ title: "Save Failed", description: "Could not save invoice before PDF download.", variant: "destructive" });
+            return;
+        }
+        setIsCurrentInvoiceFinalized(true); // Mark as finalized since we are proceeding to generate PDF
+    }
+
+    const invoiceElement = document.getElementById('invoice-view-content');
+    if (!invoiceElement) {
+      toast({ title: "Download Error", description: "Invoice content not found for PDF generation.", variant: "destructive" });
+      return;
+    }
+
+    document.body.classList.add('print-mode-a4'); // Apply A4 styling for PDF generation
+
+    const options = {
+      margin: 10, // mm
+      filename: `invoice-${currentInvoice.invoiceNumber}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().from(invoiceElement).set(options).save();
+      toast({ title: "PDF Downloaded", description: `Invoice ${currentInvoice.invoiceNumber}.pdf has been downloaded.` });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({ title: "PDF Generation Error", description: "Could not generate PDF.", variant: "destructive" });
+    } finally {
+      document.body.classList.remove('print-mode-a4');
+      // Close dialogs and reset state after PDF generation attempt
+      setIsPrintFormatDialogOpen(false); 
+      setIsInvoiceDialogOpen(false);
+      resetBillingState(); 
     }
   };
+
 
   const performPrint = (mode: 'a4' | 'thermal') => {
     if (!currentInvoice) {
       toast({ title: "Print Error", description: "No invoice selected to print.", variant: "destructive" });
-      setIsPrintFormatDialogOpen(false); // Close format dialog if open
-      setIsInvoiceDialogOpen(false); // Also close main invoice dialog if open
+      setIsPrintFormatDialogOpen(false);
+      setIsInvoiceDialogOpen(false);
       return;
     }
+    
+    // Invoice is already finalized by handlePrintOptionsOpen or the primary finalize button
+    // So, no need to call finalizeAndSaveCurrentInvoice() here again.
 
-    finalizeAndSaveInvoice();
-    setIsPrintFormatDialogOpen(false);
+    setIsPrintFormatDialogOpen(false); // Close format dialog before system print dialog
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -600,22 +652,9 @@ export default function BillingPage() {
     setTimeout(() => {
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
-
-        // Reset state after printing
-        setCartItems([]);
-        setCustomerName('');
-        setCustomerPhoneNumber('');
-        setCardNumber('');
-        setCardExpiry('');
-        setCardCvv('');
-        setUpiId('');
-        setAmountReceived('');
-        setBalanceAmount(0);
-        setSearchTerm('');
-
-        setCurrentInvoice(null);
-        setIsInvoiceDialogOpen(false);
-    }, 150);
+        setIsInvoiceDialogOpen(false); // Ensure main preview dialog is also closed
+        resetBillingState();
+    }, 150); 
   };
 
 
@@ -847,27 +886,31 @@ export default function BillingPage() {
 
       {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => {
-            if (!openState) {
-                if (!isPrintFormatDialogOpen) {
-                    setCurrentInvoice(null);
+            if (!openState) { // If dialog is closing
+                if (!isPrintFormatDialogOpen) { // And print format dialog is NOT open
+                    resetBillingState(); // Then reset everything
                 }
-                setIsInvoiceDialogOpen(false);
-            } else {
-                setIsInvoiceDialogOpen(true);
+                // If print format dialog IS open, let its onOpenChange handle the reset
             }
+            setIsInvoiceDialogOpen(openState);
         }}>
           <DialogContent className="max-w-2xl invoice-view-dialog-content">
             <DialogHeader>
               <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
-            <DialogFooter className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:justify-between md:items-center print-hide pt-4 gap-2">
+            <DialogFooter className="flex flex-col space-y-2 pt-4 sm:flex-row sm:space-y-0 sm:justify-between sm:items-center print-hide gap-2">
               <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
                   <Button
                     type="button"
                     variant="outline"
+                    className="w-full xs:w-auto"
                     onClick={() => {
                       if (currentInvoice?.customerPhoneNumber) {
+                        let phoneNumber = currentInvoice.customerPhoneNumber.replace(/\D/g, '');
+                        if (phoneNumber.length === 10 && !phoneNumber.startsWith('91')) {
+                            phoneNumber = `91${phoneNumber}`;
+                        }
                         let baseMessage = `Hello ${currentInvoice.customerName || 'Customer'}, invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || "Our Store"}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}.`;
                         if (currentInvoice.status === 'Due') {
                            baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.`;
@@ -877,8 +920,8 @@ export default function BillingPage() {
                            baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`;
                         }
                         baseMessage += ` Thank you for your purchase!`;
-                        const whatsappUrl = `https://api.whatsapp.com/send?phone=${currentInvoice.customerPhoneNumber.replace(/\D/g, '')}&text=${encodeURIComponent(baseMessage)}`;
-                        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}. URL: ${whatsappUrl.substring(0,100)}...` });
+                        const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(baseMessage)}`;
+                        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}.` });
                         window.open(whatsappUrl, '_blank');
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
@@ -886,29 +929,39 @@ export default function BillingPage() {
                     }}
                     disabled={!currentInvoice?.customerPhoneNumber}
                   >
-                    <MessageSquare className="mr-2 h-4 w-4" /> Share via WhatsApp
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (currentInvoice?.customerPhoneNumber) {
-                         const message = `Invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || 'Our Store'}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}. Thanks!`;
-                        toast({ title: "SMS Send Simulated", description: `SMS with invoice details would be sent to ${currentInvoice.customerPhoneNumber}. Msg: ${message.substring(0,100)}...` });
-                      } else {
-                        toast({ title: "SMS Send Failed", description: "Customer phone number not available for SMS.", variant: "destructive" });
-                      }
-                    }}
-                    disabled={!currentInvoice?.customerPhoneNumber}
-                  >
-                    Send SMS (Simulated)
+                    <MessageSquare className="mr-2 h-4 w-4" /> Share via WhatsApp (+91)
                   </Button>
               </div>
-              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
-                <Button type="button" variant="secondary" onClick={() => {setIsInvoiceDialogOpen(false); setCurrentInvoice(null);}}>Close</Button>
-                <Button type="button" onClick={handleFinalizeSale}>
+              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 sm:justify-end">
+                 <Button 
+                    type="button" 
+                    variant="secondary" 
+                    className="w-full xs:w-auto"
+                    onClick={() => {
+                        setIsInvoiceDialogOpen(false); 
+                        resetBillingState();
+                    }}
+                  >
+                    Close
+                  </Button>
+                <Button 
+                    type="button" 
+                    className="w-full xs:w-auto"
+                    onClick={() => {
+                        if(!isCurrentInvoiceFinalized) {
+                            const success = finalizeAndSaveCurrentInvoice();
+                            if(success) setIsCurrentInvoiceFinalized(true);
+                            else return; // Stop if finalization failed
+                        }
+                        // If already finalized, or finalized successfully, open print options
+                        setIsPrintFormatDialogOpen(true); 
+                    }}
+                    disabled={isCurrentInvoiceFinalized && currentInvoice.status === 'Paid'} // Disable if already finalized & paid
+                >
                     <Printer className="w-4 h-4 mr-2" />
-                    {currentInvoice.status === 'Due' ? 'Save & Print Options' : 'Finalize & Print Options'}
+                    {isCurrentInvoiceFinalized 
+                        ? (currentInvoice.status === 'Due' ? 'Print Options (Due)' : 'Print Options (Paid)') 
+                        : (currentInvoice.status === 'Due' ? 'Save & Print Options' : 'Finalize & Print Options')}
                 </Button>
               </div>
             </DialogFooter>
@@ -918,20 +971,10 @@ export default function BillingPage() {
 
       {isPrintFormatDialogOpen && currentInvoice && (
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
-             if(!open) {
+             if(!open) { // If dialog is closing
                 setIsPrintFormatDialogOpen(false);
-                setIsInvoiceDialogOpen(false);
-                setCurrentInvoice(null);
-                setCartItems([]);
-                setCustomerName('');
-                setCustomerPhoneNumber('');
-                setCardNumber('');
-                setCardExpiry('');
-                setCardCvv('');
-                setUpiId('');
-                setAmountReceived('');
-                setBalanceAmount(0);
-                setSearchTerm('');
+                setIsInvoiceDialogOpen(false); // Ensure main preview is also closed
+                resetBillingState(); // Always reset state when print flow is done/cancelled
              }
          }}>
             <AlertDialogContent>
@@ -946,27 +989,17 @@ export default function BillingPage() {
                         onClick={() => {
                             setIsPrintFormatDialogOpen(false);
                             setIsInvoiceDialogOpen(false);
-                            setCurrentInvoice(null);
-                            setCartItems([]);
-                            setCustomerName('');
-                            setCustomerPhoneNumber('');
-                            setCardNumber('');
-                            setCardExpiry('');
-                            setCardCvv('');
-                            setUpiId('');
-                            setAmountReceived('');
-                            setBalanceAmount(0);
-                            setSearchTerm('');
+                            resetBillingState();
                         }}
                         className="w-full sm:w-auto"
                     >
                         Cancel Printing
                     </AlertDialogCancel>
+                    <Button variant="outline" onClick={handleDownloadCurrentInvoiceAsPdf} className="whitespace-normal h-auto w-full sm:w-auto">
+                        <Download className="w-4 h-4 mr-2" /> Download PDF (A4)
+                    </Button>
                     <Button variant="outline" onClick={() => performPrint('thermal')} className="w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
-                    </Button>
-                    <Button variant="outline" onClick={() => performPrint('a4')} className="whitespace-normal h-auto w-full sm:w-auto">
-                        <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>
