@@ -80,11 +80,9 @@ const CustomSidebarFooter = () => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userEmail'); 
 
-    // DO NOT clear:
-    // localStorage.removeItem('appSettings');
-    // localStorage.removeItem('appProducts');
-    // localStorage.removeItem('appServices');
-    // localStorage.removeItem('appInvoices');
+    // IMPORTANT: Do NOT clear appSettings, appProducts, appServices, appInvoices here
+    // to ensure data persistence for the user on the same browser.
+    // New user registration will handle clearing transactional data.
 
     toast({
       title: "Logged Out",
