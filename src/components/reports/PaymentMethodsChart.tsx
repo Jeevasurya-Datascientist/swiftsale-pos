@@ -41,7 +41,18 @@ export default function PaymentMethodsChart({ data }: PaymentMethodsChartProps) 
                   nameKey="name" // This refers to the 'name' property in your data objects
               />}
             />
-            <Legend verticalAlign="bottom" height={36}/>
+            <Legend 
+              verticalAlign="bottom" 
+              height={36}
+              formatter={(value, entry: any) => {
+                // entry.payload contains the original data item plus 'percent'
+                const originalPayload = entry.payload;
+                const name = originalPayload.name;
+                const count = originalPayload.value;
+                const percent = originalPayload.percent;
+                return `${name}: ${count} (${(percent * 100).toFixed(0)}%)`;
+              }}
+            />
             <Pie
               data={data}
               dataKey="value" 
@@ -49,13 +60,9 @@ export default function PaymentMethodsChart({ data }: PaymentMethodsChartProps) 
               cx="50%"
               cy="50%"
               outerRadius={100}
-              innerRadius={0} // Making it a Pie chart instead of Doughnut for this one
-              labelLine={false}
-              label={({ name, percent, value }) => 
-                (percent * 100) > 3 
-                ? `${name.substring(0,10)}${(name.length > 10 ? '...' : '')}: ${value} (${(percent * 100).toFixed(0)}%)` 
-                : ''
-              }
+              innerRadius={0} // Making it a Pie chart
+              labelLine={false} // No lines to labels
+              label={false} // Remove direct labels on slices
             >
               {data.map((entry) => (
                 <Cell key={`cell-${entry.name}`} fill={entry.fill} />
@@ -67,3 +74,4 @@ export default function PaymentMethodsChart({ data }: PaymentMethodsChartProps) 
     </div>
   );
 }
+
