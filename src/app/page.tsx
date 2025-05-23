@@ -55,7 +55,7 @@ export default function BillingPage() {
   const [balanceAmount, setBalanceAmount] = useState(0);
 
   const { toast } = useToast();
-  const { currencySymbol, isSettingsLoaded, shopName: currentShopName } = useSettings(); // gstRate removed from useSettings
+  const { currencySymbol, isSettingsLoaded, shopName: currentShopName } = useSettings();
   const { addNotification } = useNotifications();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -111,12 +111,12 @@ export default function BillingPage() {
                             dataAiHint: p.dataAiHint || (pName ? pName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'product image'),
                             category: p.category || undefined,
                             description: p.description || undefined,
-                            gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : 0, // Load GST
+                            gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : 0,
                         };
                     });
-                }
+                } else { loadedProducts = []; }
             } catch (e) { loadedProducts = []; }
-        }
+        } else { loadedProducts = []; }
         setProducts(loadedProducts);
 
         const storedServicesString = localStorage.getItem('appServices');
@@ -130,7 +130,6 @@ export default function BillingPage() {
                         return {
                             id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: sName,
-                            // sellingPrice removed for services
                             serviceCode: s.serviceCode || undefined,
                             imageUrl: s.imageUrl || defaultPlaceholder(sName),
                             dataAiHint: s.dataAiHint || (sName ? sName.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
@@ -139,9 +138,9 @@ export default function BillingPage() {
                             duration: s.duration || undefined,
                         };
                     });
-                }
+                } else { loadedServices = []; }
             } catch (e) { loadedServices = []; }
-        }
+        } else { loadedServices = []; }
         setServices(loadedServices);
 
         const allInvoiceData = localStorage.getItem('appInvoices');
@@ -156,8 +155,8 @@ export default function BillingPage() {
    useEffect(() => {
     if (isSettingsLoaded) {
         const allItems: SearchableItem[] = [
-          ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product', gstPercentage: p.gstPercentage })),
-          ...services.map(s => ({ ...s, price: 0, type: 'service' as 'service'})) // Services price is dynamic, set to 0 here initially
+          ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product', costPrice: p.costPrice, stock: p.stock, barcode: p.barcode, gstPercentage: p.gstPercentage })),
+          ...services.map(s => ({ ...s, price: 0, type: 'service' as 'service', costPrice: 0 }))
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
     }
@@ -176,7 +175,6 @@ export default function BillingPage() {
     }
   }, [searchTerm, searchableItems]);
 
-  // Calculate subTotal, gstAmount, and totalAmount
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   
   const gstAmount = cartItems.reduce((sum, item) => {
@@ -223,7 +221,7 @@ export default function BillingPage() {
         return;
       }
 
-      const product = foundItem as Product; // It's a product if not a service
+      const product = foundItem as Product;
       const existingCartItem = cartItems.find(ci => ci.id === product.id);
       if (!existingCartItem && product.stock <= 0) { toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" }); return; }
       if (existingCartItem && existingCartItem.quantity >= product.stock) { toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" }); return; }
@@ -242,7 +240,7 @@ export default function BillingPage() {
                   id: product.id, name: product.name, price: product.sellingPrice, quantity: 1, type: 'product',
                   imageUrl: product.imageUrl || defaultPlaceholder(product.name),
                   dataAiHint: product.dataAiHint, category: product.category,
-                  costPrice: product.costPrice, gstPercentage: product.gstPercentage, // Store product's GST
+                  costPrice: product.costPrice, gstPercentage: product.gstPercentage,
                   barcode: product.barcode, stock: product.stock,
                   itemSpecificPhoneNumber: '', itemSpecificNote: '', isPriceOverridden: false,
               };
@@ -256,40 +254,50 @@ export default function BillingPage() {
     }
   };
 
-  // Updated to always use customPrice for services
-  const handleConfirmAddServiceToCart = (details: { phoneNumber?: string; note?: string, customPrice: number }) => {
+  const handleConfirmAddServiceToCart = (details: {
+    baseServiceAmount: number;
+    additionalServiceCharge: number;
+    phoneNumber?: string;
+    note?: string;
+  }) => {
     if (!currentItemForServiceDialog || currentItemForServiceDialog.type !== 'service') return;
 
-    const service = currentItemForServiceDialog as Service; // No sellingPrice on service type
-    
+    const service = currentItemForServiceDialog as Service;
+    const finalPrice = details.baseServiceAmount + details.additionalServiceCharge;
+
     setCartItems((prevCart) => {
-        // Check if an identical service (same ID, note, phone, and price) already exists to increment quantity
-        const existingItem = prevCart.find((item) => 
-            item.id === service.id && 
-            item.itemSpecificNote === (details.note || '') && 
+        const existingItem = prevCart.find((item) =>
+            item.id === service.id &&
+            item.itemSpecificNote === (details.note || '') &&
             item.itemSpecificPhoneNumber === (details.phoneNumber || '') &&
-            item.price === details.customPrice // Service price is now always the customPrice
+            item.price === finalPrice && // Check against the final combined price
+            item.baseServiceAmount === details.baseServiceAmount &&
+            item.additionalServiceCharge === details.additionalServiceCharge
         );
 
         if (existingItem) {
           return prevCart.map((item) =>
-            item.id === service.id && 
-            item.itemSpecificNote === (details.note || '') && 
+            item.id === service.id &&
+            item.itemSpecificNote === (details.note || '') &&
             item.itemSpecificPhoneNumber === (details.phoneNumber || '') &&
-            item.price === details.customPrice
+            item.price === finalPrice &&
+            item.baseServiceAmount === details.baseServiceAmount &&
+            item.additionalServiceCharge === details.additionalServiceCharge
             ? { ...item, quantity: item.quantity + 1 }
             : item
           );
         } else {
             const cartItemToAdd: CartItem = {
-                id: service.id, name: service.name, price: details.customPrice, quantity: 1, type: 'service',
+                id: service.id, name: service.name, price: finalPrice, quantity: 1, type: 'service',
                 imageUrl: service.imageUrl || defaultPlaceholder(service.name),
                 dataAiHint: service.dataAiHint, category: service.category,
-                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, 
+                serviceCode: service.serviceCode, duration: service.duration,
+                costPrice: 0, // Services have no direct cost price for this calculation
                 itemSpecificPhoneNumber: details.phoneNumber || '',
                 itemSpecificNote: details.note || '',
-                isPriceOverridden: true, // Service price is always overridden by manual entry
-                // Services do not have gstPercentage
+                isPriceOverridden: true,
+                baseServiceAmount: details.baseServiceAmount,
+                additionalServiceCharge: details.additionalServiceCharge,
             };
             return [...prevCart, cartItemToAdd];
         }
@@ -344,6 +352,7 @@ export default function BillingPage() {
   
   const finalizeAndSaveCurrentInvoice = (): boolean => {
     if (!currentInvoice) { toast({ title: "Error", description: "No current invoice to finalize.", variant: "destructive" }); return false; }
+    
     let paymentSuccessMessage = `Payment of ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)} via ${paymentMethod} successful.`;
     if (currentInvoice.status === 'Due') { paymentSuccessMessage = `Invoice recorded as 'Due'. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`; }
     else if (paymentMethod === 'Card') { paymentSuccessMessage = `Simulated: Card ending with ${cardNumber.slice(-4)} charged ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}.`; }
@@ -458,11 +467,21 @@ export default function BillingPage() {
       </div>
 
       {isServiceDetailsDialogOpen && currentItemForServiceDialog && (
-        <ServiceDetailsDialog isOpen={isServiceDetailsDialogOpen} serviceName={currentItemForServiceDialog.name} onClose={() => { setIsServiceDetailsDialogOpen(false); setCurrentItemForServiceDialog(null); }} onConfirm={handleConfirmAddServiceToCart} />
+        <ServiceDetailsDialog
+            isOpen={isServiceDetailsDialogOpen}
+            serviceName={currentItemForServiceDialog.name}
+            onClose={() => { setIsServiceDetailsDialogOpen(false); setCurrentItemForServiceDialog(null); }}
+            onConfirm={handleConfirmAddServiceToCart}
+        />
       )}
 
       {currentInvoice && isInvoiceDialogOpen && (
-        <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => { if (!openState && !isPrintFormatDialogOpen) { resetBillingState(); } setIsInvoiceDialogOpen(openState); }}>
+        <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => { 
+            if (!openState && !isPrintFormatDialogOpen) { 
+                resetBillingState();
+            } 
+            setIsInvoiceDialogOpen(openState); 
+        }}>
           <DialogContent className="max-w-2xl invoice-view-dialog-content">
             <DialogHeader> <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle> </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
@@ -472,7 +491,7 @@ export default function BillingPage() {
               </div>
               <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
                  <Button type="button" variant="secondary" className="w-full xs:w-auto" onClick={() => { setIsInvoiceDialogOpen(false); resetBillingState(); }} > Close </Button>
-                <Button type="button" className="w-full xs:w-auto" onClick={() => { if(!isCurrentInvoiceFinalized) { const success = finalizeAndSaveCurrentInvoice(); if(!success) return; } setIsPrintFormatDialogOpen(true); }} > <Printer className="w-4 h-4 mr-2" /> {isCurrentInvoiceFinalized ? 'Print Options' : (currentInvoice.status === 'Due' ? 'Save Invoice & Print' : 'Finalize Sale & Print')} </Button>
+                <Button type="button" className="w-full xs:w-auto" onClick={() => { if(!isCurrentInvoiceFinalized) { const success = finalizeAndSaveCurrentInvoice(); if(!success) return; } setIsPrintFormatDialogOpen(true); }} > <Printer className="w-4 h-4 mr-2" /> {isCurrentInvoiceFinalized ? 'Print Options' : (currentInvoice.status === 'Due' ? 'Save Invoice & Print Options' : 'Finalize Sale & Print Options')} </Button>
               </div>
             </DialogFooter>
           </DialogContent>
@@ -483,7 +502,7 @@ export default function BillingPage() {
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => { if(!open) { setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); resetBillingState(); } }}>
             <AlertDialogContent>
                 <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. </AlertDialogDescription> </AlertDialogHeader>
-                <AlertDialogFooter className="gap-2 flex-col sm:flex-row sm:justify-end">
+                <AlertDialogFooter className="gap-2 flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
                     <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); resetBillingState(); }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
                     <Button variant="outline" onClick={handleDownloadCurrentInvoiceAsPdf} className="whitespace-normal h-auto w-full sm:w-auto"> <Download className="w-4 h-4 mr-2" /> Download PDF (A4) </Button>
                     <Button variant="outline" onClick={() => performPrint('thermal')} className="whitespace-normal h-auto w-full sm:w-auto"> <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt) </Button>
@@ -494,3 +513,4 @@ export default function BillingPage() {
     </div>
   );
 }
+

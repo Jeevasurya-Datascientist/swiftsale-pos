@@ -20,15 +20,20 @@ import { useToast } from '@/hooks/use-toast';
 interface ServiceDetailsDialogProps {
   isOpen: boolean;
   serviceName: string;
-  // defaultPrice prop removed as service price is always dynamic now
   onClose: () => void;
-  onConfirm: (details: { phoneNumber?: string; note?: string; customPrice: number }) => void; // customPrice is now mandatory
+  onConfirm: (details: {
+    baseServiceAmount: number;
+    additionalServiceCharge: number;
+    phoneNumber?: string;
+    note?: string;
+  }) => void;
 }
 
 export function ServiceDetailsDialog({ isOpen, serviceName, onClose, onConfirm }: ServiceDetailsDialogProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [note, setNote] = useState('');
-  const [customPrice, setCustomPrice] = useState<string>('');
+  const [baseServiceAmount, setBaseServiceAmount] = useState<string>('');
+  const [additionalServiceCharge, setAdditionalServiceCharge] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,23 +41,38 @@ export function ServiceDetailsDialog({ isOpen, serviceName, onClose, onConfirm }
       // Reset fields when dialog opens
       setPhoneNumber('');
       setNote('');
-      setCustomPrice(''); // Always clear custom price for new entry
+      setBaseServiceAmount('');
+      setAdditionalServiceCharge('');
     }
   }, [isOpen]);
 
   const handleConfirm = () => {
-    const parsedPrice = parseFloat(customPrice);
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+    const parsedBaseAmount = parseFloat(baseServiceAmount);
+    const parsedAdditionalCharge = parseFloat(additionalServiceCharge);
+
+    if (isNaN(parsedBaseAmount) || parsedBaseAmount <= 0) {
       toast({
-        title: "Invalid Service Charge",
-        description: "Please enter a valid service charge greater than 0.",
+        title: "Invalid Service Amount",
+        description: "Please enter a valid Service Amount greater than 0.",
         variant: "destructive",
       });
       return;
     }
-    // customPrice is now mandatory
-    onConfirm({ phoneNumber, note, customPrice: parsedPrice });
-    // Fields will be reset by useEffect when dialog reopens
+    if (isNaN(parsedAdditionalCharge) || parsedAdditionalCharge <= 0) {
+      toast({
+        title: "Invalid Service Charge",
+        description: "Please enter a valid Service Charge greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    onConfirm({
+      baseServiceAmount: parsedBaseAmount,
+      additionalServiceCharge: parsedAdditionalCharge,
+      phoneNumber,
+      note
+    });
   };
 
   const handleClose = () => {
@@ -65,21 +85,35 @@ export function ServiceDetailsDialog({ isOpen, serviceName, onClose, onConfirm }
         <DialogHeader>
           <DialogTitle>Details for: {serviceName}</DialogTitle>
           <DialogDescription>
-            Enter the service charge and optional details for this service.
+            Enter charges and optional details for this service. Both monetary fields are required.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-1">
-            <Label htmlFor="serviceCustomPrice" className="flex items-center">
+            <Label htmlFor="serviceBaseAmount" className="flex items-center">
               <DollarSign className="w-4 h-4 mr-2 text-muted-foreground" />
-              Service Charge <span className="text-destructive ml-1">*</span>
+              Service Amount (₹) <span className="text-destructive ml-1">*</span>
             </Label>
             <Input
-              id="serviceCustomPrice"
+              id="serviceBaseAmount"
               type="number"
-              placeholder="Enter amount"
-              value={customPrice}
-              onChange={(e) => setCustomPrice(e.target.value)}
+              placeholder="Enter base amount"
+              value={baseServiceAmount}
+              onChange={(e) => setBaseServiceAmount(e.target.value)}
+              step="0.01"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="serviceAdditionalCharge" className="flex items-center">
+              <DollarSign className="w-4 h-4 mr-2 text-muted-foreground" />
+              Service Charge (₹) <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="serviceAdditionalCharge"
+              type="number"
+              placeholder="Enter additional charge"
+              value={additionalServiceCharge}
+              onChange={(e) => setAdditionalServiceCharge(e.target.value)}
               step="0.01"
             />
           </div>

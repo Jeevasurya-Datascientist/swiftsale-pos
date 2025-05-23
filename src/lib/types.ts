@@ -13,23 +13,23 @@ export interface Product extends BaseItem {
   stock: number;
   costPrice: number;
   sellingPrice: number;
-  gstPercentage: number; 
+  gstPercentage: number;
 }
 
 export interface Service extends BaseItem {
   serviceCode?: string;
   duration?: string;
-  // sellingPrice removed - price is dynamic via ServiceDetailsDialog
+  // sellingPrice removed - price is determined dynamically at billing
 }
 
-export type SearchableItem = 
-  (Omit<Product, 'gstPercentage'> & { price: number; type: 'product'; gstPercentage: number; costPrice: number; stock: number; barcode?: string; }) | 
-  (Service & { price: number; type: 'service'; costPrice: 0 }); // Explicitly add costPrice:0 for services in SearchableItem for profit calcs
+export type SearchableItem =
+  (Product & { price: number; type: 'product'; costPrice: number; stock: number; barcode?: string; gstPercentage: number; }) |
+  (Service & { price: number; type: 'service'; costPrice: 0 }); // Price for service here is a placeholder, real price set at billing
 
 export interface CartItem {
   id: string;
   name: string;
-  price: number; 
+  price: number; // For services, this will be baseServiceAmount + additionalServiceCharge
   quantity: number;
   imageUrl: string;
   dataAiHint?: string;
@@ -37,10 +37,14 @@ export interface CartItem {
   category?: string;
   itemSpecificPhoneNumber?: string;
   itemSpecificNote?: string;
-  isPriceOverridden?: boolean;
+  isPriceOverridden?: boolean; // True if price was manually set (always true for services now)
 
-  costPrice: number; // For products and services (0 for services)
-  gstPercentage?: number; // For products, specific GST rate
+  costPrice: number;
+  gstPercentage?: number; // For products
+
+  // Service specific pricing components
+  baseServiceAmount?: number;
+  additionalServiceCharge?: number;
 
   barcode?: string; // product only
   stock?: number; // product only
@@ -57,7 +61,7 @@ export interface Invoice {
   customerPhoneNumber?: string;
   items: CartItem[];
   subTotal: number;
-  gstAmount: number; 
+  gstAmount: number;
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string;
@@ -115,7 +119,6 @@ export interface NotificationItem {
 // AI Profit Analysis Flow Types
 export interface AnalyzeProfitInput {
   query: string;
-  // Potentially add filteredInvoices, products, services if sending data to flow
 }
 export interface AnalyzeProfitOutput {
   analysis: string;
