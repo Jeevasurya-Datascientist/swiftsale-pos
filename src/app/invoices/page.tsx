@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import type { Invoice, Product, ReportTimeFilter } from '@/lib/types'; // Added ReportTimeFilter
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { Invoice, Product, ReportTimeFilter } from '@/lib/types';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import { EditInvoiceDialog } from '@/components/invoices/EditInvoiceDialog';
 import {
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -23,18 +24,21 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
-import { FileText, Search, Printer, MessageSquare, Download, Eye, Share2, Calendar as CalendarIconLucide } from 'lucide-react';
+import { FileText, Search, Printer, MessageSquare, Download, Eye, Share2, Calendar as CalendarIconLucide, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
+
+declare var html2pdf: any;
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -51,6 +55,10 @@ export default function InvoicesPage() {
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(undefined);
   const [isDateFilterPopoverOpen, setIsDateFilterPopoverOpen] = useState(false);
 
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [invoiceToDeleteSingle, setInvoiceToDeleteSingle] = useState<Invoice | null>(null);
+  const [isSingleDeleteConfirmOpen, setIsSingleDeleteConfirmOpen] = useState(false);
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
 
   const loadInvoices = useCallback(() => {
     if (isSettingsLoaded) {
@@ -62,15 +70,13 @@ export default function InvoicesPage() {
                 if (Array.isArray(parsed)) {
                     loadedInvoices = parsed;
                 } else {
-                    console.warn("Stored appInvoices is not an array. Initializing as empty for InvoicesPage.");
-                    // loadedInvoices remains []
+                    loadedInvoices = [];
                 }
             } catch (error) {
                 console.error("Failed to parse appInvoices from localStorage for InvoicesPage. Initializing as empty.", error);
-                // loadedInvoices remains []
+                loadedInvoices = [];
             }
         }
-        // Else, if storedInvoices is null, loadedInvoices is already []
         
         let currentFilteredInvoices = loadedInvoices;
         if (timeFilter !== 'allTime') {
@@ -113,12 +119,19 @@ export default function InvoicesPage() {
         }
         currentFilteredInvoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setInvoices(currentFilteredInvoices);
+        setSelectedInvoiceIds([]); // Clear selection when invoices are reloaded/filtered
     }
   }, [isSettingsLoaded, timeFilter, customDateRange]); 
   
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof html2pdf === 'undefined') {
+      console.warn('html2pdf.js is not loaded. PDF download functionality will not work. Please include it via CDN or install the package.');
+    }
+  }, []);
 
   useEffect(() => {
     (window as any).invoicePageContext = {
@@ -255,12 +268,124 @@ export default function InvoicesPage() {
     }
   };
 
-  const filteredInvoicesBySearch = invoices.filter(invoice => 
-    invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (invoice.status && invoice.status.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const handleDownloadSelectedInvoiceAsPdf = async (invoiceToDownload: Invoice | null) => {
+    if (!invoiceToDownload) {
+      toast({ title: "Error", description: "No invoice selected for download.", variant: "destructive" });
+      return;
+    }
+    if (typeof html2pdf === 'undefined') {
+      toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded. Cannot download PDF.", variant: "destructive" });
+      return;
+    }
 
+    const originalSelectedInvoiceId = selectedInvoice?.id;
+    const isDifferentInvoiceOrViewClosed = !isViewOpen || selectedInvoice?.id !== invoiceToDownload.id;
+
+    if (isDifferentInvoiceOrViewClosed) {
+        setSelectedInvoice(invoiceToDownload);
+        setIsViewOpen(true); // Ensure the InvoiceView is mounted and rendered
+    }
+    setIsPrintOptionsOpen(false); // Close print options if it was open from view details
+
+    // Delay to ensure InvoiceView is rendered if it was just opened
+    setTimeout(async () => {
+        const invoiceElement = document.getElementById('invoice-view-content');
+        if (!invoiceElement) {
+          toast({ title: "Download Error", description: "Invoice content not found for PDF generation.", variant: "destructive" });
+          if (isDifferentInvoiceOrViewClosed && !originalSelectedInvoiceId) { // If view was opened just for this, close it.
+              setIsViewOpen(false);
+              setSelectedInvoice(null);
+          } else if (isDifferentInvoiceOrViewClosed && originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToDownload.id) {
+              const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId);
+              if(originalInv) setSelectedInvoice(originalInv); else {setIsViewOpen(false); setSelectedInvoice(null);}
+          }
+          return;
+        }
+
+        document.body.classList.add('print-mode-a4');
+        const options = { margin: 10, filename: `invoice-${invoiceToDownload.invoiceNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, logging: false }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+        
+        try {
+          await html2pdf().from(invoiceElement).set(options).save();
+          toast({ title: "PDF Downloaded", description: `Invoice ${invoiceToDownload.invoiceNumber}.pdf downloaded successfully.` });
+        } catch (error) {
+          console.error("Error generating PDF:", error);
+          toast({ title: "PDF Generation Error", description: "An error occurred while generating the PDF.", variant: "destructive" });
+        } finally {
+          document.body.classList.remove('print-mode-a4');
+          if (isDifferentInvoiceOrViewClosed && !originalSelectedInvoiceId) { // If view was opened just for this, close it.
+              setIsViewOpen(false);
+              setSelectedInvoice(null);
+          } else if (isDifferentInvoiceOrViewClosed && originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToDownload.id) {
+              const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId);
+              if(originalInv) setSelectedInvoice(originalInv); else {setIsViewOpen(false); setSelectedInvoice(null);}
+          }
+        }
+    }, 150); // Small delay
+  };
+
+  const filteredInvoicesBySearch = useMemo(() => 
+    invoices.filter(invoice => 
+      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (invoice.status && invoice.status.toLowerCase().includes(searchTerm.toLowerCase()))
+    ), [invoices, searchTerm]);
+
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedInvoiceIds(filteredInvoicesBySearch.map(inv => inv.id));
+    } else {
+      setSelectedInvoiceIds([]);
+    }
+  };
+
+  const handleSelectRow = (invoiceId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedInvoiceIds(prev => [...prev, invoiceId]);
+    } else {
+      setSelectedInvoiceIds(prev => prev.filter(id => id !== invoiceId));
+    }
+  };
+
+  const openSingleDeleteDialog = (invoice: Invoice) => {
+    setInvoiceToDeleteSingle(invoice);
+    setIsSingleDeleteConfirmOpen(true);
+  };
+
+  const confirmSingleDelete = () => {
+    if (!invoiceToDeleteSingle) return;
+    const allStoredInvoicesString = localStorage.getItem('appInvoices');
+    let allStoredInvoices: Invoice[] = [];
+    if (allStoredInvoicesString) {
+        try {
+            const parsed = JSON.parse(allStoredInvoicesString);
+            if (Array.isArray(parsed)) allStoredInvoices = parsed;
+        } catch (e) { /* ignore */ }
+    }
+    const updatedAllInvoices = allStoredInvoices.filter(inv => inv.id !== invoiceToDeleteSingle.id);
+    localStorage.setItem('appInvoices', JSON.stringify(updatedAllInvoices));
+    toast({ title: "Invoice Deleted", description: `Invoice ${invoiceToDeleteSingle.invoiceNumber} has been deleted.` });
+    setInvoiceToDeleteSingle(null);
+    setIsSingleDeleteConfirmOpen(false);
+    loadInvoices(); // Reloads and clears selection
+  };
+
+  const confirmBulkDelete = () => {
+    const allStoredInvoicesString = localStorage.getItem('appInvoices');
+    let allStoredInvoices: Invoice[] = [];
+    if (allStoredInvoicesString) {
+        try {
+            const parsed = JSON.parse(allStoredInvoicesString);
+            if (Array.isArray(parsed)) allStoredInvoices = parsed;
+        } catch (e) { /* ignore */ }
+    }
+    const updatedAllInvoices = allStoredInvoices.filter(inv => !selectedInvoiceIds.includes(inv.id));
+    localStorage.setItem('appInvoices', JSON.stringify(updatedAllInvoices));
+    toast({ title: "Invoices Deleted", description: `${selectedInvoiceIds.length} invoices have been deleted.` });
+    setIsBulkDeleteConfirmOpen(false);
+    loadInvoices(); // Reloads and clears selection
+  };
 
   if (!isSettingsLoaded) {
     return (
@@ -340,10 +465,29 @@ export default function InvoicesPage() {
             </div>
         </CardHeader>
         <CardContent className="p-0">
+            {selectedInvoiceIds.length > 0 && (
+                <div className="p-4 border-b bg-muted/50 flex justify-between items-center">
+                    <p className="text-sm text-foreground">{selectedInvoiceIds.length} invoice(s) selected</p>
+                    <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => setIsBulkDeleteConfirmOpen(true)}
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedInvoiceIds.length})
+                    </Button>
+                </div>
+            )}
             {filteredInvoicesBySearch.length > 0 ? (
             <Table>
                 <TableHeader>
                 <TableRow>
+                    <TableHead className="w-[50px] px-2 text-center">
+                        <Checkbox 
+                            checked={selectedInvoiceIds.length === filteredInvoicesBySearch.length && filteredInvoicesBySearch.length > 0}
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all invoices"
+                        />
+                    </TableHead>
                     <TableHead className="w-[200px] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Invoice #</TableHead>
                     <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</TableHead>
                     <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Customer</TableHead>
@@ -356,7 +500,14 @@ export default function InvoicesPage() {
                 {filteredInvoicesBySearch.map((invoice) => {
                     const firstServiceNote = invoice.items.find(item => item.type === 'service' && item.itemSpecificNote)?.itemSpecificNote;
                     return (
-                    <TableRow key={invoice.id} className="hover:bg-muted/50 transition-colors">
+                    <TableRow key={invoice.id} className="hover:bg-muted/50 transition-colors" data-state={selectedInvoiceIds.includes(invoice.id) ? 'selected' : ''}>
+                    <TableCell className="px-2 text-center">
+                        <Checkbox
+                            checked={selectedInvoiceIds.includes(invoice.id)}
+                            onCheckedChange={(checked) => handleSelectRow(invoice.id, !!checked)}
+                            aria-label={`Select invoice ${invoice.invoiceNumber}`}
+                        />
+                    </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                         <div>{invoice.invoiceNumber}</div>
                         {firstServiceNote && (
@@ -379,11 +530,14 @@ export default function InvoicesPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleViewDetails(invoice)} title="View Details">
                             <Eye className="h-5 w-5 text-muted-foreground hover:text-primary" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => performActualPrint('a4', invoice)} title="Download PDF / Print A4">
+                        <Button variant="ghost" size="icon" onClick={() => handleDownloadSelectedInvoiceAsPdf(invoice)} title="Download PDF / Print A4">
                             <Download className="h-5 w-5 text-muted-foreground hover:text-primary" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleShareInvoiceRow(invoice)} title="Share via WhatsApp">
                             <Share2 className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openSingleDeleteDialog(invoice)} title="Delete Invoice">
+                            <Trash2 className="h-5 w-5 text-destructive/70 hover:text-destructive" />
                         </Button>
                     </TableCell>
                     </TableRow>
@@ -416,13 +570,14 @@ export default function InvoicesPage() {
               <DialogTitle>Invoice Details - {selectedInvoice.invoiceNumber} ({selectedInvoice.status})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={selectedInvoice} />
-            <DialogFooter className="print-hide flex-col sm:flex-row sm:justify-between gap-2 pt-4">
-              <div className='flex gap-2'>
+            <DialogFooter className="print-hide gap-2 pt-4 flex flex-col md:flex-row md:justify-between md:items-center">
+              <div className='flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2'>
                 <Button
                     type="button"
                     variant="outline"
                     onClick={() => handleShareInvoiceRow(selectedInvoice)}
                     disabled={!selectedInvoice?.customerPhoneNumber}
+                    className="w-full xs:w-auto"
                 >
                     <MessageSquare className="w-4 h-4 mr-2"/> Share via WhatsApp
                 </Button>
@@ -430,16 +585,17 @@ export default function InvoicesPage() {
                     type="button"
                     variant="outline"
                     onClick={() => { handleEditOpen(selectedInvoice); }}
+                    className="w-full xs:w-auto"
                 >
                     Edit Invoice
                 </Button>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button type="button" onClick={() => setIsPrintOptionsOpen(true)}>
+              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
+                <Button type="button" onClick={() => setIsPrintOptionsOpen(true)} className="w-full xs:w-auto">
                   <Printer className="w-4 h-4 mr-2" /> Print / Download Options
                 </Button>
                 <DialogClose asChild>
-                    <Button type="button" variant="secondary">Close</Button>
+                    <Button type="button" variant="secondary" className="w-full xs:w-auto">Close</Button>
                 </DialogClose>
               </div>
             </DialogFooter>
@@ -449,24 +605,20 @@ export default function InvoicesPage() {
 
       {selectedInvoice && isPrintOptionsOpen && (
          <AlertDialog open={isPrintOptionsOpen} onOpenChange={(open) => {
-            if (!open) { 
-                setIsPrintOptionsOpen(false);
-            }
+            if (!open) setIsPrintOptionsOpen(false);
          }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                 <AlertDialogTitle>Select Print Format</AlertDialogTitle>
                 <AlertDialogDescription>
-                    Choose the format for printing your invoice. "Print A4" can also be used to "Save as PDF" via your browser's print dialog.
+                    Choose the format for printing your invoice. "Download PDF" is recommended for A4.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-                     <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)}>Cancel</AlertDialogCancel>
-                     <Button variant="outline" onClick={() => performActualPrint('thermal', selectedInvoice)}>
+                <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
+                     <AlertDialogCancel onClick={() => setIsPrintOptionsOpen(false)} className="w-full sm:w-auto mt-2 sm:mt-0">Cancel</AlertDialogCancel>
+                     <Button variant="outline" onClick={() => handleDownloadSelectedInvoiceAsPdf(selectedInvoice)} className="whitespace-normal h-auto w-full sm:w-auto"> <Download className="w-4 h-4 mr-2" /> Download PDF (A4) </Button>
+                    <Button variant="outline" onClick={() => performActualPrint('thermal', selectedInvoice)} className="whitespace-normal h-auto w-full sm:w-auto">
                         <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt)
-                    </Button>
-                    <Button variant="outline" onClick={() => performActualPrint('a4', selectedInvoice)} className="whitespace-normal h-auto">
-                        <Printer className="w-4 h-4 mr-2" /> Print A4 / Save PDF
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -482,6 +634,39 @@ export default function InvoicesPage() {
           currencySymbol={currencySymbol}
         />
       )}
+
+      {/* Single Delete Confirmation Dialog */}
+      <AlertDialog open={isSingleDeleteConfirmOpen} onOpenChange={setIsSingleDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete invoice {invoiceToDeleteSingle?.invoiceNumber}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsSingleDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSingleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isBulkDeleteConfirmOpen} onOpenChange={setIsBulkDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedInvoiceIds.length} selected invoice(s)? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
@@ -491,7 +676,7 @@ const handleEditOpen = (invoice: Invoice | null) => {
     if (invoice) {
         const context = (window as any).invoicePageContext;
         if (context) {
-            if (context.setIsViewOpen) context.setIsViewOpen(false);
+            if (context.setIsViewOpen) context.setIsViewOpen(false); // Close view dialog
             if (context.setInvoiceToEdit) context.setInvoiceToEdit(invoice);
             if (context.setIsEditOpen) context.setIsEditOpen(true);
         }
