@@ -33,7 +33,9 @@ export const filterInvoicesByDate = (
         startDate = startOfDay(customRange.from);
         endDate = customRange.to ? endOfDay(customRange.to) : endOfDay(customRange.from);
       } else {
-        return invoices; // Return all if custom range is not fully defined
+        // If custom range is not fully defined, it might mean "all time" or no filter if not handled upstream.
+        // For safety, let's return all invoices if the custom range isn't valid.
+        return invoices;
       }
       break;
     case 'allTime':
@@ -41,10 +43,10 @@ export const filterInvoicesByDate = (
       return invoices;
   }
 
-  if (!startDate || !endDate) return invoices;
+  if (!startDate || !endDate) return invoices; // Should not happen if logic is correct
 
   return invoices.filter(invoice => {
-    const invoiceDate = parseISO(invoice.date);
+    const invoiceDate = parseISO(invoice.date); // Assuming invoice.date is ISO string
     return isWithinInterval(invoiceDate, { start: startDate!, end: endDate! });
   });
 };
@@ -57,9 +59,8 @@ export const calculateSalesSummary = (invoices: Invoice[]) => {
 
   const totalProfit = invoices.reduce((sum, inv) => {
     const invoiceProfit = inv.items.reduce((itemProfitSum, item) => {
-      // item.price is sellingPrice (pre-GST for products)
-      // item.costPrice is 0 for services, actual cost for products
-      const profitPerItem = (item.price - (item.costPrice || 0)) * item.quantity;
+      const cost = item.costPrice || 0; // costPrice is on CartItem
+      const profitPerItem = (item.price - cost) * item.quantity;
       return itemProfitSum + profitPerItem;
     }, 0);
     return sum + invoiceProfit;
@@ -80,6 +81,8 @@ export const getSalesOverTimeData = (invoices: Invoice[], filter: ReportTimeFilt
 
   let dateFormatStr = 'MMM dd'; // Default
   if (filter === 'today') {
+     // For 'today', if you want hourly, the data aggregation needs to be much more granular.
+     // Sticking to daily for now.
      dateFormatStr = 'MMM dd'; 
   } else if (filter === 'last7days') {
     dateFormatStr = 'EEE, MMM dd';
@@ -87,14 +90,16 @@ export const getSalesOverTimeData = (invoices: Invoice[], filter: ReportTimeFilt
      dateFormatStr = 'MMM dd';
   } else if (filter === 'custom' && customRange?.from && customRange.to) {
     const days = differenceInDays(customRange.to, customRange.from);
-    if (days <= 7) dateFormatStr = 'EEE, MMM dd';
+    if (days <= 1) dateFormatStr = 'MMM dd'; // Could be hourly if data supports
+    else if (days <= 7) dateFormatStr = 'EEE, MMM dd';
     else if (days <= 90) dateFormatStr = 'MMM dd'; // Up to 3 months, show day
     else dateFormatStr = 'MMM yy'; // Longer than 3 months, show month/year
   } else if (filter === 'allTime' && sortedDates.length > 0) {
     const firstDate = parseISO(sortedDates[0]);
     const lastDate = parseISO(sortedDates[sortedDates.length-1]);
     const days = differenceInDays(lastDate, firstDate);
-    if (days <= 7) dateFormatStr = 'EEE, MMM dd';
+    if (days <= 1) dateFormatStr = 'MMM dd';
+    else if (days <= 7) dateFormatStr = 'EEE, MMM dd';
     else if (days <= 90) dateFormatStr = 'MMM dd';
     else dateFormatStr = 'MMM yy';
   }
@@ -139,25 +144,28 @@ export const getSalesByCategoryData = (invoices: Invoice[]): KeyValueDataPoint[]
   invoices.forEach(invoice => {
     invoice.items.forEach(item => {
       const category = item.category || 'Uncategorized';
-      // item.price is sellingPrice (pre-GST for products)
+      // item.price is sellingPrice (pre-GST for products, manually entered for services)
       categorySales[category] = (categorySales[category] || 0) + (item.price * item.quantity);
     });
   });
 
-  return Object.entries(categorySales).map(([name, value]) => ({
-    name,
-    value: parseFloat(value.toFixed(2)),
-    fill: categoryColors[colorIndex++ % categoryColors.length]
+  return Object.entries(categorySales)
+    .sort(([, aValue], [, bValue]) => bValue - aValue) // Sort by value descending
+    .map(([name, value]) => ({
+      name,
+      value: parseFloat(value.toFixed(2)),
+      fill: categoryColors[colorIndex++ % categoryColors.length]
   }));
 };
 
 export const getPaymentMethodDistributionData = (invoices: Invoice[]): KeyValueDataPoint[] => {
   const paymentDistribution: Record<string, number> = {};
-   const paymentColors: string[] = [
+   const paymentColors: string[] = [ // Define distinct colors
     'hsl(var(--chart-1))',
     'hsl(var(--chart-2))',
     'hsl(var(--chart-3))',
     'hsl(var(--chart-4))',
+    'hsl(var(--chart-5))', // Added one more for potential 'Digital Wallet'
   ];
   let colorIndex = 0;
 
@@ -165,10 +173,12 @@ export const getPaymentMethodDistributionData = (invoices: Invoice[]): KeyValueD
     paymentDistribution[invoice.paymentMethod] = (paymentDistribution[invoice.paymentMethod] || 0) + 1;
   });
 
-  return Object.entries(paymentDistribution).map(([name, value]) => ({
+  return Object.entries(paymentDistribution)
+    .sort(([, aValue], [, bValue]) => bValue - aValue) // Sort by count descending
+    .map(([name, value]) => ({
     name,
     value,
-    fill: paymentColors[colorIndex++ % paymentColors.length]
+    fill: paymentColors[colorIndex++ % paymentColors.length] // Assign color explicitly
   }));
 };
 
@@ -177,7 +187,9 @@ export const getTopProfitableItemsData = (invoices: Invoice[], limit: number = 5
 
   invoices.forEach(invoice => {
     invoice.items.forEach(item => {
-      const profitForItemInstance = (item.price - (item.costPrice || 0)) * item.quantity;
+      const cost = item.costPrice || 0;
+      const profitForItemInstance = (item.price - cost) * item.quantity;
+      
       if (itemProfits[item.id]) {
         itemProfits[item.id].totalProfit += profitForItemInstance;
       } else {
@@ -191,7 +203,7 @@ export const getTopProfitableItemsData = (invoices: Invoice[], limit: number = 5
   });
 
   return Object.values(itemProfits)
-    .sort((a, b) => b.totalProfit - a.totalProfit)
+    .sort((a, b) => b.totalProfit - a.totalProfit) // Sort by profit descending
     .slice(0, limit)
     .map(item => ({
       name: `${item.name} (${item.type.charAt(0).toUpperCase() + item.type.slice(1)})`,
