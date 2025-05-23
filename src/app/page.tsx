@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer, MessageSquare } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer, MessageSquare, Download } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -93,6 +93,7 @@ export default function BillingPage() {
     setSearchTerm('');
     setCurrentInvoice(null);
     setIsCurrentInvoiceFinalized(false);
+    // Reset selected existing customer if any
   };
 
   useEffect(() => {
@@ -121,7 +122,10 @@ export default function BillingPage() {
                 }
             } catch (e) {
               console.error("Failed to parse products from localStorage, starting with empty list.", e);
+              loadedProducts = [];
             }
+        } else {
+            loadedProducts = [];
         }
         setProducts(loadedProducts);
 
@@ -148,7 +152,10 @@ export default function BillingPage() {
                 }
             } catch (e) {
               console.error("Failed to parse services from localStorage, starting with empty list.", e);
+              loadedServices = [];
             }
+        } else {
+            loadedServices = [];
         }
         setServices(loadedServices);
 
@@ -161,7 +168,8 @@ export default function BillingPage() {
               allInvoices = parsed;
             }
           } catch (e) {
-            // console.error("Failed to parse invoices from localStorage for customer list, using empty list.", e);
+            console.error("Failed to parse invoices from localStorage for customer list, using empty list.", e);
+            allInvoices = [];
           }
         }
         const uniqueCusts: Record<string, ExistingCustomer> = {};
@@ -182,7 +190,7 @@ export default function BillingPage() {
   }, [isSettingsLoaded]);
 
    useEffect(() => {
-    if (isSettingsLoaded && (products.length > 0 || services.length > 0)) {
+    if (isSettingsLoaded && (products.length > 0 || services.length > 0 || localStorage.getItem('appProducts') || localStorage.getItem('appServices'))) {
         const allItems: SearchableItem[] = [
           ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product'})),
           ...services.map(s => ({ ...s, price: s.sellingPrice, type: 'service' as 'service'}))
@@ -345,7 +353,7 @@ export default function BillingPage() {
                 id: service.id, name: service.name, price: priceToUse, quantity: 1, type: 'service',
                 imageUrl: service.imageUrl || defaultPlaceholder(service.name),
                 dataAiHint: service.dataAiHint, category: service.category,
-                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0,
+                serviceCode: service.serviceCode, duration: service.duration, costPrice: 0, // Services don't have costPrice for profit calculation by default
                 itemSpecificPhoneNumber: details.phoneNumber || '',
                 itemSpecificNote: details.note || '',
                 isPriceOverridden: isPriceOverridden,
@@ -471,7 +479,7 @@ export default function BillingPage() {
       customerPhoneNumber: customerPhoneNumber,
       items: cartItems,
       subTotal,
-      gstRate: currentGstRate,
+      gstRate: currentGstRate, // Store the rate at the time of invoice creation
       gstAmount,
       totalAmount,
       paymentMethod,
@@ -482,7 +490,7 @@ export default function BillingPage() {
       shopName: currentShopName,
     };
     setCurrentInvoice(newInvoice);
-    setIsCurrentInvoiceFinalized(false); // Reset finalized state for new invoice preview
+    setIsCurrentInvoiceFinalized(false); 
     setIsInvoiceDialogOpen(true);
 
     if (invoiceStatus === 'Due') {
@@ -539,7 +547,8 @@ export default function BillingPage() {
                     allAppInvoices = parsed;
                 }
             } catch (e) {
-                 // console.error("Failed to parse existing invoices for saving, starting with empty list", e);
+                 console.error("Failed to parse existing invoices for saving, starting with empty list", e);
+                 allAppInvoices = [];
             }
         }
       allAppInvoices = [currentInvoice, ...allAppInvoices];
@@ -560,21 +569,8 @@ export default function BillingPage() {
         title: currentInvoice.status === 'Paid' ? "Sale Finalized!" : "Invoice Saved (Payment Due)",
         description: `${paymentSuccessMessage} ${currentInvoice.status === 'Paid' ? 'Stock updated.' : 'Stock not updated.'}`
     });
+    setIsCurrentInvoiceFinalized(true);
     return true;
-  };
-
-
-  const handlePrintOptionsOpen = () => {
-    if (!currentInvoice) return;
-    if (!isCurrentInvoiceFinalized) {
-        const success = finalizeAndSaveCurrentInvoice();
-        if (!success) {
-            toast({ title: "Save Failed", description: "Could not save invoice before printing.", variant: "destructive" });
-            return;
-        }
-        setIsCurrentInvoiceFinalized(true);
-    }
-    setIsPrintFormatDialogOpen(true);
   };
 
   const handleDownloadCurrentInvoiceAsPdf = async () => {
@@ -593,7 +589,6 @@ export default function BillingPage() {
             toast({ title: "Save Failed", description: "Could not save invoice before PDF download.", variant: "destructive" });
             return;
         }
-        setIsCurrentInvoiceFinalized(true); // Mark as finalized since we are proceeding to generate PDF
     }
 
     const invoiceElement = document.getElementById('invoice-view-content');
@@ -602,7 +597,7 @@ export default function BillingPage() {
       return;
     }
 
-    document.body.classList.add('print-mode-a4'); // Apply A4 styling for PDF generation
+    document.body.classList.add('print-mode-a4');
 
     const options = {
       margin: 10, // mm
@@ -620,7 +615,6 @@ export default function BillingPage() {
       toast({ title: "PDF Generation Error", description: "Could not generate PDF.", variant: "destructive" });
     } finally {
       document.body.classList.remove('print-mode-a4');
-      // Close dialogs and reset state after PDF generation attempt
       setIsPrintFormatDialogOpen(false); 
       setIsInvoiceDialogOpen(false);
       resetBillingState(); 
@@ -636,10 +630,8 @@ export default function BillingPage() {
       return;
     }
     
-    // Invoice is already finalized by handlePrintOptionsOpen or the primary finalize button
-    // So, no need to call finalizeAndSaveCurrentInvoice() here again.
-
-    setIsPrintFormatDialogOpen(false); // Close format dialog before system print dialog
+    // Invoice is assumed to be finalized already by this point.
+    setIsPrintFormatDialogOpen(false); 
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -652,7 +644,7 @@ export default function BillingPage() {
     setTimeout(() => {
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
-        setIsInvoiceDialogOpen(false); // Ensure main preview dialog is also closed
+        setIsInvoiceDialogOpen(false); 
         resetBillingState();
     }, 150); 
   };
@@ -886,11 +878,8 @@ export default function BillingPage() {
 
       {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => {
-            if (!openState) { // If dialog is closing
-                if (!isPrintFormatDialogOpen) { // And print format dialog is NOT open
-                    resetBillingState(); // Then reset everything
-                }
-                // If print format dialog IS open, let its onOpenChange handle the reset
+            if (!openState && !isPrintFormatDialogOpen) {
+                resetBillingState();
             }
             setIsInvoiceDialogOpen(openState);
         }}>
@@ -899,9 +888,9 @@ export default function BillingPage() {
               <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle>
             </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
-            <DialogFooter className="flex flex-col space-y-2 pt-4 sm:flex-row sm:space-y-0 sm:justify-between sm:items-center print-hide gap-2">
+            <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center print-hide gap-2">
               <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
-                  <Button
+                 <Button
                     type="button"
                     variant="outline"
                     className="w-full xs:w-auto"
@@ -921,8 +910,8 @@ export default function BillingPage() {
                         }
                         baseMessage += ` Thank you for your purchase!`;
                         const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(baseMessage)}`;
-                        toast({ title: "WhatsApp Share Simulated", description: `Would open WhatsApp for ${currentInvoice.customerPhoneNumber}.` });
                         window.open(whatsappUrl, '_blank');
+                        toast({ title: "WhatsApp Redirecting...", description: `Opening WhatsApp for +${phoneNumber}.` });
                       } else {
                         toast({ title: "WhatsApp Share Failed", description: "Customer phone number not available for WhatsApp.", variant: "destructive" });
                       }
@@ -932,7 +921,7 @@ export default function BillingPage() {
                     <MessageSquare className="mr-2 h-4 w-4" /> Share via WhatsApp (+91)
                   </Button>
               </div>
-              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 sm:justify-end">
+              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
                  <Button 
                     type="button" 
                     variant="secondary" 
@@ -950,18 +939,15 @@ export default function BillingPage() {
                     onClick={() => {
                         if(!isCurrentInvoiceFinalized) {
                             const success = finalizeAndSaveCurrentInvoice();
-                            if(success) setIsCurrentInvoiceFinalized(true);
-                            else return; // Stop if finalization failed
+                            if(!success) return; 
                         }
-                        // If already finalized, or finalized successfully, open print options
                         setIsPrintFormatDialogOpen(true); 
                     }}
-                    disabled={isCurrentInvoiceFinalized && currentInvoice.status === 'Paid'} // Disable if already finalized & paid
                 >
                     <Printer className="w-4 h-4 mr-2" />
                     {isCurrentInvoiceFinalized 
-                        ? (currentInvoice.status === 'Due' ? 'Print Options (Due)' : 'Print Options (Paid)') 
-                        : (currentInvoice.status === 'Due' ? 'Save & Print Options' : 'Finalize & Print Options')}
+                        ? (currentInvoice.status === 'Due' ? 'Print Options' : 'Print Options') 
+                        : (currentInvoice.status === 'Due' ? 'Save Invoice & Print' : 'Finalize Sale & Print')}
                 </Button>
               </div>
             </DialogFooter>
@@ -971,10 +957,10 @@ export default function BillingPage() {
 
       {isPrintFormatDialogOpen && currentInvoice && (
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => {
-             if(!open) { // If dialog is closing
+             if(!open) { 
                 setIsPrintFormatDialogOpen(false);
-                setIsInvoiceDialogOpen(false); // Ensure main preview is also closed
-                resetBillingState(); // Always reset state when print flow is done/cancelled
+                setIsInvoiceDialogOpen(false); 
+                resetBillingState(); 
              }
          }}>
             <AlertDialogContent>
