@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Eye, EyeOff } from 'lucide-react';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -37,13 +37,13 @@ export default function RegisterPage() {
   const handleRegister: SubmitHandler<RegisterFormValues> = (data) => {
     console.log('Registration attempt with:', { email: data.email });
     // In a real app, you'd call your auth service here
-    localStorage.setItem('isAuthenticated', 'true'); 
-    localStorage.setItem('userEmail', data.email); 
+    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('userEmail', data.email);
 
-    // Clear previous user's transactional data
+    // Clear previous user's transactional data - RETAIN Products & Services
     localStorage.removeItem('appInvoices');
-    localStorage.removeItem('appProducts');
-    localStorage.removeItem('appServices');
+    // localStorage.removeItem('appProducts'); // Products will NOT be cleared
+    // localStorage.removeItem('appServices'); // Services will NOT be cleared
     
     toast({
       title: 'Registration Successful',
