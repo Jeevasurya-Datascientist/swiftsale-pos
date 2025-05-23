@@ -24,7 +24,6 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
   const displayShopName = invoice.shopName || contextShopName;
   const displayAmountReceived = invoice.amountReceived;
   const displayBalanceAmount = invoice.balanceAmount;
-  // displayGstRatePercentage removed as GST is now a sum
 
   return (
     <div id="invoice-view-content" className="p-2 space-y-4 max-h-[70vh] overflow-y-auto invoice-view-print-root">
@@ -120,29 +119,28 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
         </TableBody>
         <TableFooter className="print-summary-footer">
           <TableRow>
-            <TableCell colSpan={3} className="print-footer-colspan-adjust"/>
+            <TableCell colSpan={3} className="print-footer-colspan-adjust print-footer-colspan-adjust-a4-offset"/>
             <TableCell className="text-right font-medium print-summary-label">Subtotal:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.subTotal.toFixed(2)}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell colSpan={3} className="print-footer-colspan-adjust"/>
-            {/* Changed to display Total GST Amount instead of a single rate */}
+            <TableCell colSpan={3} className="print-footer-colspan-adjust print-footer-colspan-adjust-a4-offset"/>
             <TableCell className="text-right font-medium print-summary-label">Total GST:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.gstAmount.toFixed(2)}</TableCell>
           </TableRow>
           <TableRow className="font-bold text-lg">
-            <TableCell colSpan={3} className="print-footer-colspan-adjust"/>
+            <TableCell colSpan={3} className="print-footer-colspan-adjust print-footer-colspan-adjust-a4-offset"/>
             <TableCell className="text-right print-summary-label">Total Amount:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{invoice.totalAmount.toFixed(2)}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell colSpan={3} className="print-footer-colspan-adjust"/>
+            <TableCell colSpan={3} className="print-footer-colspan-adjust print-footer-colspan-adjust-a4-offset"/>
             <TableCell className="text-right font-medium print-summary-label">Amount Received:</TableCell>
             <TableCell className="text-right print-summary-value">{currencySymbol}{displayAmountReceived.toFixed(2)}</TableCell>
           </TableRow>
           {displayBalanceAmount !== 0 && ( 
             <TableRow className={`${displayBalanceAmount < 0 ? "text-destructive print-destructive-text" : "print-positive-balance-text"}`}>
-              <TableCell colSpan={3} className="print-footer-colspan-adjust"/>
+              <TableCell colSpan={3} className="print-footer-colspan-adjust print-footer-colspan-adjust-a4-offset"/>
               <TableCell className="text-right font-medium print-summary-label">
                 {displayBalanceAmount > 0 ? "Change Due:" : "Balance Due:"}
               </TableCell>
@@ -177,14 +175,22 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             color-adjust: exact !important;
           }
 
+          /* Aggressively hide everything else on the page */
           body > *:not(.invoice-view-dialog-content):not(script):not(style) {
             display: none !important;
           }
           
+          /* Ensure Radix UI overlays and other dialogs are hidden */
+          [data-radix-dialog-overlay],
+          [data-radix-alert-dialog-overlay],
+          [role="alertdialog"] { 
+            display: none !important; 
+          }
+
           .invoice-view-dialog-content {
               display: block !important; 
               position: static !important;
-              width: 100% !important;
+              width: 100% !important; /* Will be constrained by @page */
               height: auto !important;
               max-width: none !important;
               max-height: none !important;
@@ -203,9 +209,6 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             display: none !important;
           }
 
-          [data-radix-dialog-overlay],
-          [data-radix-alert-dialog-overlay],
-          [role="alertdialog"], 
           .print-hide,
           .print-hide-icon { 
             display: none !important; 
@@ -216,8 +219,8 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             color: #000 !important;
             box-sizing: border-box;
             margin: 0 auto; 
-            position: static !important; 
-            width: 100%; 
+            position: static !important; /* Changed from absolute */
+            width: 100%; /* Will be constrained by @page rule */
             height: auto !important;
             max-height: none !important;
             overflow: visible !important;
@@ -230,7 +233,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           }
           body.print-mode-a4 .invoice-view-print-root {
             font-family: Arial, Helvetica, sans-serif !important;
-            width: 100% !important;
+            width: 100% !important; /* Takes width from @page */
             padding: 0 !important;
             box-sizing: border-box;
           }
@@ -256,18 +259,53 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-a4 .print-items-table th, 
           body.print-mode-a4 .print-items-table td { font-size: 9pt !important; padding: 2mm 1.5mm !important; border: 1px solid #ccc !important; vertical-align: top; }
           body.print-mode-a4 .print-items-table th { background-color: #f0f0f0 !important; text-align: left; font-weight: bold;}
-          body.print-mode-a4 .print-col-image { display: table-cell !important; width: 15mm !important; text-align: center;}
-          body.print-mode-a4 .print-col-image img { max-width: 100%; height: auto; }
-          body.print-mode-a4 .print-item-details-cell { width: auto; }
+          
+          body.print-mode-a4 .print-col-image { display: none !important; } /* HIDE IMAGE COLUMN FOR A4 */
+          body.print-mode-a4 .print-footer-colspan-adjust-a4-offset { display: none !important; } /* Hide the cell that would normally account for image column */
+          /* Adjust colspan for A4 footer cells by targeting direct child (TableCell) of TableRow in TableFooter */
+          body.print-mode-a4 .print-summary-footer > tr > td:first-child {
+             /* This will make the first visible cell (was the 4th, now effectively 3rd logic cell after 2 hidden) act as the start of the label span */
+             /* No specific colspan needed if the previous cells are hidden. The browser should adjust. */
+             /* If we need to force it, it implies the number of actual 'td's needs to be adjusted. */
+          }
+          body.print-mode-a4 .print-summary-footer > tr > td.print-footer-colspan-adjust {
+              display: none !important; /* Hides cells used for thermal colspan */
+          }
+           body.print-mode-a4 .print-summary-footer > tr > td:nth-child(1 of .print-summary-label) { /* This selector might be tricky, let's use a more direct approach */
+             /* For A4, the first TD holding a label would effectively be the first, and we want it to span 2 visual columns (item name + qty) */
+             /* No, we have Item, Qty, Price, Total. So Subtotal label should be in the 3rd logical column (Price's spot) */
+          }
+          body.print-mode-a4 .print-summary-footer .print-summary-label {
+            /* Span 2 columns for A4: "Item Details" and "Qty" column areas */
+            /* This is hard if one column is hidden. Let's simplify. The first visible cell for labels. */
+          }
+           body.print-mode-a4 .print-summary-footer > tr {
+            /* Ensure table cells are counted correctly after hiding one */
+          }
+          body.print-mode-a4 .print-summary-footer > tr > td:nth-of-type(1) { /* Was the first of 4 visible (Item Details) */
+            /* No specific style needed unless to force a span */
+          }
+           body.print-mode-a4 .print-summary-footer > tr > td:nth-of-type(2) { /* Was the Qty column */
+             /* No specific style needed */
+          }
+          body.print-mode-a4 .print-summary-footer .print-summary-label {
+             text-align: right;
+          }
+           body.print-mode-a4 .print-summary-footer .print-summary-value {
+             text-align: right;
+          }
+          /* Ensure the main content columns for A4 table are still relevant */
+          body.print-mode-a4 .print-item-details-cell { width: auto; } /* Allow item name to take available space */
           body.print-mode-a4 .print-item-gst { font-size: 8pt !important; }
           body.print-mode-a4 .print-col-qty { width: 10%; text-align: center !important;}
           body.print-mode-a4 .print-col-price, body.print-mode-a4 .print-col-total { width: 18%; text-align: right !important;}
+          
           body.print-mode-a4 .print-summary-footer td { font-size: 10pt !important; padding: 1.5mm !important; }
           body.print-mode-a4 .print-summary-footer .font-bold { font-size: 11pt !important; }
-          body.print-mode-a4 .print-final-details { font-size: 10pt !important; margin-top: 8mm !important; }
+          body.print-mode-a4 .print-final-details { font-size: 10pt !important; margin-top: 8mm !important; text-align: center !important; }
           body.print-mode-a4 .print-status-badge { font-size: 10pt !important; padding: 2px 6px !important; }
           body.print-mode-a4 .print-thankyou-message { text-align: center; margin-top: 10mm !important; font-size: 10pt;}
-          body.print-mode-a4 .print-hide-icon { display: inline-block !important; } 
+          body.print-mode-a4 .print-hide-icon { display: inline-block !important; } /* Show icons like package/bell in A4 if desired */
 
 
           /* Thermal Specific Styles (e.g., 58mm paper width) */
@@ -277,7 +315,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           }
           body.print-mode-thermal .invoice-view-print-root {
             font-family: 'Courier New', Courier, monospace !important;
-            width: 55mm !important; 
+            width: 55mm !important; /* Content width */
             padding: 0 !important;
             box-sizing: border-box;
             font-size: 8pt !important;
@@ -285,7 +323,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
             color: black !important;
           }
           body.print-mode-thermal .print-logo { display: none !important; } 
-          body.print-mode-thermal .print-header-section { margin-bottom: 2mm !important; border-bottom: 1px solid black !important; padding-bottom: 1mm;}
+          body.print-mode-thermal .print-header-section { margin-bottom: 2mm !important; border-bottom: 1px solid black !important; padding-bottom: 1mm; text-align: center !important;}
           body.print-mode-thermal .print-shop-details-name { font-size: 10pt !important; font-weight: bold !important; margin-bottom: 1mm !important; text-transform: uppercase; text-align: center !important;}
           body.print-mode-thermal .print-main-title { font-size: 9pt !important; font-weight: bold !important; margin-bottom: 1mm; text-align: center !important;}
           body.print-mode-thermal .print-invoice-meta { font-size: 7pt !important; line-height: 1.1; margin-bottom: 0.2mm; text-align: center !important;}
@@ -293,6 +331,7 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
           body.print-mode-thermal .print-address-grid { display: block; margin-bottom: 2mm !important; border-bottom: 1px dashed black; padding-bottom: 1mm;}
           body.print-mode-thermal .print-address-grid > div { width: 100% !important; text-align: left !important; font-size: 7pt !important; line-height: 1.2; margin-bottom: 0.5mm;}
           body.print-mode-thermal .print-billed-to { margin-bottom: 1mm; text-align: left !important; }
+          body.print-mode-thermal .print-from-address { text-align: center !important; }
           body.print-mode-thermal .print-from-address .print-shop-details-name-alt { font-weight: normal !important; text-align: center !important; display: block;}
           body.print-mode-thermal .print-from-address .print-shop-details-line { margin: 0; text-align: center !important; }
           body.print-mode-thermal .print-section-title { font-size: 8pt !important; font-weight: bold !important; margin-bottom: 0.5mm; text-align: left; }
@@ -347,3 +386,4 @@ export function InvoiceView({ invoice }: InvoiceViewProps) {
     </div>
   );
 }
+
