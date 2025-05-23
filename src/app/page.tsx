@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, ChangeEvent, useRef } from 'react';
@@ -420,10 +419,13 @@ export default function BillingPage() {
     
     setTimeout(() => { 
         window.print(); 
-        document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); 
+        // It's good practice to clean up body classes after printing
+        // However, if the dialog is closed based on print, it might not be necessary here.
+        // For safety:
+        // document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); 
         setIsInvoiceDialogOpen(false); 
         resetBillingState(); 
-    }, 150); 
+    }, 150); // Small delay to allow DOM changes to apply before print dialog
   };
 
   const cartItemNames = cartItems.map(item => item.name);
@@ -432,12 +434,13 @@ export default function BillingPage() {
 
   return (
     <div className="container mx-auto py-4">
-      <header className="mb-8">
+      <header className="mb-8 print:hidden"> {/* Hide header on print */}
         <h1 className="text-4xl font-bold text-primary flex items-center gap-2"> <ShoppingBag className="h-10 w-10" /> SwiftSale POS - Billing </h1>
         <p className="text-muted-foreground">Fast, smart, and efficient point of sale.</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Hide main layout on print if invoice dialog is active */}
+      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 ${isInvoiceDialogOpen ? 'print:hidden' : ''}`}>
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-lg">
             <CardHeader> <CardTitle className="flex items-center gap-2"><FileText className="h-6 w-6 text-primary"/> Add Items to Cart</CardTitle> </CardHeader>
@@ -509,13 +512,30 @@ export default function BillingPage() {
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => { 
             if (!openState && !isPrintFormatDialogOpen) { 
                 resetBillingState();
+                document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); // Clean up body classes
             } 
             setIsInvoiceDialogOpen(openState); 
         }}>
-          <DialogContent className="max-w-2xl invoice-view-dialog-content">
-            <DialogHeader> <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle> </DialogHeader>
-            <InvoiceView invoice={currentInvoice} />
-             <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center gap-2">
+          <DialogContent className="max-w-2xl invoice-view-dialog-content 
+            print:p-0 print:max-w-none print:w-screen print:h-auto print:min-h-screen print:fixed print:top-0 print:left-0 
+            print:border-none print:shadow-none print:rounded-none print:bg-white print:overflow-visible"
+          >
+            <DialogHeader className="print:hidden"> {/* Hide dialog header on print */}
+              <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle>
+            </DialogHeader>
+            <InvoiceView 
+              invoice={currentInvoice} 
+              // Apply A4 and Thermal specific styles using the custom variants
+              // These will be activated by body.print-mode-a4 or body.print-mode-thermal at print time
+              className="
+                print-a4:w-[210mm] print-a4:min-h-[297mm] print-a4:m-auto print-a4:p-[15mm] 
+                print-a4:box-border print-a4:bg-white print-a4:shadow-none
+                print-thermal:w-[78mm] print-thermal:m-auto print-thermal:p-[3mm] print-thermal:h-auto 
+                print-thermal:box-border print-thermal:bg-white print-thermal:shadow-none
+              "
+            />
+            <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center gap-2 print:hidden">
+                {/* This entire footer will be hidden on print */}
                 <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
                     <Button 
                         type="button" 
@@ -547,7 +567,7 @@ export default function BillingPage() {
                     </Button>
                 </div>
                 <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
-                    <Button type="button" variant="secondary" className="w-full xs:w-auto" onClick={() => { setIsInvoiceDialogOpen(false); resetBillingState(); }} > Close </Button>
+                    <Button type="button" variant="secondary" className="w-full xs:w-auto" onClick={() => { setIsInvoiceDialogOpen(false); resetBillingState(); document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); }} > Close </Button>
                     <Button 
                         type="button" 
                         className="w-full xs:w-auto" 
@@ -570,18 +590,20 @@ export default function BillingPage() {
         </Dialog>
       )}
 
+      {/* This entire AlertDialog will be hidden on print */}
       {isPrintFormatDialogOpen && currentInvoice && (
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => { 
             if(!open) {
                  setIsPrintFormatDialogOpen(false); 
-                 if (!isInvoiceDialogOpen) {
+                 if (!isInvoiceDialogOpen) { // If main invoice dialog also closed
                     resetBillingState();
+                    document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
                  }
             } else {
                  setIsPrintFormatDialogOpen(open);
             }
          }}>
-            <AlertDialogContent>
+            <AlertDialogContent className="print:hidden"> {/* Key change: Hide on print */}
                 <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. </AlertDialogDescription> </AlertDialogHeader>
                 <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
                     <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
@@ -594,4 +616,3 @@ export default function BillingPage() {
     </div>
   );
 }
-

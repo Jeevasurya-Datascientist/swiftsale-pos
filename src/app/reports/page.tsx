@@ -1,8 +1,7 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem, AnalyzeProfitInput, AnalyzeProfitOutput } from '@/lib/types'; 
+import type { Invoice, ReportTimeFilter, ReportDateRange, Product, Service, SearchableItem, AnalyzeProfitInput, AnalyzeProfitOutput } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import {
   filterInvoicesByDate,
@@ -22,7 +21,7 @@ import { Input } from "@/components/ui/input"; // For AI chat
 import { Textarea } from "@/components/ui/textarea"; // For AI chat
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, BarChart3, LineChart, PieChart, ShoppingBag, Users, Download, MessageCircleQuestion, TrendingUp, SendHorizonal, Loader2 } from 'lucide-react'; 
+import { CalendarIcon, BarChart3, LineChart, PieChart, ShoppingBag, Users, Download, MessageCircleQuestion, TrendingUp, SendHorizonal, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -69,12 +68,12 @@ const downloadCSV = (data: any[], filename: string, headers: string[]) => {
       else if (header === 'Description') value = row.description;
       else if (header === 'Service Code') value = row.serviceCode;
       else if (header === 'Duration') value = row.duration;
-      else if (header === 'GST Percentage') value = typeof row.gstPercentage === 'number' ? row.gstPercentage : 'N/A'; 
+      else if (header === 'GST Percentage') value = typeof row.gstPercentage === 'number' ? row.gstPercentage : 'N/A';
       // Fallback for any other headers - attempts to match various casings
       else { value = row[header] ?? row[keySimple] ?? row[keyCamelCase] ?? row[keyFirstLowerCamelCase]; }
 
       // Ensure values are properly formatted for CSV
-      if (value === undefined || value === null) { value = ''; } 
+      if (value === undefined || value === null) { value = ''; }
       else if (typeof value === 'string' && value.includes(',')) { value = `"${value}"`; }
       return value;
     });
@@ -124,9 +123,9 @@ export default function ReportsPage() {
                         gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : 0,
                     }));
                 } else { loadedProducts = []; }
-            } catch(e) { 
+            } catch(e) {
                 console.error("Failed to parse products from localStorage for ReportsPage, starting with empty list.", e);
-                loadedProducts = []; 
+                loadedProducts = [];
             }
         } else { loadedProducts = []; }
         setAllProducts(loadedProducts);
@@ -148,35 +147,35 @@ export default function ReportsPage() {
                         duration: s.duration || undefined,
                     }));
                 } else { loadedServices = []; }
-            } catch(e) { 
+            } catch(e) {
                 console.error("Failed to parse services from localStorage for ReportsPage, starting with empty list.", e);
-                loadedServices = []; 
+                loadedServices = [];
             }
         }  else { loadedServices = []; }
         setAllServices(loadedServices);
 
         const storedInvoicesData = localStorage.getItem('appInvoices');
         let loadedAppInvoices: Invoice[] = [];
-        if (storedInvoicesData) { 
-            try { 
-                const parsed = JSON.parse(storedInvoicesData); 
-                if (Array.isArray(parsed)) { 
-                    loadedAppInvoices = parsed; 
+        if (storedInvoicesData) {
+            try {
+                const parsed = JSON.parse(storedInvoicesData);
+                if (Array.isArray(parsed)) {
+                    loadedAppInvoices = parsed;
                 } else {
                     console.warn("Stored appInvoices is not an array. Initializing as empty for ReportsPage.");
                     loadedAppInvoices = [];
                 }
-            } catch (error) { 
+            } catch (error) {
                 console.error("Failed to parse appInvoices from localStorage for ReportsPage. Initializing as empty.", error);
-                loadedAppInvoices = []; 
-            } 
+                loadedAppInvoices = [];
+            }
         } else { loadedAppInvoices = []; }
         
         const enrichedInvoices = loadedAppInvoices.map(inv => ({
             ...inv,
             items: inv.items.map(item => {
-                let costPrice = item.costPrice || 0; 
-                if (item.type === 'product' && !item.costPrice) { 
+                let costPrice = item.costPrice || 0;
+                if (item.type === 'product' && !item.costPrice) {
                     const productDetails = loadedProducts.find(p => p.id === item.id);
                     costPrice = productDetails?.costPrice || 0;
                 } else if (item.type === 'service') {
@@ -200,7 +199,7 @@ export default function ReportsPage() {
   const salesSummary = calculateSalesSummary(filteredInvoices);
   const salesOverTimeData = getSalesOverTimeData(filteredInvoices, timeFilter, customDateRange);
   const topSellingItemsData = getTopSellingItemsData(filteredInvoices);
-  const topProfitableItemsData = getTopProfitableItemsData(filteredInvoices); 
+  const topProfitableItemsData = getTopProfitableItemsData(filteredInvoices);
   const salesByCategoryData = getSalesByCategoryData(filteredInvoices);
   const paymentMethodData = getPaymentMethodDistributionData(filteredInvoices);
 
@@ -286,7 +285,7 @@ export default function ReportsPage() {
           <CardHeader> <CardTitle className="flex items-center gap-2"><ShoppingBag className="h-6 w-6 text-primary"/>Top Selling Items (by Quantity)</CardTitle> </CardHeader>
           <CardContent> {topSellingItemsData.length > 0 ? (<TopItemsChart data={topSellingItemsData} />) : <p className="text-muted-foreground text-center py-8">No item data for selected period.</p>} </CardContent>
         </Card>
-        <Card className="shadow-md"> 
+        <Card className="shadow-md">
           <CardHeader> <CardTitle className="flex items-center gap-2"><TrendingUp className="h-6 w-6 text-green-600"/>Top Profitable Items</CardTitle> </CardHeader>
           <CardContent> {topProfitableItemsData.length > 0 ? (<TopProfitableItemsChart data={topProfitableItemsData} />) : <p className="text-muted-foreground text-center py-8">No profit data for items in selected period.</p>} </CardContent>
         </Card>
@@ -296,7 +295,13 @@ export default function ReportsPage() {
         </Card>
         <Card className="shadow-md lg:col-span-2 mb-6"> {/* Added mb-6 here */}
           <CardHeader> <CardTitle className="flex items-center gap-2"><Users className="h-6 w-6 text-primary"/>Payment Method Distribution</CardTitle> </CardHeader>
-          <CardContent> {paymentMethodData.length > 0 ? (<PaymentMethodsChart data={paymentMethodData} />) : <p className="text-muted-foreground text-center py-8">No payment data for selected period.</p>} </CardContent>
+          <CardContent>
+            {paymentMethodData.length > 0 ? (
+              <div className="w-full h-[300px] sm:h-[350px]">
+                <PaymentMethodsChart data={paymentMethodData} />
+              </div>
+            ) : <p className="text-muted-foreground text-center py-8">No payment data for selected period.</p>}
+          </CardContent>
         </Card>
         
         <Card className="shadow-md lg:col-span-2">
@@ -304,7 +309,7 @@ export default function ReportsPage() {
             <CardContent className="space-y-4">
               <form onSubmit={handleAiQuerySubmit} className="flex items-start sm:items-center gap-2 flex-col sm:flex-row">
                 <Input
-                  key={isAiLoading ? 'ai-loading' : 'ai-ready'} // Force re-render on loading state change
+                  key={isAiLoading ? 'ai-loading' : 'ai-ready'} 
                   type="text"
                   value={aiQuery}
                   onChange={(e) => setAiQuery(e.target.value)}
@@ -324,7 +329,7 @@ export default function ReportsPage() {
                 </div>
               )}
               {aiResponse && (
-                <Textarea 
+                <Textarea
                   value={aiResponse}
                   readOnly
                   rows={5}
@@ -335,7 +340,7 @@ export default function ReportsPage() {
               )}
                {!isAiLoading && !aiResponse && (
                  <p className="text-sm text-muted-foreground text-center py-2">
-                   Ask a question to get AI-powered profit insights. 
+                   Ask a question to get AI-powered profit insights.
                    <span className="block text-xs">(Note: Current AI responses are placeholders.)</span>
                   </p>
                )}
@@ -346,4 +351,3 @@ export default function ReportsPage() {
     </ScrollArea>
   );
 }
-
