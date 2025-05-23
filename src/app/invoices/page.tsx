@@ -129,7 +129,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof html2pdf === 'undefined') {
-      console.warn('html2pdf.js is not loaded. PDF download functionality will not work. Please include it via CDN or install the package.');
+      // console.warn('html2pdf.js is not loaded. PDF download functionality will not work. Please include it via CDN or install the package.');
     }
   }, []);
 
@@ -213,14 +213,14 @@ export default function InvoicesPage() {
     if (!invoiceToPrint) return;
 
     const originalSelectedInvoiceId = selectedInvoice?.id;
-    const isDifferentInvoiceOrViewClosed = !isViewOpen || selectedInvoice?.id !== invoiceToPrint.id;
+    const wasViewOpenForThisInvoice = isViewOpen && selectedInvoice?.id === invoiceToPrint.id;
     
-    if (isDifferentInvoiceOrViewClosed) {
+    if (!wasViewOpenForThisInvoice) {
         setSelectedInvoice(invoiceToPrint);
         setIsViewOpen(true); 
     }
     
-    setIsPrintOptionsOpen(false); 
+    if (isPrintOptionsOpen) setIsPrintOptionsOpen(false); 
 
     if (mode === 'a4') {
         document.body.classList.add('print-mode-a4');
@@ -234,18 +234,21 @@ export default function InvoicesPage() {
         window.print();
         document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
         
-        if (isDifferentInvoiceOrViewClosed && !originalSelectedInvoiceId) {
+        if (!wasViewOpenForThisInvoice) { // If view was opened just for this print
             setIsViewOpen(false);
             setSelectedInvoice(null);
-        } else if (isDifferentInvoiceOrViewClosed && originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToPrint.id) {
+        } else if (originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToPrint.id) {
+             // This case should not be common if flow is right, but handles if view was switched.
              const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId);
              if(originalInv) {
                 setSelectedInvoice(originalInv);
-             } else {
+                // setIsViewOpen(true); // Keep it open as it was for another invoice
+             } else { // Original invoice no longer found or was never selected
                 setIsViewOpen(false);
                 setSelectedInvoice(null);
              }
         }
+        // If wasViewOpenForThisInvoice was true, view stays open.
     }, 150);
   };
 
@@ -256,7 +259,7 @@ export default function InvoicesPage() {
             phoneNumber = `91${phoneNumber}`;
         }
 
-        const message = `Hello ${invoiceToShare.customerName || 'Customer'}, here is your invoice ${invoiceToShare.invoiceNumber} from ${invoiceToShare.shopName || currentShopName || "Our Store"}. Status: ${invoiceToShare.status}. Total: ${currencySymbol}${invoiceToShare.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${invoiceToShare.amountReceived.toFixed(2)}. ${invoiceToShare.status === 'Due' && invoiceToShare.amountReceived !== undefined ? `Balance Due: ${currencySymbol}${(invoiceToShare.totalAmount - invoiceToShare.amountReceived).toFixed(2)}.` : (invoiceToShare.balanceAmount && invoiceToShare.balanceAmount > 0 ? `Change: ${currencySymbol}${invoiceToShare.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
+        const message = `Hello ${invoiceToShare.customerName || 'Customer'}, here is your invoice ${invoiceToShare.invoiceNumber} from ${invoiceToShare.shopName || currentShopName || "Our Store"}. Status: ${invoiceToShare.status}. Total: ${currencySymbol}${invoiceToShare.totalAmount.toFixed(2)}. Amount Paid: ${currencySymbol}${invoiceToShare.amountReceived.toFixed(2)}. ${invoiceToShare.status === 'Due' && invoiceToShare.amountReceived !== undefined && (invoiceToShare.totalAmount - invoiceToShare.amountReceived > 0) ? `Balance Due: ${currencySymbol}${(invoiceToShare.totalAmount - invoiceToShare.amountReceived).toFixed(2)}.` : (invoiceToShare.balanceAmount && invoiceToShare.balanceAmount > 0 ? `Change: ${currencySymbol}${invoiceToShare.balanceAmount.toFixed(2)}.` : '')} Thank you for your purchase!`;
         
         const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
         
@@ -274,30 +277,29 @@ export default function InvoicesPage() {
       return;
     }
     if (typeof html2pdf === 'undefined') {
-      toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded. Cannot download PDF.", variant: "destructive" });
+      toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded. Cannot download PDF. Please include it in your project.", variant: "destructive" });
       return;
     }
 
     const originalSelectedInvoiceId = selectedInvoice?.id;
-    const isDifferentInvoiceOrViewClosed = !isViewOpen || selectedInvoice?.id !== invoiceToDownload.id;
+    const wasViewOpenForThisInvoice = isViewOpen && selectedInvoice?.id === invoiceToDownload.id;
 
-    if (isDifferentInvoiceOrViewClosed) {
+    // Ensure the print options dialog (if open) is closed before proceeding.
+    if (isPrintOptionsOpen) setIsPrintOptionsOpen(false);
+
+    if (!wasViewOpenForThisInvoice) {
         setSelectedInvoice(invoiceToDownload);
         setIsViewOpen(true); // Ensure the InvoiceView is mounted and rendered
     }
-    setIsPrintOptionsOpen(false); // Close print options if it was open from view details
 
     // Delay to ensure InvoiceView is rendered if it was just opened
     setTimeout(async () => {
         const invoiceElement = document.getElementById('invoice-view-content');
         if (!invoiceElement) {
-          toast({ title: "Download Error", description: "Invoice content not found for PDF generation.", variant: "destructive" });
-          if (isDifferentInvoiceOrViewClosed && !originalSelectedInvoiceId) { // If view was opened just for this, close it.
+          toast({ title: "Download Error", description: "Invoice content not found for PDF generation. Please try opening invoice details first.", variant: "destructive" });
+          if (!wasViewOpenForThisInvoice) { // If view was opened just for this, close it.
               setIsViewOpen(false);
               setSelectedInvoice(null);
-          } else if (isDifferentInvoiceOrViewClosed && originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToDownload.id) {
-              const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId);
-              if(originalInv) setSelectedInvoice(originalInv); else {setIsViewOpen(false); setSelectedInvoice(null);}
           }
           return;
         }
@@ -313,15 +315,19 @@ export default function InvoicesPage() {
           toast({ title: "PDF Generation Error", description: "An error occurred while generating the PDF.", variant: "destructive" });
         } finally {
           document.body.classList.remove('print-mode-a4');
-          if (isDifferentInvoiceOrViewClosed && !originalSelectedInvoiceId) { // If view was opened just for this, close it.
+          // State restoration / cleanup
+           if (!wasViewOpenForThisInvoice) { // If view was opened just for this download
               setIsViewOpen(false);
               setSelectedInvoice(null);
-          } else if (isDifferentInvoiceOrViewClosed && originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToDownload.id) {
+          } else if (originalSelectedInvoiceId && originalSelectedInvoiceId !== invoiceToDownload.id) {
+             // This case might occur if the view was open for a different invoice.
+             // Revert to the original selected invoice if it's different from the downloaded one.
               const originalInv = invoices.find(inv => inv.id === originalSelectedInvoiceId);
               if(originalInv) setSelectedInvoice(originalInv); else {setIsViewOpen(false); setSelectedInvoice(null);}
           }
+          // If wasViewOpenForThisInvoice was true (and for the same invoice), we leave the view dialog open as it was.
         }
-    }, 150); // Small delay
+    }, 150);
   };
 
   const filteredInvoicesBySearch = useMemo(() => 
@@ -559,7 +565,7 @@ export default function InvoicesPage() {
       {selectedInvoice && (
         <Dialog open={isViewOpen} onOpenChange={(open) => {
             if (!open) { 
-              if(!isPrintOptionsOpen) { 
+              if(!isPrintOptionsOpen) { // Only clear selectedInvoice if print options also closing
                 setSelectedInvoice(null);
               }
             }
@@ -605,7 +611,7 @@ export default function InvoicesPage() {
 
       {selectedInvoice && isPrintOptionsOpen && (
          <AlertDialog open={isPrintOptionsOpen} onOpenChange={(open) => {
-            if (!open) setIsPrintOptionsOpen(false);
+            if (!open) setIsPrintOptionsOpen(false); // Just close this dialog, keep main view open
          }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
@@ -682,4 +688,5 @@ const handleEditOpen = (invoice: Invoice | null) => {
         }
     }
 };
+
 

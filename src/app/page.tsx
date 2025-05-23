@@ -106,7 +106,7 @@ export default function BillingPage() {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
                             costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
-                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0), // Fallback for older data
+                            sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0), 
                             stock: typeof p.stock === 'number' ? p.stock : 0,
                             barcode: p.barcode || "",
                             imageUrl: p.imageUrl || defaultPlaceholder(pName),
@@ -141,7 +141,6 @@ export default function BillingPage() {
                             category: s.category || undefined,
                             description: s.description || undefined,
                             duration: s.duration || undefined,
-                            // sellingPrice is no longer part of Service type
                         };
                     });
                 } else { loadedServices = []; }
@@ -165,7 +164,7 @@ export default function BillingPage() {
     if (isSettingsLoaded) {
         const allItems: SearchableItem[] = [
           ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product', costPrice: p.costPrice, stock: p.stock, barcode: p.barcode, gstPercentage: p.gstPercentage })),
-          ...services.map(s => ({ ...s, price: 0, type: 'service' as 'service', costPrice: 0 })) // Services have dynamic price, so default to 0 here
+          ...services.map(s => ({ ...s, price: 0, type: 'service' as 'service', costPrice: 0 })) 
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
     }
@@ -225,12 +224,12 @@ export default function BillingPage() {
 
     if (foundItem) {
       if (foundItem.type === 'service') {
-        setCurrentItemForServiceDialog(foundItem); // Found item is SearchableItem (Service)
+        setCurrentItemForServiceDialog(foundItem); 
         setIsServiceDetailsDialogOpen(true);
         return;
       }
 
-      const product = foundItem as Product; // If not service, it's a product
+      const product = foundItem as Product; 
       const existingCartItem = cartItems.find(ci => ci.id === product.id);
       if (!existingCartItem && product.stock <= 0) { toast({ title: "Out of Stock", description: `${product.name} is currently out of stock.`, variant: "destructive" }); return; }
       if (existingCartItem && existingCartItem.quantity >= product.stock) { toast({ title: "Stock Limit Reached", description: `Cannot add more ${product.name}. Max stock available.`, variant: "destructive" }); return; }
@@ -271,7 +270,7 @@ export default function BillingPage() {
   }) => {
     if (!currentItemForServiceDialog || currentItemForServiceDialog.type !== 'service') return;
 
-    const service = currentItemForServiceDialog as Service; // It's a Service from SearchableItem
+    const service = currentItemForServiceDialog as Service; 
     const finalPrice = details.baseServiceAmount + details.additionalServiceCharge;
 
     setCartItems((prevCart) => {
@@ -304,7 +303,7 @@ export default function BillingPage() {
                 costPrice: 0, 
                 itemSpecificPhoneNumber: details.phoneNumber || '',
                 itemSpecificNote: details.note || '',
-                isPriceOverridden: true, // Price for services is always 'overridden'/manual
+                isPriceOverridden: true, 
                 baseServiceAmount: details.baseServiceAmount,
                 additionalServiceCharge: details.additionalServiceCharge,
             };
@@ -387,7 +386,6 @@ export default function BillingPage() {
     setCurrentInvoice(newInvoice);
     setIsCurrentInvoiceFinalized(false); 
     setIsInvoiceDialogOpen(true);
-    if (invoiceStatus === 'Due') { toast({ title: "Invoice Generated (Payment Due)", description: `Amount received is less than total. Status: 'Due'.`, duration: 7000 }); }
   };
   
   const finalizeAndSaveCurrentInvoice = (): boolean => {
@@ -419,18 +417,12 @@ export default function BillingPage() {
 
   const handleDownloadCurrentInvoiceAsPdf = async () => {
     if (!currentInvoice) { toast({ title: "Download Error", description:"No current invoice to download.", variant: "destructive" }); return; }
-    if (typeof html2pdf === 'undefined') { toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded.", variant: "destructive" }); return; }
+    if (typeof html2pdf === 'undefined') { toast({ title: "PDF Library Missing", description: "html2pdf.js is not loaded. Please include it in your project.", variant: "destructive" }); return; }
     
-    if (!isCurrentInvoiceFinalized) { 
-        const success = finalizeAndSaveCurrentInvoice(); 
-        if (!success) { 
-            toast({ title: "Save Failed", description:"Could not save invoice before PDF generation.", variant: "destructive" }); 
-            return; 
-        } 
-    }
+    // Invoice is already finalized by the time this is called from print options dialog
     
     const invoiceElement = document.getElementById('invoice-view-content');
-    if (!invoiceElement) { toast({ title: "Download Error", description: "Invoice content not found for PDF generation.", variant: "destructive" }); return; }
+    if (!invoiceElement) { toast({ title: "Download Error", description: "Invoice content not found for PDF generation. Please ensure the invoice preview is visible.", variant: "destructive" }); return; }
     
     document.body.classList.add('print-mode-a4');
     const options = { margin: 10, filename: `invoice-${currentInvoice.invoiceNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, logging: false }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
@@ -451,17 +443,12 @@ export default function BillingPage() {
   };
 
   const performPrint = (mode: 'a4' | 'thermal') => {
-    if (!currentInvoice) { toast({ title: "Print Error", description:"No current invoice to print.", variant: "destructive" }); setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); return; }
+    if (!currentInvoice) { toast({ title: "Print Error", description:"No current invoice to print.", variant: "destructive" }); return; }
     
-    if (!isCurrentInvoiceFinalized) { 
-        const success = finalizeAndSaveCurrentInvoice(); 
-        if (!success) { 
-            toast({ title: "Save Failed", description: "Could not save invoice before printing.", variant: "destructive" }); 
-            return; 
-        } 
-    }
+    // Invoice is already finalized by the time this is called from print options dialog
 
-    setIsPrintFormatDialogOpen(false); 
+    if (isPrintFormatDialogOpen) setIsPrintFormatDialogOpen(false); // Close print format dialog
+    
     if (mode === 'a4') { document.body.classList.add('print-mode-a4'); document.body.classList.remove('print-mode-thermal'); }
     else { document.body.classList.add('print-mode-thermal'); document.body.classList.remove('print-mode-a4'); }
     
@@ -547,7 +534,6 @@ export default function BillingPage() {
         <ServiceDetailsDialog
             isOpen={isServiceDetailsDialogOpen}
             serviceName={currentItemForServiceDialog.name}
-            defaultPrice={currentItemForServiceDialog.price} // Pass default price (0 for services now)
             onClose={() => { setIsServiceDetailsDialogOpen(false); setCurrentItemForServiceDialog(null); }}
             onConfirm={handleConfirmAddServiceToCart}
         />
@@ -564,62 +550,77 @@ export default function BillingPage() {
             <DialogHeader> <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle> </DialogHeader>
             <InvoiceView invoice={currentInvoice} />
              <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center print-hide gap-2">
-              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
-                 <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="w-full xs:w-auto" 
-                    onClick={() => { 
-                        if (currentInvoice?.customerPhoneNumber) { 
-                            let phoneNumber = currentInvoice.customerPhoneNumber.replace(/\D/g, ''); 
-                            if (phoneNumber.length === 10 && !phoneNumber.startsWith('91')) { phoneNumber = `91${phoneNumber}`; } 
-                            let baseMessage = `Hello ${currentInvoice.customerName || 'Customer'}, invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || "Our Store"}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}.`; 
-                            if (currentInvoice.status === 'Due') { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.`; } 
-                            else if (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`; } 
-                            else { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`; } 
-                            baseMessage += ` Thank you for your purchase!`; 
-                            const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(baseMessage)}`; 
-                            window.open(whatsappUrl, '_blank'); 
-                            toast({ title: "WhatsApp Redirecting...", description:"Opening WhatsApp with invoice details."}); 
-                        } else { 
-                            toast({ title: "WhatsApp Share Failed", description:"Customer phone number not available for this invoice.", variant: "destructive" }); 
-                        } 
-                    }} 
-                    disabled={!currentInvoice?.customerPhoneNumber} 
-                 > 
-                    <MessageSquare className="mr-2 h-4 w-4" /> Share via WhatsApp (+91) 
-                 </Button>
-              </div>
-              <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
-                 <Button type="button" variant="secondary" className="w-full xs:w-auto" onClick={() => { setIsInvoiceDialogOpen(false); resetBillingState(); }} > Close </Button>
-                <Button 
-                    type="button" 
-                    className="w-full xs:w-auto" 
-                    onClick={() => { 
-                        if(!isCurrentInvoiceFinalized) { 
-                            const success = finalizeAndSaveCurrentInvoice(); 
-                            if(!success) {
-                                toast({title: "Save Error", description: "Could not save the invoice.", variant: "destructive"});
-                                return;
+                <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="w-full xs:w-auto" 
+                        onClick={() => { 
+                            if (!isCurrentInvoiceFinalized) {
+                                const success = finalizeAndSaveCurrentInvoice();
+                                if (!success) return; // Stop if saving failed
                             }
-                        } 
-                        setIsPrintFormatDialogOpen(true); 
-                    }} 
-                > 
-                    <Printer className="w-4 h-4 mr-2" /> {isCurrentInvoiceFinalized ? 'Print Options' : (currentInvoice.status === 'Due' ? 'Save Invoice & Print Options' : 'Finalize Sale & Print Options')} 
-                </Button>
-              </div>
+                            if (currentInvoice?.customerPhoneNumber) { 
+                                let phoneNumber = currentInvoice.customerPhoneNumber.replace(/\D/g, ''); 
+                                if (phoneNumber.length === 10 && !phoneNumber.startsWith('91')) { phoneNumber = `91${phoneNumber}`; } 
+                                let baseMessage = `Hello ${currentInvoice.customerName || 'Customer'}, invoice ${currentInvoice.invoiceNumber} from ${currentInvoice.shopName || currentShopName || "Our Store"}. Total: ${currencySymbol}${currentInvoice.totalAmount.toFixed(2)}. Status: ${currentInvoice.status}.`; 
+                                if (currentInvoice.status === 'Due') { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Balance Due: ${currencySymbol}${(currentInvoice.totalAmount - currentInvoice.amountReceived).toFixed(2)}.`; } 
+                                else if (currentInvoice.balanceAmount && currentInvoice.balanceAmount > 0) { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}. Change: ${currencySymbol}${currentInvoice.balanceAmount.toFixed(2)}.`; } 
+                                else { baseMessage += ` Amount Paid: ${currencySymbol}${currentInvoice.amountReceived.toFixed(2)}.`; } 
+                                baseMessage += ` Thank you for your purchase!`; 
+                                const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(baseMessage)}`; 
+                                window.open(whatsappUrl, '_blank'); 
+                                toast({ title: "WhatsApp Redirecting...", description:"Opening WhatsApp with invoice details."}); 
+                            } else { 
+                                toast({ title: "WhatsApp Share Failed", description:"Customer phone number not available for this invoice.", variant: "destructive" }); 
+                            } 
+                        }} 
+                        disabled={!currentInvoice?.customerPhoneNumber} 
+                    > 
+                        <MessageSquare className="mr-2 h-4 w-4" /> Share via WhatsApp (+91) 
+                    </Button>
+                </div>
+                <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
+                    <Button type="button" variant="secondary" className="w-full xs:w-auto" onClick={() => { setIsInvoiceDialogOpen(false); resetBillingState(); }} > Close </Button>
+                    <Button 
+                        type="button" 
+                        className="w-full xs:w-auto" 
+                        onClick={() => { 
+                            if(!isCurrentInvoiceFinalized) { 
+                                const success = finalizeAndSaveCurrentInvoice(); 
+                                if(!success) {
+                                    toast({title: "Save Error", description: "Could not save the invoice.", variant: "destructive"});
+                                    return;
+                                }
+                            } 
+                            setIsPrintFormatDialogOpen(true); 
+                        }} 
+                    > 
+                        <Printer className="w-4 h-4 mr-2" /> {currentInvoice.status === 'Due' ? 'Save & Print Options' : 'Finalize & Print Options'} 
+                    </Button>
+                </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
 
       {isPrintFormatDialogOpen && currentInvoice && (
-         <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => { if(!open) { setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); resetBillingState(); } }}>
+         <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => { 
+            if(!open) {
+                 setIsPrintFormatDialogOpen(false); 
+                 // If the main invoice dialog is also closed, then reset state.
+                 // This ensures that if user cancels print, they return to the invoice preview.
+                 if (!isInvoiceDialogOpen) {
+                    resetBillingState();
+                 }
+            } else {
+                 setIsPrintFormatDialogOpen(open);
+            }
+         }}>
             <AlertDialogContent>
                 <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. "Download PDF" is recommended for A4. </AlertDialogDescription> </AlertDialogHeader>
                 <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
-                    <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); resetBillingState(); }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
+                    <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); /* Do not reset state here, allow returning to invoice preview */ }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
                     <Button variant="outline" onClick={handleDownloadCurrentInvoiceAsPdf} className="whitespace-normal h-auto w-full sm:w-auto"> <Download className="w-4 h-4 mr-2" /> Download PDF (A4) </Button>
                     <Button variant="outline" onClick={() => performPrint('thermal')} className="whitespace-normal h-auto w-full sm:w-auto"> <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt) </Button>
                 </AlertDialogFooter>
