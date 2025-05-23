@@ -13,21 +13,23 @@ export interface Product extends BaseItem {
   stock: number;
   costPrice: number;
   sellingPrice: number;
-  gstPercentage: number; // New: Product-specific GST rate
+  gstPercentage: number; 
 }
 
 export interface Service extends BaseItem {
   serviceCode?: string;
   duration?: string;
-  // sellingPrice: number; // Removed: Price is now dynamic at point of sale
+  // sellingPrice removed - price is dynamic via ServiceDetailsDialog
 }
 
-export type SearchableItem = (Omit<Product, 'gstPercentage'> | Service) & { price: number; type: 'product' | 'service'; gstPercentage?: number }; // Added gstPercentage for product items
+export type SearchableItem = 
+  (Omit<Product, 'gstPercentage'> & { price: number; type: 'product'; gstPercentage: number; costPrice: number; stock: number; barcode?: string; }) | 
+  (Service & { price: number; type: 'service'; costPrice: 0 }); // Explicitly add costPrice:0 for services in SearchableItem for profit calcs
 
 export interface CartItem {
   id: string;
   name: string;
-  price: number; // This will be the manually entered service charge for services, or sellingPrice for products
+  price: number; 
   quantity: number;
   imageUrl: string;
   dataAiHint?: string;
@@ -37,14 +39,14 @@ export interface CartItem {
   itemSpecificNote?: string;
   isPriceOverridden?: boolean;
 
-  costPrice?: number; // For products, to calculate profit
+  costPrice: number; // For products and services (0 for services)
   gstPercentage?: number; // For products, specific GST rate
 
-  barcode?: string;
-  stock?: number;
+  barcode?: string; // product only
+  stock?: number; // product only
 
-  serviceCode?: string;
-  duration?: string;
+  serviceCode?: string; // service only
+  duration?: string; // service only
 }
 
 
@@ -55,8 +57,7 @@ export interface Invoice {
   customerPhoneNumber?: string;
   items: CartItem[];
   subTotal: number;
-  // gstRate: number; // Removed: GST is now item-specific for products
-  gstAmount: number; // This will be the SUM of GST from all applicable items
+  gstAmount: number; 
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string;
@@ -72,7 +73,6 @@ export interface AppSettings {
   shopAddress: string;
   currencySymbol: string;
   userName: string;
-  // gstRate: number; // Removed: Global GST rate is no longer used
 }
 
 export interface TimeSeriesDataPoint {
@@ -110,4 +110,13 @@ export interface NotificationItem {
   timestamp: string;
   read: boolean;
   link?: string;
+}
+
+// AI Profit Analysis Flow Types
+export interface AnalyzeProfitInput {
+  query: string;
+  // Potentially add filteredInvoices, products, services if sending data to flow
+}
+export interface AnalyzeProfitOutput {
+  analysis: string;
 }

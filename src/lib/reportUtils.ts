@@ -33,7 +33,7 @@ export const filterInvoicesByDate = (
         startDate = startOfDay(customRange.from);
         endDate = customRange.to ? endOfDay(customRange.to) : endOfDay(customRange.from);
       } else {
-        return invoices;
+        return invoices; // Return all if custom range is not fully defined
       }
       break;
     case 'allTime':
@@ -57,8 +57,9 @@ export const calculateSalesSummary = (invoices: Invoice[]) => {
 
   const totalProfit = invoices.reduce((sum, inv) => {
     const invoiceProfit = inv.items.reduce((itemProfitSum, item) => {
-      const cost = item.costPrice || 0; // Assume cost is 0 if not defined (e.g., for services)
-      const profitPerItem = (item.price - cost) * item.quantity; // item.price is sellingPrice
+      // item.price is sellingPrice (pre-GST for products)
+      // item.costPrice is 0 for services, actual cost for products
+      const profitPerItem = (item.price - (item.costPrice || 0)) * item.quantity;
       return itemProfitSum + profitPerItem;
     }, 0);
     return sum + invoiceProfit;
@@ -77,15 +78,24 @@ export const getSalesOverTimeData = (invoices: Invoice[], filter: ReportTimeFilt
 
   const sortedDates = Object.keys(salesByDate).sort();
 
-  let dateFormatStr = 'MMM dd';
+  let dateFormatStr = 'MMM dd'; // Default
   if (filter === 'today') {
-    dateFormatStr = 'MMM dd'; // Simplified for daily summary even if 'today'
+     dateFormatStr = 'MMM dd'; 
   } else if (filter === 'last7days') {
     dateFormatStr = 'EEE, MMM dd';
+  } else if (filter === 'last30days' || filter === 'thisMonth') {
+     dateFormatStr = 'MMM dd';
   } else if (filter === 'custom' && customRange?.from && customRange.to) {
     const days = differenceInDays(customRange.to, customRange.from);
     if (days <= 7) dateFormatStr = 'EEE, MMM dd';
-    else if (days <= 31) dateFormatStr = 'MMM dd';
+    else if (days <= 90) dateFormatStr = 'MMM dd'; // Up to 3 months, show day
+    else dateFormatStr = 'MMM yy'; // Longer than 3 months, show month/year
+  } else if (filter === 'allTime' && sortedDates.length > 0) {
+    const firstDate = parseISO(sortedDates[0]);
+    const lastDate = parseISO(sortedDates[sortedDates.length-1]);
+    const days = differenceInDays(lastDate, firstDate);
+    if (days <= 7) dateFormatStr = 'EEE, MMM dd';
+    else if (days <= 90) dateFormatStr = 'MMM dd';
     else dateFormatStr = 'MMM yy';
   }
 
@@ -129,7 +139,8 @@ export const getSalesByCategoryData = (invoices: Invoice[]): KeyValueDataPoint[]
   invoices.forEach(invoice => {
     invoice.items.forEach(item => {
       const category = item.category || 'Uncategorized';
-      categorySales[category] = (categorySales[category] || 0) + (item.price * item.quantity); // item.price is sellingPrice
+      // item.price is sellingPrice (pre-GST for products)
+      categorySales[category] = (categorySales[category] || 0) + (item.price * item.quantity);
     });
   });
 
@@ -159,4 +170,31 @@ export const getPaymentMethodDistributionData = (invoices: Invoice[]): KeyValueD
     value,
     fill: paymentColors[colorIndex++ % paymentColors.length]
   }));
+};
+
+export const getTopProfitableItemsData = (invoices: Invoice[], limit: number = 5): KeyValueDataPoint[] => {
+  const itemProfits: Record<string, { name: string; totalProfit: number; type: 'product' | 'service' }> = {};
+
+  invoices.forEach(invoice => {
+    invoice.items.forEach(item => {
+      const profitForItemInstance = (item.price - (item.costPrice || 0)) * item.quantity;
+      if (itemProfits[item.id]) {
+        itemProfits[item.id].totalProfit += profitForItemInstance;
+      } else {
+        itemProfits[item.id] = {
+          name: item.name,
+          totalProfit: profitForItemInstance,
+          type: item.type,
+        };
+      }
+    });
+  });
+
+  return Object.values(itemProfits)
+    .sort((a, b) => b.totalProfit - a.totalProfit)
+    .slice(0, limit)
+    .map(item => ({
+      name: `${item.name} (${item.type.charAt(0).toUpperCase() + item.type.slice(1)})`,
+      value: parseFloat(item.totalProfit.toFixed(2)), // value is the total profit
+    }));
 };
