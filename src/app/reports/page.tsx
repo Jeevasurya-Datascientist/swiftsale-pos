@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -113,7 +114,7 @@ export default function ReportsPage() {
                         id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                         name: p.name || "Unnamed Product",
                         costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
-                        sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : 0,
+                        sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0),
                         stock: typeof p.stock === 'number' ? p.stock : 0,
                         barcode: p.barcode || "",
                         imageUrl: p.imageUrl || defaultPlaceholder(p.name),
@@ -139,6 +140,7 @@ export default function ReportsPage() {
                      loadedServices = parsed.map((s: any) => ({
                         id: s.id || `serv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                         name: s.name || "Unnamed Service",
+                        // sellingPrice: typeof s.sellingPrice === 'number' ? s.sellingPrice : 0, // Services no longer have fixed sellingPrice
                         serviceCode: s.serviceCode || undefined,
                         imageUrl: s.imageUrl || defaultPlaceholder(s.name),
                         dataAiHint: s.dataAiHint || (s.name ? s.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'service image'),
@@ -162,7 +164,7 @@ export default function ReportsPage() {
                 if (Array.isArray(parsed)) {
                     loadedAppInvoices = parsed;
                 } else {
-                    console.warn("Stored appInvoices is not an array. Initializing as empty for ReportsPage.");
+                    // console.warn("Stored appInvoices is not an array. Initializing as empty for ReportsPage.");
                     loadedAppInvoices = [];
                 }
             } catch (error) {
@@ -174,12 +176,12 @@ export default function ReportsPage() {
         const enrichedInvoices = loadedAppInvoices.map(inv => ({
             ...inv,
             items: inv.items.map(item => {
-                let costPrice = item.costPrice || 0;
-                if (item.type === 'product' && !item.costPrice) {
+                let costPrice = item.costPrice || 0; // Ensure costPrice is a number
+                 if (item.type === 'product') {
                     const productDetails = loadedProducts.find(p => p.id === item.id);
                     costPrice = productDetails?.costPrice || 0;
                 } else if (item.type === 'service') {
-                    costPrice = 0; // Ensure services have 0 cost price if not already set
+                    costPrice = 0; 
                 }
                 const category = item.category || (item.type === 'product' ? 'General Product' : 'General Service');
                 return { ...item, costPrice, category };
@@ -212,7 +214,7 @@ export default function ReportsPage() {
   };
   const handleExportInvoices = () => {
     if (filteredInvoices.length === 0) { toast({ title: "No Invoices to export for selected period", variant: "destructive" }); return; }
-    const invoiceData = filteredInvoices.map(inv => ({ ...inv, itemsSummary: inv.items.map(i => `${i.name} (Qty:${i.quantity}, Price:${i.price.toFixed(2)})${i.gstPercentage ? ` GST:${i.gstPercentage}%` : ''}`).join('; ') }));
+    const invoiceData = filteredInvoices.map(inv => ({ ...inv, status: inv.status || 'N/A', itemsSummary: inv.items.map(i => `${i.name} (Qty:${i.quantity}, Price:${i.price.toFixed(2)})${i.gstPercentage ? ` GST:${i.gstPercentage}%` : ''}`).join('; ') }));
     downloadCSV(invoiceData, 'invoices_export', ['Invoice Number', 'Date', 'Customer Name', 'Phone Number', 'Subtotal', 'Total GST', 'Total Amount', 'Payment Method', 'Status', 'Items (Name & Qty)']); toast({ title: "Invoices Exported" });
   };
   const handleExportProducts = () => {
@@ -293,18 +295,16 @@ export default function ReportsPage() {
           <CardHeader> <CardTitle className="flex items-center gap-2"><PieChart className="h-6 w-6 text-primary"/>Sales by Category</CardTitle> </CardHeader>
           <CardContent> {salesByCategoryData.length > 0 ? (<CategorySalesChart data={salesByCategoryData} currencySymbol={currencySymbol} />) : <p className="text-muted-foreground text-center py-8">No category data for selected period.</p>} </CardContent>
         </Card>
-        <Card className="shadow-md lg:col-span-2 mb-6"> {/* Added mb-6 here */}
+        <Card className="shadow-md lg:col-span-2 mb-6"> {/* Payment Methods Chart Card */}
           <CardHeader> <CardTitle className="flex items-center gap-2"><Users className="h-6 w-6 text-primary"/>Payment Method Distribution</CardTitle> </CardHeader>
           <CardContent>
             {paymentMethodData.length > 0 ? (
-              <div className="w-full h-[300px] sm:h-[350px]">
                 <PaymentMethodsChart data={paymentMethodData} />
-              </div>
             ) : <p className="text-muted-foreground text-center py-8">No payment data for selected period.</p>}
           </CardContent>
         </Card>
         
-        <Card className="shadow-md lg:col-span-2">
+        <Card className="shadow-md lg:col-span-2"> {/* AI Profit Insights Card */}
             <CardHeader> <CardTitle className="flex items-center gap-2"> <MessageCircleQuestion className="h-6 w-6 text-purple-600" /> AI Profit Insights </CardTitle> </CardHeader>
             <CardContent className="space-y-4">
               <form onSubmit={handleAiQuerySubmit} className="flex items-start sm:items-center gap-2 flex-col sm:flex-row">
@@ -339,10 +339,12 @@ export default function ReportsPage() {
                 />
               )}
                {!isAiLoading && !aiResponse && (
-                 <p className="text-sm text-muted-foreground text-center py-2">
-                   Ask a question to get AI-powered profit insights.
-                   <span className="block text-xs">(Note: Current AI responses are placeholders.)</span>
-                  </p>
+                 <div className="text-center py-2">
+                    <p className="text-sm text-muted-foreground">
+                    Ask a question to get AI-powered profit insights.
+                    </p>
+                    <p className="text-xs text-muted-foreground">(Note: Current AI responses are placeholders.)</p>
+                 </div>
                )}
             </CardContent>
         </Card>
