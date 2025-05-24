@@ -13,6 +13,8 @@ import { UserPlus, Eye, EyeOff, Phone } from 'lucide-react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { auth } from '@/lib/firebase'; // Import Firebase auth instance
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, type UserCredential } from "firebase/auth";
 
 const registerSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -29,7 +31,6 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-// Google Icon SVG
 const GoogleIcon = () => (
   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -41,7 +42,7 @@ const GoogleIcon = () => (
 );
 
 export default function RegisterPage() {
-  const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -49,44 +50,75 @@ export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleRegister: SubmitHandler<RegisterFormValues> = (data) => {
-    console.log('Registration attempt with:', { email: data.email, phoneNumber: data.phoneNumber });
-    
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userEmail', data.email);
-    
-    // Clear previous user's transactional data - Products & Services are NOT cleared on new registration
-    localStorage.removeItem('appInvoices');
-    // localStorage.removeItem('appProducts'); // Product catalog persists
-    // localStorage.removeItem('appServices'); // Service catalog persists
-    
-    toast({
-      title: 'Registration Successful',
-      description: 'Account created! Redirecting to your dashboard...',
-    });
-    router.push('/');
+  const handleFirebaseAuthError = (error: any) => {
+    let title = "Registration Error";
+    let description = "An unexpected error occurred. Please try again.";
+    switch (error.code) {
+      case 'auth/email-already-in-use':
+        description = 'This email address is already in use.';
+        break;
+      case 'auth/invalid-email':
+        description = 'The email address is not valid.';
+        break;
+      case 'auth/operation-not-allowed':
+        description = 'Email/password accounts are not enabled.';
+        break;
+      case 'auth/weak-password':
+        description = 'The password is too weak.';
+        break;
+      default:
+        console.error("Firebase Registration Error:", error);
+    }
+    toast({ variant: 'destructive', title, description });
+  };
+
+  const handleSuccessfulRegistration = (user: UserCredential["user"]) => {
+    if (user && user.email) {
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('userEmail', user.email);
+      
+      // Clear previous user's transactional data for a new registration
+      localStorage.removeItem('appInvoices');
+      // localStorage.removeItem('appProducts'); // Keep as per previous requests
+      // localStorage.removeItem('appServices'); // Keep as per previous requests
+      
+      toast({
+        title: 'Registration Successful',
+        description: 'Account created! Redirecting to your dashboard...',
+      });
+      router.push('/');
+    } else {
+      toast({ variant: 'destructive', title: 'Registration Error', description: 'Could not retrieve user details after registration.' });
+    }
+  };
+
+  const handleRegister: SubmitHandler<RegisterFormValues> = async (data) => {
+    if (!auth) {
+      toast({ variant: 'destructive', title: 'Firebase Error', description: 'Firebase authentication is not initialized.' });
+      return;
+    }
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      handleSuccessfulRegistration(userCredential.user);
+    } catch (error: any) {
+      handleFirebaseAuthError(error);
+    }
   };
 
   const handleGoogleRegister = async () => {
-    toast({ title: 'Simulating Google Sign-Up...', description: 'Please wait.' });
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userEmail', 'simulated.google.user@example.com');
-
-    // For a "new" Google user, clear transactional data
-    localStorage.removeItem('appInvoices');
-    // localStorage.removeItem('appProducts'); // Let products persist for demo purposes
-    // localStorage.removeItem('appServices'); // Let services persist
-
-    toast({
-      title: 'Google Sign-Up Successful (Simulated)',
-      description: 'Account created! Redirecting to your dashboard...',
-    });
-    router.push('/');
+    if (!auth) {
+      toast({ variant: 'destructive', title: 'Firebase Error', description: 'Firebase authentication is not initialized.' });
+      return;
+    }
+    const provider = new GoogleAuthProvider();
+    try {
+      toast({ title: 'Redirecting to Google Sign-Up...', description: 'Please wait.' });
+      const result = await signInWithPopup(auth, provider);
+      handleSuccessfulRegistration(result.user);
+    } catch (error: any) {
+       handleFirebaseAuthError(error); // Use the same error handler
+    }
   };
-
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background px-4">
@@ -130,11 +162,11 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2 relative">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Password (min. 8 characters)</Label>
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Create a password (min. 8 characters)"
+                placeholder="Create a password"
                 {...register("password")}
                 className="h-12 text-base pr-10"
                 autoComplete="new-password"
@@ -174,8 +206,8 @@ export default function RegisterPage() {
               </Button>
               {errors.confirmPassword && <p className="text-sm text-destructive mt-1">{errors.confirmPassword.message}</p>}
             </div>
-            <Button type="submit" className="w-full h-12 text-lg">
-              <UserPlus className="mr-2 h-5 w-5" /> Create Account
+            <Button type="submit" className="w-full h-12 text-lg" disabled={isSubmitting}>
+              {isSubmitting ? 'Creating Account...' : <> <UserPlus className="mr-2 h-5 w-5" /> Create Account</>}
             </Button>
           </form>
           <div className="mt-6 relative">
@@ -188,7 +220,7 @@ export default function RegisterPage() {
               </span>
             </div>
           </div>
-          <Button variant="outline" className="w-full h-12 text-lg mt-6" onClick={handleGoogleRegister}>
+          <Button variant="outline" className="w-full h-12 text-lg mt-6" onClick={handleGoogleRegister} disabled={isSubmitting}>
             <GoogleIcon /> Sign up with Google
           </Button>
         </CardContent>

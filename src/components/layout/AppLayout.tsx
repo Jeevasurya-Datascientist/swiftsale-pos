@@ -32,6 +32,8 @@ import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow } from 'date-fns';
+import { auth } from '@/lib/firebase'; // Import Firebase auth
+import { signOut as firebaseSignOut } from 'firebase/auth'; // Import Firebase signOut
 
 
 const CustomSidebarHeader = () => {
@@ -75,21 +77,34 @@ const CustomSidebarFooter = () => {
   const displayUserName = isSettingsLoaded ? (userName || "User") : "Loading...";
   const avatarFallback = isSettingsLoaded ? (userName?.[0]?.toUpperCase() || 'U') : "L";
 
-  const handleLogout = () => {
-    // Only clear authentication-related flags
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('userEmail'); 
-
-    // IMPORTANT: Do NOT clear appSettings, appProducts, appServices, appInvoices here
-    // to ensure data persistence for the user on the same browser.
-    // New user registration will handle clearing transactional data.
-
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out.",
-    });
-
-    router.push('/login');
+  const handleLogout = async () => {
+    if (!auth) {
+      toast({ variant: 'destructive', title: 'Firebase Error', description: 'Firebase authentication is not initialized.' });
+      // Still clear local storage and redirect as a fallback
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('userEmail'); 
+      router.push('/login');
+      return;
+    }
+    try {
+      await firebaseSignOut(auth);
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
+    } catch (error: any) {
+      console.error("Firebase Logout Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Logout Error",
+        description: error.message || "Failed to log out from Firebase.",
+      });
+    } finally {
+      // Always clear local storage and redirect
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('userEmail'); 
+      router.push('/login');
+    }
   };
 
   return (

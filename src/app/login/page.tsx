@@ -13,6 +13,8 @@ import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { auth } from '@/lib/firebase'; // Import Firebase auth instance
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, type UserCredential } from "firebase/auth";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -21,7 +23,6 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-// Google Icon SVG
 const GoogleIcon = () => (
   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -33,37 +34,82 @@ const GoogleIcon = () => (
 );
 
 export default function LoginPage() {
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleLogin: SubmitHandler<LoginFormValues> = (data) => {
-    console.log('Login attempt with:', data);
-    // In a real app, you'd call your auth service here
-    // For this simulation, we assume if they reach login and submit valid format, it's okay.
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userEmail', data.email);
-    toast({
-      title: 'Login Successful',
-      description: 'Redirecting to your dashboard...',
-    });
-    router.push('/');
+  const handleFirebaseAuthError = (error: any) => {
+    let title = "Login Error";
+    let description = "An unexpected error occurred. Please try again.";
+    switch (error.code) {
+      case 'auth/user-not-found':
+      case 'auth/invalid-credential': // Covers wrong password or user not found in newer SDK versions
+        description = 'Incorrect email or password.';
+        break;
+      case 'auth/invalid-email':
+        description = 'The email address is not valid.';
+        break;
+      case 'auth/user-disabled':
+        description = 'This account has been disabled.';
+        break;
+      case "auth/popup-closed-by-user":
+        title = "Sign-In Cancelled";
+        description = "Google Sign-In was cancelled.";
+        break;
+      case "auth/cancelled-popup-request":
+      case "auth/popup-blocked":
+          title = "Sign-In Blocked";
+          description = "Google Sign-In popup was blocked by the browser. Please allow popups for this site.";
+          break;
+      default:
+        console.error("Firebase Login Error:", error);
+    }
+    toast({ variant: 'destructive', title, description });
+  };
+
+  const handleSuccessfulLogin = (user: UserCredential["user"]) => {
+    if (user && user.email) {
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('userEmail', user.email);
+      toast({
+        title: 'Login Successful',
+        description: 'Redirecting to your dashboard...',
+      });
+      router.push('/');
+    } else {
+      toast({ variant: 'destructive', title: 'Login Error', description: 'Could not retrieve user details after login.' });
+    }
+  };
+
+  const handleLogin: SubmitHandler<LoginFormValues> = async (data) => {
+     if (!auth) {
+      toast({ variant: 'destructive', title: 'Firebase Error', description: 'Firebase authentication is not initialized.' });
+      return;
+    }
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      handleSuccessfulLogin(userCredential.user);
+    } catch (error: any) {
+      handleFirebaseAuthError(error);
+    }
   };
 
   const handleGoogleLogin = async () => {
-    toast({ title: 'Simulating Google Sign-In...', description: 'Please wait.' });
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userEmail', 'simulated.google.user@example.com');
-    toast({
-      title: 'Google Sign-In Successful (Simulated)',
-      description: 'Redirecting to your dashboard...',
-    });
-    router.push('/');
+    if (!auth) {
+      toast({ variant: 'destructive', title: 'Firebase Error', description: 'Firebase authentication is not initialized.' });
+      return;
+    }
+    const provider = new GoogleAuthProvider();
+    try {
+      toast({ title: 'Redirecting to Google Sign-In...', description: 'Please wait.' });
+      const result = await signInWithPopup(auth, provider);
+      handleSuccessfulLogin(result.user);
+    } catch (error: any) {
+      handleFirebaseAuthError(error);
+    }
   };
 
   return (
@@ -92,7 +138,7 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2 relative">
               <div className="flex justify-between items-center">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Password (min. 8 characters)</Label>
                 <Link href="/forgot-password" passHref>
                   <Button variant="link" size="sm" className="text-xs text-primary p-0 h-auto">
                     Forgot your password?
@@ -102,7 +148,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter your password (min. 8 characters)"
+                placeholder="Enter your password"
                 {...register("password")}
                 className="h-12 text-base pr-10"
                 autoComplete="current-password"
@@ -119,8 +165,8 @@ export default function LoginPage() {
               </Button>
               {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
             </div>
-            <Button type="submit" className="w-full h-12 text-lg">
-              <LogIn className="mr-2 h-5 w-5" /> Sign In
+            <Button type="submit" className="w-full h-12 text-lg" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing In...' : <><LogIn className="mr-2 h-5 w-5" /> Sign In</>}
             </Button>
           </form>
            <div className="mt-6 relative">
@@ -133,7 +179,7 @@ export default function LoginPage() {
               </span>
             </div>
           </div>
-          <Button variant="outline" className="w-full h-12 text-lg mt-6" onClick={handleGoogleLogin}>
+          <Button variant="outline" className="w-full h-12 text-lg mt-6" onClick={handleGoogleLogin} disabled={isSubmitting}>
             <GoogleIcon /> Sign in with Google
           </Button>
         </CardContent>
