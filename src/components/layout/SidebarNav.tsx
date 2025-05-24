@@ -31,8 +31,8 @@ export function SidebarNav() {
     if (isMobile && openMobile) {
       setOpenMobile(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [pathname, isMobile, setOpenMobile]); // Rerun when pathname or isMobile changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, isMobile, openMobile, setOpenMobile]); // Added openMobile to dependency array
 
 
   return (
