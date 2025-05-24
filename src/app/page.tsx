@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, ChangeEvent, useRef } from 'react';
@@ -15,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, CreditCard, Phone, User, DollarSign, AlertCircle, Users, Search, Printer, MessageSquare, Printer as PrinterIcon } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, IndianRupee, AlertCircle, Users, Search, Printer, MessageSquare, Printer as PrinterIcon } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -487,7 +488,7 @@ export default function BillingPage() {
                   {paymentMethod === 'Card' && ( <div className="space-y-3 p-3 border rounded-md bg-muted/20"> <p className="text-sm font-medium text-foreground">Enter Card Details <span className="text-destructive ml-1">*</span></p> <div> <Label htmlFor="cardNumber">Card Number</Label> <Input id="cardNumber" placeholder="0000 0000 0000 0000" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} /> </div> <div className="grid grid-cols-2 gap-3"> <div> <Label htmlFor="cardExpiry">Expiry (MM/YY)</Label> <Input id="cardExpiry" placeholder="MM/YY" value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} /> </div> <div> <Label htmlFor="cardCvv">CVV</Label> <Input id="cardCvv" placeholder="123" value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} type="password" /> </div> </div> <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertCircle size={14}/> Card payment is simulated.</p> </div> )}
                   {paymentMethod === 'UPI' && ( <div className="space-y-3 p-3 border rounded-md bg-muted/20"> <p className="text-sm font-medium text-foreground">Enter UPI ID <span className="text-destructive ml-1">*</span></p> <div> <Label htmlFor="upiId">UPI ID</Label> <Input id="upiId" placeholder="yourname@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} /> </div> <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertCircle size={14}/> UPI payment is simulated.</p> </div> )}
                   <div>
-                    <Label htmlFor="amountReceived" className="flex items-center"> <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" /> Amount Received <span className="text-destructive ml-1">*</span> </Label>
+                    <Label htmlFor="amountReceived" className="flex items-center"> <IndianRupee className="h-4 w-4 mr-2 text-muted-foreground" /> Amount Received <span className="text-destructive ml-1">*</span> </Label>
                     <Input id="amountReceived" type="number" placeholder="0.00" value={amountReceived} onChange={handleAmountReceivedChange} step="0.01" />
                   </div>
                   {totalAmount > 0 && ( <div className="text-right text-lg mt-2 space-y-1"> <p>Total: <span className="font-semibold">{currencySymbol}{totalAmount.toFixed(2)}</span></p> {(typeof amountReceived === 'number' && !isNaN(amountReceived) && amountReceived !== '') && <p>Received: <span className="font-semibold">{currencySymbol}{Number(amountReceived).toFixed(2)}</span></p> } {(typeof amountReceived === 'number' && !isNaN(amountReceived) && balanceAmount >= 0 && amountReceived >= totalAmount) && <p>Change: <span className="font-bold text-green-600">{currencySymbol}{balanceAmount.toFixed(2)}</span></p> } {(typeof amountReceived === 'number' && !isNaN(amountReceived) && amountReceived < totalAmount && totalAmount > 0) && <p className="text-sm text-destructive font-semibold">Balance Due: {currencySymbol}{(totalAmount - Number(amountReceived)).toFixed(2)}</p> } </div> )}
@@ -512,7 +513,7 @@ export default function BillingPage() {
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => { 
             if (!openState && !isPrintFormatDialogOpen) { 
                 resetBillingState();
-                document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); // Clean up body classes
+                document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); 
             } 
             setIsInvoiceDialogOpen(openState); 
         }}>
@@ -520,22 +521,19 @@ export default function BillingPage() {
             print:p-0 print:max-w-none print:w-screen print:h-auto print:min-h-screen print:fixed print:top-0 print:left-0 
             print:border-none print:shadow-none print:rounded-none print:bg-white print:overflow-visible"
           >
-            <DialogHeader className="print:hidden"> {/* Hide dialog header on print */}
+            <DialogHeader className="print:hidden"> 
               <DialogTitle>Invoice Preview - {currentInvoice.invoiceNumber} ({currentInvoice.status})</DialogTitle>
             </DialogHeader>
             <InvoiceView 
               invoice={currentInvoice} 
-              // Apply A4 and Thermal specific styles using the custom variants
-              // These will be activated by body.print-mode-a4 or body.print-mode-thermal at print time
               className="
                 print-a4:w-[210mm] print-a4:min-h-[297mm] print-a4:m-auto print-a4:p-[15mm] 
                 print-a4:box-border print-a4:bg-white print-a4:shadow-none
-                print-thermal:w-[78mm] print-thermal:m-auto print-thermal:p-[3mm] print-thermal:h-auto 
+                print-thermal:w-[58mm] print-thermal:m-auto print-thermal:p-[1.5mm] print-thermal:h-auto 
                 print-thermal:box-border print-thermal:bg-white print-thermal:shadow-none
               "
             />
             <DialogFooter className="flex flex-col space-y-2 pt-4 md:flex-row md:space-y-0 md:justify-between md:items-center gap-2 print:hidden">
-                {/* This entire footer will be hidden on print */}
                 <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2">
                     <Button 
                         type="button" 
@@ -590,12 +588,11 @@ export default function BillingPage() {
         </Dialog>
       )}
 
-      {/* This entire AlertDialog will be hidden on print */}
       {isPrintFormatDialogOpen && currentInvoice && (
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => { 
             if(!open) {
                  setIsPrintFormatDialogOpen(false); 
-                 if (!isInvoiceDialogOpen) { // If main invoice dialog also closed
+                 if (!isInvoiceDialogOpen) { 
                     resetBillingState();
                     document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
                  }
@@ -603,7 +600,7 @@ export default function BillingPage() {
                  setIsPrintFormatDialogOpen(open);
             }
          }}>
-            <AlertDialogContent className="print:hidden"> {/* Key change: Hide on print */}
+            <AlertDialogContent className="print:hidden"> 
                 <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. </AlertDialogDescription> </AlertDialogHeader>
                 <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
                     <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
@@ -616,3 +613,4 @@ export default function BillingPage() {
     </div>
   );
 }
+

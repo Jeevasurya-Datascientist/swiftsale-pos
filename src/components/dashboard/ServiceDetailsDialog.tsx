@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Phone, MessageSquareText, DollarSign } from 'lucide-react';
+import { Phone, MessageSquareText, IndianRupee } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ServiceDetailsDialogProps {
@@ -91,7 +91,7 @@ export function ServiceDetailsDialog({ isOpen, serviceName, onClose, onConfirm }
         <div className="space-y-4 py-4">
           <div className="space-y-1">
             <Label htmlFor="serviceBaseAmount" className="flex items-center">
-              <DollarSign className="w-4 h-4 mr-2 text-muted-foreground" />
+              <IndianRupee className="w-4 h-4 mr-2 text-muted-foreground" />
               Service Amount (₹) <span className="text-destructive ml-1">*</span>
             </Label>
             <Input
@@ -105,7 +105,7 @@ export function ServiceDetailsDialog({ isOpen, serviceName, onClose, onConfirm }
           </div>
           <div className="space-y-1">
             <Label htmlFor="serviceAdditionalCharge" className="flex items-center">
-              <DollarSign className="w-4 h-4 mr-2 text-muted-foreground" />
+              <IndianRupee className="w-4 h-4 mr-2 text-muted-foreground" />
               Service Charge (₹) <span className="text-destructive ml-1">*</span>
             </Label>
             <Input

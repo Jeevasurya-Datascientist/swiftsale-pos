@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, ShoppingCart, BarChartBig, Users, TrendingUp } from "lucide-react";
+import { IndianRupee, ShoppingCart, BarChartBig, Users, TrendingUp } from "lucide-react";
 
 interface SalesSummaryCardsProps {
   summary: {
@@ -17,7 +17,7 @@ interface SalesSummaryCardsProps {
 
 export default function SalesSummaryCards({ summary, currencySymbol }: SalesSummaryCardsProps) {
   const summaryItems = [
-    { title: "Total Revenue", value: `${currencySymbol}${summary.totalRevenue.toFixed(2)}`, icon: DollarSign, description: "Total income from sales (selling price)" },
+    { title: "Total Revenue", value: `${currencySymbol}${summary.totalRevenue.toFixed(2)}`, icon: IndianRupee, description: "Total income from sales (selling price)" },
     { title: "Total Profit", value: `${currencySymbol}${summary.totalProfit.toFixed(2)}`, icon: TrendingUp, description: "Total profit from sales" },
     { title: "Total Sales Count", value: summary.totalSales.toLocaleString(), icon: ShoppingCart, description: "Total number of invoices" },
     { title: "Avg. Sale Value", value: `${currencySymbol}${summary.averageSaleValue.toFixed(2)}`, icon: BarChartBig, description: "Average revenue per sale" },
