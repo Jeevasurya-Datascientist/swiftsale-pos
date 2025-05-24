@@ -64,6 +64,10 @@ export default function LoginPage() {
           title = "Sign-In Blocked";
           description = "Google Sign-In popup was blocked by the browser. Please allow popups for this site.";
           break;
+      case 'auth/unauthorized-domain':
+        title = "Domain Not Authorized";
+        description = "This domain is not authorized for Firebase operations. Please add it to the authorized domains in your Firebase console's Authentication settings.";
+        break;
       default:
         console.error("Firebase Login Error:", error);
     }

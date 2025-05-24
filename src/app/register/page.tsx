@@ -66,6 +66,10 @@ export default function RegisterPage() {
       case 'auth/weak-password':
         description = 'The password is too weak.';
         break;
+      case 'auth/unauthorized-domain':
+        title = "Domain Not Authorized";
+        description = "This domain is not authorized for Firebase operations. Please add it to the authorized domains in your Firebase console's Authentication settings.";
+        break;
       default:
         console.error("Firebase Registration Error:", error);
     }
@@ -79,8 +83,8 @@ export default function RegisterPage() {
       
       // Clear previous user's transactional data for a new registration
       localStorage.removeItem('appInvoices');
-      // localStorage.removeItem('appProducts'); // Keep as per previous requests
-      // localStorage.removeItem('appServices'); // Keep as per previous requests
+      // localStorage.removeItem('appProducts'); // Products persist
+      // localStorage.removeItem('appServices'); // Services persist
       
       toast({
         title: 'Registration Successful',
