@@ -24,7 +24,7 @@ export interface Service extends BaseItem {
 
 export type SearchableItem =
   (Product & { price: number; type: 'product'; costPrice: number; stock: number; barcode?: string; gstPercentage: number; }) |
-  (Service & { price: number; type: 'service'; costPrice: 0 }); // Price for service here is a placeholder, real price set at billing
+  (Service & { price: number; type: 'service'; costPrice: 0 }); // Price for service here is dynamic, default to 0
 
 
 export interface CartItem {
@@ -38,7 +38,7 @@ export interface CartItem {
   category?: string;
   itemSpecificPhoneNumber?: string; // For services
   itemSpecificNote?: string; // For services
-  isPriceOverridden?: boolean; // True if price was manually set (always true for services now)
+  isPriceOverridden?: boolean; // True if price was manually set
 
   costPrice: number; // For products & services (0 for services if not specified)
   gstPercentage?: number; // For products, from Product.gstPercentage
@@ -70,7 +70,13 @@ export interface Invoice {
   balanceAmount: number;
   status: 'Paid' | 'Due';
   shopName?: string;
-  // Removed global gstRate from here; it's now item-specific for products
+}
+
+export interface TeamMember {
+  id: string; // simple unique ID for list key, can be Date.now().toString()
+  name: string;
+  email: string;
+  status: 'pending' | 'invited' | 'accepted' | 'error'; // 'pending' for newly added, 'invited' after (simulated) invite, etc.
 }
 
 export interface AppSettings {
@@ -79,7 +85,8 @@ export interface AppSettings {
   shopAddress: string;
   currencySymbol: string;
   userName: string;
-  // gstRate removed from global settings
+  teamPassword?: string; // For owner to set/update
+  teamMembers?: TeamMember[];
 }
 
 export interface TimeSeriesDataPoint {

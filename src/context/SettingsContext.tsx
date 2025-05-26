@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { AppSettings } from '@/lib/types';
+import type { AppSettings, TeamMember } from '@/lib/types';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -10,11 +10,15 @@ const DEFAULT_SETTINGS: AppSettings = {
   shopAddress: '123 Commerce Street, Business City, 12345',
   currencySymbol: '₹',
   userName: 'Store Admin',
-  // gstRate: 5, // Removed global GST rate
+  teamPassword: '',
+  teamMembers: [],
 };
 
 interface SettingsContextType extends AppSettings {
   updateSettings: (newSettings: Partial<AppSettings>) => void;
+  addTeamMember: (member: Omit<TeamMember, 'id' | 'status'>) => void;
+  removeTeamMember: (memberId: string) => void;
+  updateTeamMemberStatus: (memberId: string, status: TeamMember['status']) => void;
   isSettingsLoaded: boolean;
 }
 
@@ -29,8 +33,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     if (storedSettings) {
       try {
         const parsedSettings = JSON.parse(storedSettings);
-        // Removed GST rate specific parsing here as it's no longer global
         const completeSettings = { ...DEFAULT_SETTINGS, ...parsedSettings };
+        // Ensure teamMembers is always an array
+        if (!Array.isArray(completeSettings.teamMembers)) {
+          completeSettings.teamMembers = [];
+        }
         setSettings(completeSettings);
       } catch (error) {
         console.error("Failed to parse settings from localStorage", error);
@@ -53,13 +60,39 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const updateSettings = (newSettings: Partial<AppSettings>) => {
     setSettings(prevSettings => {
       const updated = {...prevSettings, ...newSettings};
-      // Removed GST rate specific update logic
       return updated;
     });
   };
 
+  const addTeamMember = (memberData: Omit<TeamMember, 'id' | 'status'>) => {
+    setSettings(prevSettings => {
+      const newMember: TeamMember = {
+        ...memberData,
+        id: `member-${Date.now()}`,
+        status: 'pending'
+      };
+      const updatedTeamMembers = [...(prevSettings.teamMembers || []), newMember];
+      return { ...prevSettings, teamMembers: updatedTeamMembers };
+    });
+  };
+
+  const removeTeamMember = (memberId: string) => {
+    setSettings(prevSettings => ({
+      ...prevSettings,
+      teamMembers: (prevSettings.teamMembers || []).filter(m => m.id !== memberId)
+    }));
+  };
+  
+  const updateTeamMemberStatus = (memberId: string, status: TeamMember['status']) => {
+    setSettings(prevSettings => ({
+      ...prevSettings,
+      teamMembers: (prevSettings.teamMembers || []).map(m => m.id === memberId ? { ...m, status } : m)
+    }));
+  };
+
+
   return (
-    <SettingsContext.Provider value={{ ...settings, updateSettings, isSettingsLoaded }}>
+    <SettingsContext.Provider value={{ ...settings, updateSettings, addTeamMember, removeTeamMember, updateTeamMemberStatus, isSettingsLoaded }}>
       {children}
     </SettingsContext.Provider>
   );
