@@ -11,12 +11,12 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceView } from '@/components/invoices/InvoiceView';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, ShoppingBag, CreditCard, Phone, User, IndianRupee, AlertCircle, Users, Search, Printer, MessageSquare, Printer as PrinterIcon } from 'lucide-react';
+import { FileText, ShoppingBag, CreditCard, Phone, User, IndianRupee, AlertCircle, Users, Search, Printer, MessageSquare, Download, Loader2 } from 'lucide-react';
 import { useSettings } from '@/context/SettingsContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -100,7 +100,7 @@ export default function BillingPage() {
                         return {
                             id: p.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
                             name: pName,
-                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : (typeof p.price === 'number' ? p.price : 0),
+                            costPrice: typeof p.costPrice === 'number' ? p.costPrice : 0,
                             sellingPrice: typeof p.sellingPrice === 'number' ? p.sellingPrice : (typeof p.price === 'number' ? p.price : 0), 
                             stock: typeof p.stock === 'number' ? p.stock : 0,
                             barcode: p.barcode || "",
@@ -136,6 +136,7 @@ export default function BillingPage() {
                             category: s.category || undefined,
                             description: s.description || undefined,
                             duration: s.duration || undefined,
+                            // sellingPrice removed for services
                         };
                     });
                 } else { loadedServices = []; }
@@ -159,7 +160,7 @@ export default function BillingPage() {
     if (isSettingsLoaded) {
         const allItems: SearchableItem[] = [
           ...products.map(p => ({ ...p, price: p.sellingPrice, type: 'product' as 'product', costPrice: p.costPrice, stock: p.stock, barcode: p.barcode, gstPercentage: p.gstPercentage })),
-          ...services.map(s => ({ ...s, price: 0, type: 'service' as 'service', costPrice: 0 })) 
+          ...services.map(s => ({ ...s, price: 0, type: 'service' as 'service', costPrice: 0 })) // Services price is dynamic
         ].sort((a, b) => a.name.localeCompare(b.name));
         setSearchableItems(allItems);
     }
@@ -180,12 +181,12 @@ export default function BillingPage() {
 
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   
-  const gstAmount = cartItems.reduce((sum, item) => {
+  const gstAmount = cartItems.reduce((gstSum, item) => {
     if (item.type === 'product' && typeof item.gstPercentage === 'number' && item.gstPercentage > 0) {
       const itemGst = (item.price * item.quantity * item.gstPercentage) / 100;
-      return sum + itemGst;
+      return gstSum + itemGst;
     }
-    return sum;
+    return gstSum;
   }, 0);
 
   const totalAmount = subTotal + gstAmount;
@@ -269,26 +270,22 @@ export default function BillingPage() {
     const finalPrice = details.baseServiceAmount + details.additionalServiceCharge;
 
     setCartItems((prevCart) => {
-        const existingItem = prevCart.find((item) =>
+        const existingItemIndex = prevCart.findIndex((item) =>
             item.id === service.id &&
             item.itemSpecificNote === (details.note || '') &&
             item.itemSpecificPhoneNumber === (details.phoneNumber || '') &&
-            item.price === finalPrice && 
             item.baseServiceAmount === details.baseServiceAmount &&
             item.additionalServiceCharge === details.additionalServiceCharge
         );
 
-        if (existingItem) {
-          return prevCart.map((item) =>
-            item.id === service.id &&
-            item.itemSpecificNote === (details.note || '') &&
-            item.itemSpecificPhoneNumber === (details.phoneNumber || '') &&
-            item.price === finalPrice &&
-            item.baseServiceAmount === details.baseServiceAmount &&
-            item.additionalServiceCharge === details.additionalServiceCharge
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-          );
+        if (existingItemIndex > -1) {
+          const updatedCart = [...prevCart];
+          updatedCart[existingItemIndex] = {
+            ...updatedCart[existingItemIndex],
+            quantity: updatedCart[existingItemIndex].quantity + 1,
+            price: finalPrice // Ensure price is updated if somehow amounts changed for an "identical" entry
+          };
+          return updatedCart;
         } else {
             const cartItemToAdd: CartItem = {
                 id: service.id, name: service.name, price: finalPrice, quantity: 1, type: 'service',
@@ -327,8 +324,8 @@ export default function BillingPage() {
     setCartItems((prevCart) => prevCart.map((item) => (item.id === itemId ? { ...item, quantity: quantityToSet } : item)));
     if (quantityToSet > previousQuantity && (cartItem.type !== 'product' || (productDetails && quantityToSet <= productDetails.stock))) { playSound(); }
   };
-  const handleUpdateItemPhoneNumber = (itemId: string, phoneNumber: string) => { setCartItems(prevCart => prevCart.map(item => item.id === itemId ? { ...item, itemSpecificPhoneNumber: phoneNumber } : item)); };
-  const handleUpdateItemNote = (itemId: string, note: string) => { setCartItems(prevCart => prevCart.map(item => item.id === itemId ? { ...item, itemSpecificNote: note } : item)); };
+  // const handleUpdateItemPhoneNumber = (itemId: string, phoneNumber: string) => { setCartItems(prevCart => prevCart.map(item => item.id === itemId ? { ...item, itemSpecificPhoneNumber: phoneNumber } : item)); };
+  // const handleUpdateItemNote = (itemId: string, note: string) => { setCartItems(prevCart => prevCart.map(item => item.id === itemId ? { ...item, itemSpecificNote: note } : item)); };
 
   const generateInvoiceNumber = (): string => {
     const today = new Date();
@@ -361,28 +358,6 @@ export default function BillingPage() {
     return `INV-${datePrefix}-${nextSequence.toString().padStart(3, '0')}`;
   };
   
-  const handleGenerateInvoice = () => {
-    if (cartItems.length === 0) { toast({ title: "Empty Cart", description: "Cannot generate invoice for an empty cart.", variant: "destructive" }); return; }
-    if (!customerName.trim()) { toast({ title: "Customer Name is required.", variant: "destructive" }); return; }
-    if (!customerPhoneNumber.trim() || !/^\d{10,}$/.test(customerPhoneNumber.replace(/\D/g, ''))) { toast({ title: "Valid Customer Phone (min. 10 digits) is required.", variant: "destructive" }); return; }
-    if (paymentMethod === 'Card' && (!cardNumber.trim() || !/^\d{13,19}$/.test(cardNumber.replace(/\s/g, '')) || !cardExpiry.trim() || !/^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(cardExpiry) || !cardCvv.trim() || !/^\d{3,4}$/.test(cardCvv))) { toast({ title: "Valid Card Details are required.", variant: "destructive" }); return; }
-    if (paymentMethod === 'UPI' && (!upiId.trim() || !/^[\w.-]+@[\w.-]+$/.test(upiId))) { toast({ title: "Valid UPI ID is required.", variant: "destructive" }); return; }
-    const numericAmountReceived = typeof amountReceived === 'string' || amountReceived === '' ? parseFloat(amountReceived as string) : amountReceived as number;
-    if (typeof numericAmountReceived !== 'number' || isNaN(numericAmountReceived) || numericAmountReceived < 0) { toast({ title: "Valid Amount Received is required.", variant: "destructive" }); return; }
-
-    const invoiceStatus: 'Paid' | 'Due' = numericAmountReceived >= totalAmount ? 'Paid' : 'Due';
-    const newInvoice: Invoice = {
-      id: `inv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, 
-      invoiceNumber: generateInvoiceNumber(), 
-      customerName, customerPhoneNumber, items: cartItems,
-      subTotal, gstAmount, totalAmount, paymentMethod, date: new Date().toISOString(),
-      amountReceived: numericAmountReceived, balanceAmount: numericAmountReceived - totalAmount, status: invoiceStatus, shopName: currentShopName,
-    };
-    setCurrentInvoice(newInvoice);
-    setIsCurrentInvoiceFinalized(false); 
-    setIsInvoiceDialogOpen(true);
-  };
-  
   const finalizeAndSaveCurrentInvoice = (): boolean => {
     if (!currentInvoice) { toast({ title: "Error", description: "No current invoice to finalize.", variant: "destructive" }); return false; }
     
@@ -410,6 +385,28 @@ export default function BillingPage() {
     setIsCurrentInvoiceFinalized(true); return true;
   };
 
+  const handleGenerateInvoice = () => {
+    if (cartItems.length === 0) { toast({ title: "Empty Cart", description: "Cannot generate invoice for an empty cart.", variant: "destructive" }); return; }
+    if (!customerName.trim()) { toast({ title: "Customer Name is required.", variant: "destructive" }); return; }
+    if (!customerPhoneNumber.trim() || !/^\d{10,}$/.test(customerPhoneNumber.replace(/\D/g, ''))) { toast({ title: "Valid Customer Phone (min. 10 digits) is required.", variant: "destructive" }); return; }
+    if (paymentMethod === 'Card' && (!cardNumber.trim() || !/^\d{13,19}$/.test(cardNumber.replace(/\s/g, '')) || !cardExpiry.trim() || !/^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(cardExpiry) || !cardCvv.trim() || !/^\d{3,4}$/.test(cardCvv))) { toast({ title: "Valid Card Details are required.", variant: "destructive" }); return; }
+    if (paymentMethod === 'UPI' && (!upiId.trim() || !/^[\w.-]+@[\w.-]+$/.test(upiId))) { toast({ title: "Valid UPI ID is required.", variant: "destructive" }); return; }
+    const numericAmountReceived = typeof amountReceived === 'string' || amountReceived === '' ? parseFloat(amountReceived as string) : amountReceived as number;
+    if (typeof numericAmountReceived !== 'number' || isNaN(numericAmountReceived) || numericAmountReceived < 0) { toast({ title: "Valid Amount Received is required.", variant: "destructive" }); return; }
+
+    const invoiceStatus: 'Paid' | 'Due' = numericAmountReceived >= totalAmount ? 'Paid' : 'Due';
+    const newInvoice: Invoice = {
+      id: `inv-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, 
+      invoiceNumber: generateInvoiceNumber(), 
+      customerName, customerPhoneNumber, items: cartItems,
+      subTotal, gstAmount, totalAmount, paymentMethod, date: new Date().toISOString(),
+      amountReceived: numericAmountReceived, balanceAmount: numericAmountReceived - totalAmount, status: invoiceStatus, shopName: currentShopName,
+    };
+    setCurrentInvoice(newInvoice);
+    setIsCurrentInvoiceFinalized(false); 
+    setIsInvoiceDialogOpen(true);
+  };
+  
   const performPrint = (mode: 'a4' | 'thermal') => {
     if (!currentInvoice) { toast({ title: "Print Error", description:"No current invoice to print.", variant: "destructive" }); return; }
     
@@ -420,13 +417,10 @@ export default function BillingPage() {
     
     setTimeout(() => { 
         window.print(); 
-        // It's good practice to clean up body classes after printing
-        // However, if the dialog is closed based on print, it might not be necessary here.
-        // For safety:
-        // document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); 
+        document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); 
         setIsInvoiceDialogOpen(false); 
         resetBillingState(); 
-    }, 150); // Small delay to allow DOM changes to apply before print dialog
+    }, 150); 
   };
 
   const cartItemNames = cartItems.map(item => item.name);
@@ -435,12 +429,11 @@ export default function BillingPage() {
 
   return (
     <div className="container mx-auto py-4">
-      <header className="mb-8 print:hidden"> {/* Hide header on print */}
+      <header className="mb-8 print:hidden">
         <h1 className="text-4xl font-bold text-primary flex items-center gap-2"> <ShoppingBag className="h-10 w-10" /> SwiftSale POS - Billing </h1>
         <p className="text-muted-foreground">Fast, smart, and efficient point of sale.</p>
       </header>
 
-      {/* Hide main layout on print if invoice dialog is active */}
       <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 ${isInvoiceDialogOpen ? 'print:hidden' : ''}`}>
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-lg">
@@ -453,7 +446,7 @@ export default function BillingPage() {
               <ItemGrid items={filteredSearchableItems} cartItems={cartItems} onItemSelect={handleAddItemToCart} onUpdateQuantity={handleUpdateQuantity} currencySymbol={currencySymbol} />
             </CardContent>
           </Card>
-          <CartDisplay cartItems={cartItems} onRemoveItem={handleRemoveItem} onUpdateQuantity={handleUpdateQuantity} onUpdateItemPhoneNumber={handleUpdateItemPhoneNumber} onUpdateItemNote={handleUpdateItemNote} currencySymbol={currencySymbol} />
+          <CartDisplay cartItems={cartItems} onRemoveItem={handleRemoveItem} onUpdateQuantity={handleUpdateQuantity} currencySymbol={currencySymbol} />
         </div>
 
         <div className="space-y-6">
@@ -511,11 +504,11 @@ export default function BillingPage() {
 
       {currentInvoice && isInvoiceDialogOpen && (
         <Dialog open={isInvoiceDialogOpen} onOpenChange={(openState) => { 
-            if (!openState && !isPrintFormatDialogOpen) { 
+             if (!openState && !isPrintFormatDialogOpen) {
                 resetBillingState();
-                document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); 
-            } 
-            setIsInvoiceDialogOpen(openState); 
+                document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
+            }
+            setIsInvoiceDialogOpen(openState);
         }}>
           <DialogContent className="max-w-2xl invoice-view-dialog-content 
             print:p-0 print:max-w-none print:w-screen print:h-auto print:min-h-screen print:fixed print:top-0 print:left-0 
@@ -566,7 +559,7 @@ export default function BillingPage() {
                 </div>
                 <div className="flex flex-col space-y-2 xs:flex-row xs:space-y-0 xs:space-x-2 md:justify-end">
                     <Button type="button" variant="secondary" className="w-full xs:w-auto" onClick={() => { setIsInvoiceDialogOpen(false); resetBillingState(); document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); }} > Close </Button>
-                    <Button 
+                     <Button 
                         type="button" 
                         className="w-full xs:w-auto" 
                         onClick={() => { 
@@ -580,7 +573,7 @@ export default function BillingPage() {
                             setIsPrintFormatDialogOpen(true); 
                         }} 
                     > 
-                        <Printer className="w-4 h-4 mr-2" /> {currentInvoice.status === 'Due' ? 'Save & Print Options' : 'Finalize & Print Options'} 
+                        <Printer className="w-4 h-4 mr-2" /> {currentInvoice.status === 'Due' ? 'Save Invoice & Print' : 'Finalize Sale & Print'} 
                     </Button>
                 </div>
             </DialogFooter>
@@ -592,10 +585,11 @@ export default function BillingPage() {
          <AlertDialog open={isPrintFormatDialogOpen} onOpenChange={(open) => { 
             if(!open) {
                  setIsPrintFormatDialogOpen(false); 
-                 if (!isInvoiceDialogOpen) { 
-                    resetBillingState();
-                    document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
-                 }
+                 // If the print format dialog is cancelled, we should also close the main invoice preview
+                 // and reset the state, as the invoice is already finalized.
+                 setIsInvoiceDialogOpen(false);
+                 resetBillingState();
+                 document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
             } else {
                  setIsPrintFormatDialogOpen(open);
             }
@@ -603,9 +597,9 @@ export default function BillingPage() {
             <AlertDialogContent className="print:hidden"> 
                 <AlertDialogHeader> <AlertDialogTitle>Select Print Format</AlertDialogTitle> <AlertDialogDescription> Choose the format for printing your invoice. </AlertDialogDescription> </AlertDialogHeader>
                 <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2">
-                    <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
-                    <Button variant="outline" onClick={() => performPrint('a4')} className="whitespace-normal h-auto w-full sm:w-auto"> <PrinterIcon className="w-4 h-4 mr-2" /> Print A4 </Button>
-                    <Button variant="outline" onClick={() => performPrint('thermal')} className="whitespace-normal h-auto w-full sm:w-auto"> <PrinterIcon className="w-4 h-4 mr-2" /> Print Thermal (Receipt) </Button>
+                    <AlertDialogCancel onClick={() => { setIsPrintFormatDialogOpen(false); setIsInvoiceDialogOpen(false); resetBillingState(); document.body.classList.remove('print-mode-a4', 'print-mode-thermal'); }} className="w-full sm:w-auto mt-2 sm:mt-0" > Cancel Printing </AlertDialogCancel>
+                    <Button variant="outline" onClick={performPrintA4} className="whitespace-normal h-auto w-full sm:w-auto"> <Printer className="w-4 h-4 mr-2" /> Print A4 </Button>
+                    <Button variant="outline" onClick={() => performPrint('thermal')} className="whitespace-normal h-auto w-full sm:w-auto"> <Printer className="w-4 h-4 mr-2" /> Print Thermal (Receipt) </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -613,4 +607,15 @@ export default function BillingPage() {
     </div>
   );
 }
-
+const performPrintA4 = () => {
+  if (typeof window !== 'undefined') {
+    // No direct html2pdf usage, rely on window.print for A4 which allows "Save as PDF"
+    document.body.classList.add('print-mode-a4');
+    document.body.classList.remove('print-mode-thermal');
+    setTimeout(() => {
+      window.print();
+      document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
+      // State reset and dialog closing should be handled by the calling context (e.g., performPrint)
+    }, 150);
+  }
+};

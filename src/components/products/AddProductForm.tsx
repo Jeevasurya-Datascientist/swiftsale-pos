@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UploadCloud, Percent } from "lucide-react"; // Added Percent
+import { UploadCloud, Percent } from "lucide-react";
 
 const productFormSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters.").max(100),
@@ -31,7 +31,7 @@ const productFormSchema = z.object({
   category: z.string().optional(),
   description: z.string().max(500, "Description too long.").optional(),
   imageUrl: z.string().min(1, "Image is required. Provide a URL or upload an image."),
-  gstPercentage: z.coerce.number().min(0, "GST rate cannot be negative.").max(100, "GST rate seems too high."), // New GST field
+  gstPercentage: z.coerce.number().min(0, "GST rate cannot be negative (0 is allowed for no GST).").max(100, "GST rate seems too high."),
 }).refine(data => data.sellingPrice >= data.costPrice, {
   message: "Selling price should typically be greater than or equal to cost price.",
   path: ["sellingPrice"], 
@@ -57,7 +57,7 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
       category: existingProduct.category || '',
       description: existingProduct.description || '',
       imageUrl: existingProduct.imageUrl,
-      gstPercentage: typeof existingProduct.gstPercentage === 'number' ? existingProduct.gstPercentage : 0, // Initialize GST
+      gstPercentage: typeof existingProduct.gstPercentage === 'number' ? existingProduct.gstPercentage : 0,
     } : {
       name: "",
       costPrice: 0,
@@ -67,7 +67,7 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
       category: "",
       description: "",
       imageUrl: "",
-      gstPercentage: 0, // Default GST to 0 for new products
+      gstPercentage: 0,
     },
   });
 
@@ -157,6 +157,9 @@ export function AddProductForm({ onSubmit, existingProduct, onClose }: AddProduc
                   <FormControl>
                     <Input type="number" placeholder="e.g., 5 for 5%" {...field} />
                   </FormControl>
+                  <FormDescription>
+                    Enter the GST percentage for this product (e.g., 0, 5, 12, 18).
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

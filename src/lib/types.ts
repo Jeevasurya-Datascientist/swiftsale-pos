@@ -13,38 +13,39 @@ export interface Product extends BaseItem {
   stock: number;
   costPrice: number;
   sellingPrice: number;
-  gstPercentage: number;
+  gstPercentage: number; // GST rate for this specific product
 }
 
 export interface Service extends BaseItem {
   serviceCode?: string;
   duration?: string;
-  // sellingPrice removed - price is determined dynamically at billing
+  // sellingPrice removed - price is determined dynamically at billing via ServiceDetailsDialog
 }
 
 export type SearchableItem =
   (Product & { price: number; type: 'product'; costPrice: number; stock: number; barcode?: string; gstPercentage: number; }) |
   (Service & { price: number; type: 'service'; costPrice: 0 }); // Price for service here is a placeholder, real price set at billing
 
+
 export interface CartItem {
   id: string;
   name: string;
-  price: number; // For services, this will be baseServiceAmount + additionalServiceCharge
+  price: number; // For services, this will be baseServiceAmount + additionalServiceCharge. For products, this is sellingPrice.
   quantity: number;
   imageUrl: string;
   dataAiHint?: string;
   type: 'product' | 'service';
   category?: string;
-  itemSpecificPhoneNumber?: string;
-  itemSpecificNote?: string;
+  itemSpecificPhoneNumber?: string; // For services
+  itemSpecificNote?: string; // For services
   isPriceOverridden?: boolean; // True if price was manually set (always true for services now)
 
-  costPrice: number;
-  gstPercentage?: number; // For products
+  costPrice: number; // For products & services (0 for services if not specified)
+  gstPercentage?: number; // For products, from Product.gstPercentage
 
   // Service specific pricing components
-  baseServiceAmount?: number;
-  additionalServiceCharge?: number;
+  baseServiceAmount?: number; // For services
+  additionalServiceCharge?: number; // For services
 
   barcode?: string; // product only
   stock?: number; // product only
@@ -61,7 +62,7 @@ export interface Invoice {
   customerPhoneNumber?: string;
   items: CartItem[];
   subTotal: number;
-  gstAmount: number;
+  gstAmount: number; // Sum of GST from individual taxable items
   totalAmount: number;
   paymentMethod: 'Cash' | 'UPI' | 'Card' | 'Digital Wallet';
   date: string;
@@ -69,6 +70,7 @@ export interface Invoice {
   balanceAmount: number;
   status: 'Paid' | 'Due';
   shopName?: string;
+  // Removed global gstRate from here; it's now item-specific for products
 }
 
 export interface AppSettings {
@@ -77,6 +79,7 @@ export interface AppSettings {
   shopAddress: string;
   currencySymbol: string;
   userName: string;
+  // gstRate removed from global settings
 }
 
 export interface TimeSeriesDataPoint {
