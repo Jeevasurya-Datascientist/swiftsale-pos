@@ -3,13 +3,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react'; // Import useEffect
+// Removed useEffect import as it's no longer used for auto-closing
 import { Home, Package, FileText, Settings, ConciergeBell, BarChart3 } from 'lucide-react';
 import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  useSidebar, // Import useSidebar
+  useSidebar, 
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
@@ -24,16 +24,10 @@ const navItems = [
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const { isMobile, setOpenMobile, openMobile } = useSidebar(); // Get sidebar context
+  const { isMobile, setOpenMobile } = useSidebar(); // Removed openMobile as it's not directly used here anymore
 
-  // Effect to close mobile sidebar on navigation
-  useEffect(() => {
-    if (isMobile && openMobile) {
-      setOpenMobile(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, isMobile, openMobile, setOpenMobile]); // Added openMobile to dependency array
-
+  // Removed useEffect hook that was previously auto-closing the sidebar on pathname change.
+  // The closing logic is now handled directly by the onClick in SidebarMenuButton.
 
   return (
     <SidebarMenu className="p-2">
@@ -42,13 +36,11 @@ export function SidebarNav() {
           <Link href={item.href} passHref legacyBehavior>
             <SidebarMenuButton
               asChild
-              // onClick is not strictly needed here as useEffect handles it based on pathname change,
-              // but can be kept if direct action on click is preferred for some reason (e.g., immediate visual feedback).
-              // onClick={() => {
-              //   if (isMobile) {
-              //     setOpenMobile(false);
-              //   }
-              // }}
+              onClick={() => {
+                if (isMobile) {
+                  setOpenMobile(false); // Close mobile sidebar when a nav item is clicked
+                }
+              }}
               isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
               className={cn(
                 "w-full justify-start",
